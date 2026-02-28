@@ -13,10 +13,26 @@ interface DefaultModelProps {
 }
 
 export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb' }: DefaultModelProps) {
-  const { scene } = useGLTF(modelPath);
+  const { scene: originalScene } = useGLTF(modelPath);
   const groupRef = useRef<THREE.Group>(null);
   const originalMaterials = useRef<Map<THREE.Mesh, THREE.Material | THREE.Material[]>>(new Map());
-  const initialized = useRef(false);
+
+  // Clone scene so we never mutate the GLTF cache
+  const scene = useMemo(() => {
+    const cloned = originalScene.clone(true);
+    // Deep-clone materials so each instance is independent
+    cloned.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map(m => m.clone());
+        } else {
+          mesh.material = mesh.material.clone();
+        }
+      }
+    });
+    return cloned;
+  }, [originalScene]);
 
   // Procedural matcap
   const matcapTex = useMemo(() => {
@@ -42,20 +58,17 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
       groupRef.current.position.set(-center.x * scale, -center.y * scale + 0.1, -center.z * scale);
     }
 
-    // Store originals once
-    if (!initialized.current) {
-      const matMap = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
-      scene.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          matMap.set(mesh, Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone());
-        }
-      });
-      originalMaterials.current = matMap;
-      initialized.current = true;
-    }
+    // Store originals
+    const matMap = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+    scene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        matMap.set(mesh, Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone());
+      }
+    });
+    originalMaterials.current = matMap;
   }, [scene]);
 
   // Apply shading mode
