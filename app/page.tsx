@@ -618,15 +618,13 @@ export default function Page() {
 
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
-        <Tip text={sidebarOpen ? 'Hide panel' : 'Show panel'} pos="right">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-            position: 'absolute', top: '40px', left: '8px', zIndex: 20,
-            width: '36px', height: '36px', borderRadius: '8px',
-            background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)',
-            color: '#6C63FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
-        </Tip>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+          position: 'absolute', top: '40px', left: '8px', zIndex: 45,
+          width: '40px', height: '40px', borderRadius: '10px',
+          background: '#6C63FF', border: 'none',
+          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 2px 12px rgba(108,99,255,0.4)',
+        }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
 
         {/* Share button top-right */}
         <div style={{
