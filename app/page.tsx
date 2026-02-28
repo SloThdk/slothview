@@ -329,7 +329,7 @@ export default function Page() {
         display: 'flex', flexDirection: 'column', paddingTop: '32px', zIndex: 10,
       }}>
         <div className="sidebar-inner" style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-          {/* Panel tabs */}
+          {/* Panel tabs + close */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
             {([
               ['scene', 'Scene', <IconPalette key="s" />],
@@ -346,6 +346,12 @@ export default function Page() {
                 }}>{icon}</button>
               </Tip>
             ))}
+            {/* Close sidebar button */}
+            <button className="sidebar-close" onClick={() => setSidebarOpen(false)} style={{
+              padding: '10px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'rgba(255,255,255,0.25)', borderBottom: '2px solid transparent',
+              transition: 'all 0.15s', flexShrink: 0,
+            }}><IconX /></button>
           </div>
 
           {/* Panel content */}
@@ -618,15 +624,14 @@ export default function Page() {
 
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
-        {!shadingOverlay && (
-          <button className="burger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-            position: 'absolute', top: '40px', left: sidebarOpen ? undefined : '8px',
-            right: sidebarOpen ? '8px' : undefined, zIndex: 50,
+        {!shadingOverlay && !sidebarOpen && (
+          <button className="burger-btn" onClick={() => setSidebarOpen(true)} style={{
+            position: 'absolute', top: '40px', left: '8px', zIndex: 50,
             width: '40px', height: '40px', borderRadius: '10px',
-            background: sidebarOpen ? 'rgba(255,255,255,0.08)' : '#6C63FF', border: 'none',
+            background: '#6C63FF', border: 'none',
             color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: sidebarOpen ? 'none' : '0 2px 12px rgba(108,99,255,0.4)',
-          }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
+            boxShadow: '0 2px 12px rgba(108,99,255,0.4)',
+          }}><IconMenu /></button>
         )}
 
         {/* Share button top-right */}
