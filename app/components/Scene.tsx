@@ -57,6 +57,14 @@ const HOTSPOTS: Hotspot[] = [
   { position: [0.8, -0.1, -0.3], label: 'Retention System', description: 'Double-D ring titanium buckle with emergency quick-release mechanism. Race-grade retention.' },
 ];
 
+export interface SceneStats {
+  triangles: number;
+  vertices: number;
+  meshes: number;
+  drawCalls: number;
+  textures: number;
+}
+
 export interface SceneProps {
   bodyColor: string;
   accentColor: string;
@@ -88,6 +96,7 @@ export interface SceneProps {
   modelPath?: string;
   showEnvBackground: boolean;
   customHdri: string | null;
+  onStats?: (stats: SceneStats) => void;
 }
 
 /* ── Hotspot marker ── */
@@ -124,6 +133,36 @@ function HotspotMarker({ hotspot, index, active, onClick }: { hotspot: Hotspot; 
   );
 }
 
+/* ── Stats collector (runs inside Canvas) ── */
+function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
+  const { scene, gl } = useThree();
+  const lastRef = useRef('');
+  useFrame(() => {
+    let triangles = 0, vertices = 0, meshes = 0, textures = 0;
+    scene.traverse((child) => {
+      if ((child as any).isMesh) {
+        meshes++;
+        const geo = (child as any).geometry;
+        if (geo) {
+          const idx = geo.index;
+          if (idx) triangles += idx.count / 3;
+          else if (geo.attributes.position) triangles += geo.attributes.position.count / 3;
+          if (geo.attributes.position) vertices += geo.attributes.position.count;
+        }
+      }
+    });
+    const info = gl.info;
+    const drawCalls = info.render?.calls || 0;
+    textures = info.memory?.textures || 0;
+    const key = `${triangles}-${vertices}-${meshes}`;
+    if (key !== lastRef.current) {
+      lastRef.current = key;
+      onStats({ triangles: Math.round(triangles), vertices, meshes, drawCalls, textures });
+    }
+  });
+  return null;
+}
+
 /* ── Main Scene ── */
 export default function Scene(props: SceneProps) {
   const {
@@ -132,7 +171,7 @@ export default function Scene(props: SceneProps) {
     activeHotspot, setActiveHotspot, canvasRef, glRef,
     lightIntensity, lightAngle, lightHeight, ambientIntensity, userFile, fov,
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
-    modelPath, showEnvBackground, customHdri,
+    modelPath, showEnvBackground, customHdri, onStats,
   } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
@@ -225,6 +264,7 @@ export default function Scene(props: SceneProps) {
           maxDistance={20}
           maxPolarAngle={Math.PI * 0.88}
         />
+        {onStats && <StatsCollector onStats={onStats} />}
       </Suspense>
     </Canvas>
   );

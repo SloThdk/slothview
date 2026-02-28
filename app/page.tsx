@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import type { ShadingMode } from './components/Scene';
+import type { ShadingMode, SceneStats } from './components/Scene';
 import {
   IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
@@ -146,6 +146,9 @@ export default function Page() {
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  // Scene stats
+  const [sceneStats, setSceneStats] = useState<SceneStats | null>(null);
 
   // UI
   const [shadingOverlay, setShadingOverlay] = useState(false);
@@ -653,6 +656,7 @@ export default function Page() {
           ssaoEnabled={ssao} enablePostProcessing={enablePP}
           modelPath={PRESET_MODELS.find(m => m.id === selectedModel)?.path}
           showEnvBackground={showEnvBg} customHdri={customHdri}
+          onStats={setSceneStats}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -761,6 +765,22 @@ export default function Page() {
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
         }}><IconSliders /></button>
       </div>
+
+      {/* Scene stats overlay */}
+      {sceneStats && (
+        <div className="scene-stats" style={{
+          position: 'absolute', bottom: '56px', right: '12px', zIndex: 15,
+          background: 'rgba(8,8,12,0.75)', border: '1px solid rgba(255,255,255,0.04)',
+          borderRadius: '6px', padding: '6px 10px',
+          fontSize: '9px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)',
+          lineHeight: 1.6, pointerEvents: 'none', letterSpacing: '0.02em',
+        }}>
+          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TRI</span> {sceneStats.triangles.toLocaleString()}</div>
+          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>VTX</span> {sceneStats.vertices.toLocaleString()}</div>
+          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>OBJ</span> {sceneStats.meshes}</div>
+          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TEX</span> {sceneStats.textures}</div>
+        </div>
+      )}
 
       {/* Built by link removed — demo info kept in top bar only */}
     </div>

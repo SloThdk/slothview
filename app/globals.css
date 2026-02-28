@@ -53,6 +53,7 @@ input, select { font: inherit; }
   .sidebar-backdrop { display: block !important; }
   .burger-btn { position: fixed !important; z-index: 55 !important; }
   .nav-hint { display: none !important; }
+  .scene-stats { bottom: 110px !important; right: 8px !important; font-size: 8px !important; }
   .mobile-model-bar { display: block !important; }
   .mobile-fab { display: flex !important; }
   .viewport-toolbar {
