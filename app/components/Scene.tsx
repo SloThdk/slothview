@@ -172,6 +172,19 @@ function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
   return null;
 }
 
+/* Ensure autoClear=true whenever PP is off or changes */
+function AutoClearFix({ enablePP }: { enablePP: boolean }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    if (!enablePP) {
+      gl.autoClear = true;
+      gl.autoClearColor = true;
+      gl.autoClearDepth = true;
+    }
+  });
+  return null;
+}
+
 /* ── Main Scene ── */
 export default function Scene(props: SceneProps) {
   const {
@@ -291,6 +304,7 @@ export default function Scene(props: SceneProps) {
           maxPolarAngle={Math.PI * 0.88}
         />
         {onStats && <StatsCollector onStats={onStats} />}
+        <AutoClearFix enablePP={enablePostProcessing} />
       </Suspense>
     </Canvas>
   );

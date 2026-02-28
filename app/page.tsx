@@ -676,9 +676,23 @@ export default function Page() {
             )}
           </div>
 
-          {/* Footer info */}
+          {/* Reset + Footer */}
           <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
-            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.15)', textAlign: 'center' }}>SlothView 3D Viewer - Demo</div>
+            <button onClick={() => {
+              setLightI(1.2); setLightAng(45); setLightH(8); setAmbI(0.3);
+              setFov(40); setBloomI(0.15); setBloomT(0.9); setVigI(0.3);
+              setSsao(true); setSsaoRadius(0.5); setSsaoIntensity(1.0);
+              setChromaticAb(0); setBrightness(0); setContrast(0);
+              setEnablePP(true); setAutoRotate(false); setShowGrid(true);
+              setShowHotspots(true); setOverrideColor(null); setEnv('studio');
+              showToast('Reset to defaults');
+            }} style={{
+              width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+              color: 'rgba(255,255,255,0.3)', fontSize: '9px', fontWeight: 600, letterSpacing: '0.04em',
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}>Reset All to Defaults</button>
+            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>SlothView 3D Viewer - Demo</div>
           </div>
         </div>
       </div>
@@ -762,32 +776,31 @@ export default function Page() {
           </div>
         )}
 
-        {/* ── Navigation hints bar ── */}
-        <div className="nav-hint" style={{
-          position: 'absolute', bottom: '56px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 18, display: 'flex', gap: '14px', alignItems: 'center',
-          fontSize: '9px', color: 'rgba(255,255,255,0.22)', whiteSpace: 'nowrap',
-          pointerEvents: 'none', letterSpacing: '0.03em',
-        }}>
-          {[
-            { icon: '🖱', label: 'LMB · Orbit' },
-            { icon: '🖱', label: 'RMB · Pan' },
-            { icon: '⚙', label: 'Scroll · Zoom' },
-            { icon: '⚙', label: 'Alt+RMB · Light' },
-          ].map(h => (
-            <span key={h.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ opacity: 0.4, fontFamily: 'monospace', fontSize: '8px', background: 'rgba(255,255,255,0.05)', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(255,255,255,0.06)' }}>{h.label}</span>
-            </span>
-          ))}
-        </div>
+        {/* ── Navigation hints — bottom-left, only when no overlay ── */}
+        {!shadingOverlay && (
+          <div className="nav-hint" style={{
+            position: 'absolute', bottom: '58px', left: '12px',
+            zIndex: 18, display: 'flex', flexDirection: 'column', gap: '3px',
+            pointerEvents: 'none',
+          }}>
+            {[
+              ['L', 'Orbit'], ['R', 'Pan'], ['Scroll', 'Zoom'], ['Alt+R', 'Light'],
+            ].map(([key, action]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>
+                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.28)', letterSpacing: '0.02em' }}>{action}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Mobile nav hint ── */}
         <div className="mobile-nav-hint" style={{
-          display: 'none', position: 'absolute', top: '48px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 18, flexDirection: 'row', gap: '6px', alignItems: 'center', pointerEvents: 'none',
+          display: 'none', position: 'absolute', top: '46px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 18, flexDirection: 'row', gap: '5px', alignItems: 'center', pointerEvents: 'none',
         }}>
-          {[{ label: '1 finger · Orbit' }, { label: '2 fingers · Zoom/Pan' }].map(h => (
-            <span key={h.label} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', whiteSpace: 'nowrap' }}>{h.label}</span>
+          {[{ label: '1 finger · Orbit' }, { label: '2 fingers · Zoom' }].map(h => (
+            <span key={h.label} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', background: 'rgba(8,8,12,0.8)', padding: '3px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h.label}</span>
           ))}
         </div>
 
@@ -876,6 +889,9 @@ export default function Page() {
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>VTX</span> {sceneStats.vertices.toLocaleString()}</div>
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>OBJ</span> {sceneStats.meshes}</div>
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TEX</span> {sceneStats.textures}</div>
+          <div style={{ marginTop: '2px', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ color: 'rgba(108,99,255,0.6)' }}>SPP</span> {renderSamples}
+          </div>
         </div>
       )}
 
