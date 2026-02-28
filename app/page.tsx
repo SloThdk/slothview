@@ -149,6 +149,7 @@ export default function Page() {
 
   // UI
   const [shadingOverlay, setShadingOverlay] = useState(false);
+  const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<'scene' | 'camera' | 'render' | 'display'>('scene');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -157,6 +158,29 @@ export default function Page() {
   const hdriRef = useRef<HTMLInputElement | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
+
+  const captureShadingPreviews = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const originalMode = shadingMode;
+    const previews: Record<string, string> = {};
+    const modes: ShadingMode[] = ['pbr', 'matcap', 'normals', 'wireframe', 'unlit'];
+    for (const mode of modes) {
+      setShadingMode(mode);
+      // Wait 3 frames for materials to apply + render
+      await new Promise<void>(r => {
+        let count = 0;
+        const tick = () => { count++; if (count >= 3) r(); else requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+      });
+      previews[mode] = canvas.toDataURL('image/jpeg', 0.65);
+    }
+    setShadingMode(originalMode);
+    // Wait for original to restore
+    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    setShadingPreviews(previews);
+    setShadingOverlay(true);
+  }, [shadingMode]);
 
   const screenshot = useCallback(() => {
     if (!canvasRef.current) return;
@@ -603,52 +627,55 @@ export default function Page() {
         />
 
         {/* ── Marmoset-style diagonal stripe shading overlay ── */}
-        {shadingOverlay && (
+        {shadingOverlay && Object.keys(shadingPreviews).length > 0 && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 30, top: '32px', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setShadingOverlay(false)}>
             {SHADING_MODES.map((m, i) => {
               const count = SHADING_MODES.length;
               const w = 100 / count;
-              const skew = 6;
+              const skew = 8;
               const left = w * i;
               const isActive = shadingMode === m.id;
+              const imgSrc = shadingPreviews[m.id];
               return (
                 <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); setShadingOverlay(false); showToast(m.label); }} style={{
                   position: 'absolute', top: 0, bottom: 0,
-                  left: `${left - 2}%`, width: `${w + 4}%`,
+                  left: `${left - 3}%`, width: `${w + 6}%`,
                   clipPath: `polygon(${skew}% 0, ${100 + skew}% 0, ${100 - skew}% 100%, ${-skew}% 100%)`,
-                  background: m.bg,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-                  border: 'none', cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  outline: isActive ? '2px solid #6C63FF' : 'none',
-                  outlineOffset: '-2px',
+                  background: '#000',
+                  border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden',
                 }}>
-                  {/* Dark overlay for non-active */}
-                  <div style={{
-                    position: 'absolute', inset: 0,
-                    background: isActive ? 'rgba(108,99,255,0.08)' : 'rgba(0,0,0,0.25)',
-                    transition: 'background 0.2s',
-                  }} />
+                  {/* Real rendered preview */}
+                  {imgSrc && <img src={imgSrc} alt={m.label} style={{
+                    position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+                    opacity: isActive ? 1 : 0.75,
+                    transition: 'opacity 0.2s',
+                  }} />}
                   {/* Divider line */}
                   <div style={{
-                    position: 'absolute', top: 0, bottom: 0, right: 0, width: '1px',
-                    background: 'rgba(255,255,255,0.1)',
-                    transform: `skewX(-${skew * 0.8}deg)`,
+                    position: 'absolute', top: 0, bottom: 0, right: 0, width: '2px',
+                    background: 'rgba(255,255,255,0.2)',
+                    zIndex: 2,
                   }} />
-                  <span className="shading-overlay-label" style={{
-                    fontSize: '16px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
-                    color: isActive ? '#fff' : 'rgba(255,255,255,0.85)',
-                    textShadow: '0 2px 16px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,0.8)',
-                    transform: 'rotate(-12deg)',
-                    pointerEvents: 'none', position: 'relative', zIndex: 1,
-                  }}>{m.label}</span>
-                  {isActive && (
-                    <div style={{ position: 'relative', zIndex: 1, marginTop: '8px', transform: 'rotate(-12deg)', pointerEvents: 'none',
-                      background: 'rgba(108,99,255,0.9)', borderRadius: '3px', padding: '2px 8px',
-                    }}>
-                      <span style={{ fontSize: '7px', color: '#fff', fontWeight: 800, letterSpacing: '0.15em' }}>ACTIVE</span>
-                    </div>
-                  )}
+                  {/* Label */}
+                  <div style={{
+                    position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+                    zIndex: 2,
+                    background: isActive ? 'rgba(108,99,255,0.1)' : 'rgba(0,0,0,0.15)',
+                  }}>
+                    <span className="shading-overlay-label" style={{
+                      fontSize: '16px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
+                      color: '#fff',
+                      textShadow: '0 2px 16px rgba(0,0,0,1), 0 1px 4px rgba(0,0,0,1)',
+                      pointerEvents: 'none',
+                    }}>{m.label}</span>
+                    {isActive && (
+                      <div style={{ marginTop: '8px', pointerEvents: 'none',
+                        background: '#6C63FF', borderRadius: '3px', padding: '2px 8px',
+                      }}>
+                        <span style={{ fontSize: '7px', color: '#fff', fontWeight: 800, letterSpacing: '0.15em' }}>ACTIVE</span>
+                      </div>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -665,7 +692,7 @@ export default function Page() {
         }}>
           {/* Shading button — opens stripe overlay */}
           <Tip text="Shading modes" pos="top">
-            <button onClick={() => setShadingOverlay(!shadingOverlay)} style={{
+            <button onClick={() => { if (shadingOverlay) setShadingOverlay(false); else captureShadingPreviews(); }} style={{
               padding: '8px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
               letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px',
               background: shadingOverlay ? 'rgba(108,99,255,0.18)' : 'transparent',
