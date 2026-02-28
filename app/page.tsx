@@ -55,6 +55,16 @@ const SHADING_MODES: { id: ShadingMode; label: string }[] = [
   { id: 'unlit', label: 'Unlit' },
 ];
 
+const PRESET_MODELS = [
+  { id: 'helmet', name: 'Damaged Helmet', path: '/models/DamagedHelmet.glb', cat: 'Sci-Fi', desc: 'Battle-worn helmet with PBR materials' },
+  { id: 'shoe', name: 'Sneaker', path: '/models/MaterialsVariantsShoe.glb', cat: 'Fashion', desc: 'Athletic shoe with material variants' },
+  { id: 'chair', name: 'Designer Chair', path: '/models/SheenChair.glb', cat: 'Furniture', desc: 'Modern fabric chair with sheen' },
+  { id: 'car', name: 'Toy Car', path: '/models/ToyCar.glb', cat: 'Automotive', desc: 'Detailed miniature car model' },
+  { id: 'dragon', name: 'Crystal Dragon', path: '/models/DragonAttenuation.glb', cat: 'Art', desc: 'Translucent dragon sculpture' },
+  { id: 'camera', name: 'Antique Camera', path: '/models/AntiqueCamera.glb', cat: 'Vintage', desc: 'Classic folding camera with brass details' },
+  { id: 'lantern', name: 'Lantern', path: '/models/Lantern.glb', cat: 'Props', desc: 'Oil lantern with glass and metal' },
+];
+
 const BASE_PRICE = 2499;
 
 /* ── Helpers ── */
@@ -125,6 +135,9 @@ export default function Page() {
   const [rendering, setRendering] = useState(false);
   const [renderRes, setRenderRes] = useState<'2x' | '4x'>('2x');
   const [renderSamples, setRenderSamples] = useState(4);
+
+  // Model selection
+  const [selectedModel, setSelectedModel] = useState('helmet');
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
@@ -301,9 +314,31 @@ export default function Page() {
             {/* ── Scene tab ── */}
             {tab === 'scene' && (
               <div>
-                {/* File upload */}
+                {/* Model Gallery */}
+                <span style={stl.label}>Model</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
+                  {PRESET_MODELS.map(m => (
+                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); }} style={{
+                      width: '100%', padding: '6px 8px', borderRadius: '5px', textAlign: 'left',
+                      background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.01)',
+                      border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
+                      display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s',
+                    }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '4px', background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconBox />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: !userFile && selectedModel === m.id ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{m.cat}</div>
+                      </div>
+                      {!userFile && selectedModel === m.id && <div style={{ marginLeft: 'auto', color: '#6C63FF', flexShrink: 0 }}><IconCheck /></div>}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Upload own model */}
                 <button onClick={() => fileRef.current?.click()} style={{
-                  width: '100%', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px',
+                  width: '100%', padding: '8px 10px', borderRadius: '6px', marginBottom: '10px',
                   background: userFile ? 'rgba(108,99,255,0.06)' : 'rgba(255,255,255,0.015)',
                   border: userFile ? '1px solid rgba(108,99,255,0.15)' : '1px dashed rgba(255,255,255,0.06)',
                   display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s', textAlign: 'left',
@@ -311,7 +346,7 @@ export default function Page() {
                   <span style={{ color: userFile ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}>{userFile ? <IconFile /> : <IconUpload />}</span>
                   <div>
                     <div style={{ fontSize: '10px', fontWeight: 600, color: userFile ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)' }}>
-                      {userFile ? userFile.name : 'Import model'}
+                      {userFile ? userFile.name : 'Upload your own'}
                     </div>
                     <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>
                       {userFile ? `${(userFile.size / 1024 / 1024).toFixed(1)} MB` : 'GLB / GLTF / FBX / OBJ'}
@@ -319,31 +354,6 @@ export default function Page() {
                   </div>
                   {userFile && <button onClick={e => { e.stopPropagation(); setUserFile(null); showToast('Removed'); }} style={{ marginLeft: 'auto', color: '#f87171', opacity: 0.6 }}><IconTrash /></button>}
                 </button>
-
-                {userFile && (
-                  <div style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '5px', padding: '8px 10px', marginBottom: '10px', fontSize: '9px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>Format</span>
-                      <span style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>{userFile.name.split('.').pop()?.toUpperCase()}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>Size</span>
-                      <span style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>{(userFile.size / 1024 / 1024).toFixed(2)} MB</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>Materials</span>
-                      <span style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>Original PBR</span>
-                    </div>
-                  </div>
-                )}
-
-                {!userFile && (
-                  <div style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '5px', padding: '8px 10px', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginBottom: '2px' }}>Default Model</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Damaged Helmet (glTF 2.0)</div>
-                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '2px' }}>KhronosGroup sample asset - PBR materials, normal maps, emissive</div>
-                  </div>
-                )}
 
                 <span style={stl.label}>Environment</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '2px', marginBottom: '12px' }}>
@@ -567,6 +577,7 @@ export default function Page() {
           ambientIntensity={ambI} userFile={userFile} fov={fov}
           bloomIntensity={bloomI} bloomThreshold={bloomT} vignetteIntensity={vigI}
           ssaoEnabled={ssao} enablePostProcessing={enablePP}
+          modelPath={PRESET_MODELS.find(m => m.id === selectedModel)?.path}
         />
 
         {/* Nav hint (desktop only) */}

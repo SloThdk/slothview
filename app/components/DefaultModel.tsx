@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -9,11 +9,25 @@ import type { ShadingMode } from './Scene';
 interface DefaultModelProps {
   wireframe: boolean;
   shadingMode: ShadingMode;
+  modelPath?: string;
 }
 
-export default function DefaultModel({ wireframe, shadingMode }: DefaultModelProps) {
-  const { scene } = useGLTF('/models/DamagedHelmet.glb');
+export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb' }: DefaultModelProps) {
+  const { scene } = useGLTF(modelPath);
   const groupRef = useRef<THREE.Group>(null);
+
+  // Auto-center and scale model
+  useEffect(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 3 / maxDim;
+    if (groupRef.current) {
+      groupRef.current.scale.setScalar(scale);
+      groupRef.current.position.set(-center.x * scale, -center.y * scale + 0.1, -center.z * scale);
+    }
+  }, [scene]);
 
   // Apply shading overrides
   scene.traverse((child) => {
@@ -23,7 +37,6 @@ export default function DefaultModel({ wireframe, shadingMode }: DefaultModelPro
     mesh.receiveShadow = true;
 
     if (shadingMode === 'pbr') {
-      // Restore original if needed — GLTF loader handles this
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       mats.forEach(m => {
         if ('wireframe' in m) (m as any).wireframe = wireframe;
@@ -42,10 +55,8 @@ export default function DefaultModel({ wireframe, shadingMode }: DefaultModelPro
   });
 
   return (
-    <group ref={groupRef} rotation={[0.1, 0, 0]} scale={1.8} position={[0, 0.1, 0]}>
+    <group ref={groupRef}>
       <primitive object={scene} />
     </group>
   );
 }
-
-useGLTF.preload('/models/DamagedHelmet.glb');

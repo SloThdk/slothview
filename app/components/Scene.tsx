@@ -55,6 +55,7 @@ export interface SceneProps {
   vignetteIntensity: number;
   ssaoEnabled: boolean;
   enablePostProcessing: boolean;
+  modelPath?: string;
 }
 
 /* ── Hotspot marker ── */
@@ -99,6 +100,7 @@ export default function Scene(props: SceneProps) {
     activeHotspot, setActiveHotspot, canvasRef, glRef,
     lightIntensity, lightAngle, lightHeight, ambientIntensity, userFile, fov,
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
+    modelPath,
   } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
@@ -146,8 +148,8 @@ export default function Scene(props: SceneProps) {
           <UserModel file={userFile} wireframe={showWireframe} shadingMode={shadingMode} />
         ) : (
           <>
-            <DefaultModel wireframe={showWireframe} shadingMode={shadingMode} />
-            {showHotspots && shadingMode === 'pbr' && HOTSPOTS.map((h, i) => (
+            <DefaultModel key={modelPath || 'default'} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} />
+            {showHotspots && shadingMode === 'pbr' && (!modelPath || modelPath === '/models/DamagedHelmet.glb') && HOTSPOTS.map((h, i) => (
               <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
             ))}
           </>
