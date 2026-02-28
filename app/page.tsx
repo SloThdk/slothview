@@ -323,12 +323,12 @@ export default function Page() {
 
       {/* ── Sidebar ── */}
       <div className="sidebar-panel" data-closed={!sidebarOpen} style={{
-        width: sidebarOpen ? '260px' : '0px', flexShrink: 0,
+        width: sidebarOpen ? '250px' : '0px', flexShrink: 0, maxWidth: '85vw',
         background: 'rgba(10,10,14,0.98)', borderRight: '1px solid rgba(255,255,255,0.03)',
         transition: 'width 0.25s ease', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', paddingTop: '32px', zIndex: 10,
       }}>
-        <div style={{ minWidth: '240px', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        <div className="sidebar-inner" style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           {/* Panel tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
             {([
@@ -648,61 +648,46 @@ export default function Page() {
           showEnvBackground={showEnvBg} customHdri={customHdri}
         />
 
-        {/* ── Marmoset-style diagonal stripe shading overlay ── */}
+        {/* ── Shading mode grid overlay ── */}
         {shadingOverlay && Object.keys(shadingPreviews).length > 0 && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 30, top: '32px', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setShadingOverlay(false)}>
+          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, background: 'rgba(4,4,8,0.95)',
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)',
+            gap: '3px', padding: '3px', overflow: 'hidden',
+          }}>
             {SHADING_MODES.map((m, i) => {
-              const count = SHADING_MODES.length;
               const isActive = shadingMode === m.id;
               const imgSrc = shadingPreviews[m.id];
-              const w = 100 / count;
-              const l = w * i;
-              const lean = 5;
-              // Wider clip with more overlap so each stripe shows more content
-              const pad = 4;
               return (
-                <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); showToast(m.label); }} style={{
-                  position: 'absolute', top: 0, bottom: 0, left: 0, width: '100%',
-                  clipPath: `polygon(${l + lean - pad}% 0%, ${l + w + lean + pad}% 0%, ${l + w - lean + pad}% 100%, ${l - lean - pad}% 100%)`,
-                  background: '#000',
-                  border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden',
-                  animation: 'stripeIn 0.3s ease both',
-                  animationDelay: `${i * 0.04}s`,
+                <button key={m.id} onClick={() => { setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }} style={{
+                  position: 'relative', border: isActive ? '2px solid #6C63FF' : '2px solid transparent',
+                  borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', background: '#0a0a10',
+                  animation: 'fadeIn 0.2s ease both', animationDelay: `${i * 0.03}s`,
+                  gridColumn: i === 4 ? '2 / 3' : undefined,
                 }}>
                   {imgSrc && <img src={imgSrc} alt={m.label} draggable={false} style={{
-                    position: 'absolute', top: 0, left: 0, width: '100vw', height: '100%', objectFit: 'cover',
-                    opacity: isActive ? 1 : 0.7,
-                    transition: 'opacity 0.2s',
+                    position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+                    opacity: isActive ? 1 : 0.75,
                   }} />}
                   <div style={{
-                    position: 'absolute', inset: 0,
-                    background: isActive ? 'rgba(108,99,255,0.1)' : 'rgba(0,0,0,0.15)',
-                    zIndex: 1,
-                  }} />
-                  {/* Divider */}
-                  <div style={{ position: 'absolute', top: 0, bottom: 0, right: '48%', width: '1px', background: 'rgba(255,255,255,0.15)', zIndex: 2 }} />
+                    position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px',
+                    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                    display: 'flex', justifyContent: 'center',
+                  }}>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
+                      color: isActive ? '#6C63FF' : 'rgba(255,255,255,0.8)',
+                    }}>{m.label}{isActive ? ' ●' : ''}</span>
+                  </div>
                 </button>
               );
             })}
-            {/* Labels row — outside clip paths so always visible */}
-            <div style={{ position: 'absolute', bottom: '48px', left: 0, right: 0, display: 'flex', zIndex: 31, pointerEvents: 'none' }}>
-              {SHADING_MODES.map((m, i) => {
-                const count = SHADING_MODES.length;
-                const w = 100 / count;
-                const isActive = shadingMode === m.id;
-                return (
-                  <div key={m.id} style={{ width: `${w}%`, display: 'flex', justifyContent: 'center' }}>
-                    <span className="shading-overlay-label" style={{
-                      fontSize: '11px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
-                      color: '#fff',
-                      textShadow: '0 2px 12px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,1)',
-                      background: isActive ? 'rgba(108,99,255,0.9)' : 'rgba(0,0,0,0.7)',
-                      padding: '5px 12px', borderRadius: '5px',
-                      backdropFilter: 'blur(4px)',
-                    }}>{m.label}</span>
-                  </div>
-                );
-              })}
+            {/* Close hint */}
+            <div style={{ gridColumn: '3 / 4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => setShadingOverlay(false)} style={{
+                padding: '10px 16px', borderRadius: '8px', fontSize: '10px', fontWeight: 700,
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em',
+              }}>CLOSE</button>
             </div>
           </div>
         )}
