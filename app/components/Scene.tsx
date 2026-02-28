@@ -117,6 +117,7 @@ export interface SceneProps {
   showSceneCamera: boolean;
   cameraPos: [number, number, number];
   cameraViewMode: boolean;
+  lockCameraToView: boolean;
   onCameraMove: (p: [number, number, number]) => void;
 }
 
@@ -281,6 +282,24 @@ function SceneLightObject({ light, selected, onSelect, onMove, orbitRef }: {
   );
 }
 
+/* ── Camera-to-viewport syncer: when in camera view, sync orbit changes back to cameraPos ── */
+function CameraViewSyncer({ onCameraMove }: { onCameraMove: (p: [number, number, number]) => void }) {
+  const { camera } = useThree();
+  const lastSync = useRef(0);
+  useFrame(() => {
+    const now = Date.now();
+    if (now - lastSync.current < 80) return; // throttle to ~12 fps for state updates
+    lastSync.current = now;
+    const p = camera.position;
+    onCameraMove([
+      Math.round(p.x * 10) / 10,
+      Math.round(p.y * 10) / 10,
+      Math.round(p.z * 10) / 10,
+    ]);
+  });
+  return null;
+}
+
 /* ── Stats collector (runs inside Canvas) ── */
 function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
   const { scene, gl } = useThree();
@@ -335,7 +354,7 @@ export default function Scene(props: SceneProps) {
     modelPath, showEnvBackground, customHdri, onStats, onLightDrag, overrideColor,
     ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast, sceneLights,
     selectedLightId, onSelectLight, onMoveLight,
-    showSceneCamera, cameraPos, cameraViewMode, onCameraMove,
+    showSceneCamera, cameraPos, cameraViewMode, lockCameraToView, onCameraMove,
   } = props;
 
   const orbitRef = useRef<any>(null);
@@ -460,11 +479,14 @@ export default function Scene(props: SceneProps) {
         )}
 
         {/* Controls */}
+        {/* Camera-to-view syncer: orbit movement updates cameraPos state when locked */}
+        {cameraViewMode && lockCameraToView && <CameraViewSyncer onCameraMove={onCameraMove} />}
+
         <OrbitControls
           ref={orbitRef}
           makeDefault
-          enabled={!cameraViewMode}
-          autoRotate={autoRotate}
+          enabled={!cameraViewMode || lockCameraToView}
+          autoRotate={autoRotate && !cameraViewMode}
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
           enableZoom={true}

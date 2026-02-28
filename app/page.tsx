@@ -178,6 +178,7 @@ export default function Page() {
   const [showSceneCamera, setShowSceneCamera] = useState(false);
   const [cameraPos, setCameraPos] = useState<[number,number,number]>([3, 2, 5]);
   const [cameraViewMode, setCameraViewMode] = useState(false);
+  const [lockCameraToView, setLockCameraToView] = useState(false);
 
   // Override color (null = original materials)
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
@@ -369,7 +370,7 @@ export default function Page() {
       {/* ── Top bar ── */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60, height: '32px', background: 'rgba(8,8,12,0.98)', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', fontSize: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#6C63FF' }}>Sloth</span>View</span>
+          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#6C63FF' }}>Sloth</span> Studio Viewer</span>
           <span style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
           <span style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#6C63FF', fontSize: '7px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.1em' }}>DEMO</span>
         </div>
@@ -648,7 +649,7 @@ export default function Page() {
                 {showSceneCamera && (
                   <>
                     {/* Camera view toggle */}
-                    <button onClick={() => setCameraViewMode(!cameraViewMode)} style={{
+                    <button onClick={() => { if (cameraViewMode) setLockCameraToView(false); setCameraViewMode(!cameraViewMode); }} style={{
                       width: '100%', padding: '10px', borderRadius: '6px', marginBottom: '10px',
                       background: cameraViewMode ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.08)',
                       border: `1px solid ${cameraViewMode ? 'rgba(239,68,68,0.6)' : 'rgba(239,68,68,0.25)'}`,
@@ -671,9 +672,26 @@ export default function Page() {
                       </div>
                     )}
                     {cameraViewMode && (
-                      <div style={{ fontSize: '9px', color: '#ef4444', textAlign: 'center', padding: '4px 0', background: 'rgba(239,68,68,0.06)', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.15)' }}>
-                        Live from scene camera · Red border active
-                      </div>
+                      <>
+                        {/* Lock Camera to View — Blender-style camera follows orbit */}
+                        <button onClick={() => setLockCameraToView(!lockCameraToView)} title="When enabled, orbiting/panning the viewport moves the scene camera — just like Blender's 'Camera to View'" style={{
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '7px 10px', borderRadius: '5px', marginBottom: '6px',
+                          background: lockCameraToView ? 'rgba(239,68,68,0.08)' : 'transparent',
+                          border: lockCameraToView ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.04)',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '9px' }}>🎥</span>
+                            <span style={{ fontSize: '10px', fontWeight: 600, color: lockCameraToView ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>Camera to View</span>
+                          </div>
+                          <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: lockCameraToView ? '#ef4444' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
+                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: lockCameraToView ? '16px' : '2px', transition: 'left 0.2s' }} />
+                          </div>
+                        </button>
+                        <div style={{ fontSize: '9px', color: lockCameraToView ? '#ef4444' : 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 0', background: lockCameraToView ? 'rgba(239,68,68,0.06)' : 'transparent', borderRadius: '4px', border: lockCameraToView ? '1px solid rgba(239,68,68,0.15)' : 'none' }}>
+                          {lockCameraToView ? 'Orbit/pan now moves the camera' : 'Red border active · orbit is free'}
+                        </div>
+                      </>
                     )}
                   </>
                 )}
@@ -735,7 +753,13 @@ export default function Page() {
                       }}>{r} Resolution</button>
                     ))}
                   </div>
-                  <Slider label="Samples" value={renderSamples} min={1} max={16} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" />
+                  <Slider label="Samples" value={renderSamples} min={1} max={16384} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" tooltip={renderSamples > 512 ? 'WARNING: Very high sample count — this may slow or freeze your machine. Use 4–64 for previews, 128–512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production. Very high counts will lag your machine.'} />
+                  {renderSamples > 512 && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>High SPP can slow or freeze your browser</div>}
+                  <div style={{ display: 'flex', gap: '2px', marginBottom: '6px' }}>
+                    {[4, 16, 64, 256, 1024].map(s => (
+                      <button key={s} onClick={() => setRenderSamples(s)} style={{ flex: 1, padding: '3px 2px', borderRadius: '3px', fontSize: '8px', fontWeight: 600, background: renderSamples === s ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)', color: renderSamples === s ? '#6C63FF' : 'rgba(255,255,255,0.3)', border: renderSamples === s ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)' }}>{s}</button>
+                    ))}
+                  </div>
                   <button onClick={render} disabled={rendering} style={{
                     width: '100%', padding: '10px', borderRadius: '6px', marginTop: '4px',
                     background: rendering ? 'rgba(108,99,255,0.08)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
@@ -820,7 +844,7 @@ export default function Page() {
               setEnablePP(true); setAutoRotate(false); setShowGrid(true);
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
               setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
-              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]);
+              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(false);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -889,6 +913,7 @@ export default function Page() {
           showSceneCamera={showSceneCamera}
           cameraPos={cameraPos}
           cameraViewMode={cameraViewMode}
+          lockCameraToView={lockCameraToView}
           onCameraMove={setCameraPos}
         />
 
