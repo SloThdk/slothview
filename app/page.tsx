@@ -294,13 +294,13 @@ export default function Page() {
   const stl = { label: { fontSize: '9px' as const, color: 'rgba(255,255,255,0.25)' as const, fontWeight: 600 as const, textTransform: 'uppercase' as const, letterSpacing: '0.1em' as const, marginBottom: '5px' as const, display: 'block' as const } };
 
   return (
-    <div style={{ width: '100vw', height: '100dvh', display: 'flex', overflow: 'hidden', background: '#08080C', position: 'relative' }}
+    <div style={{ width: '100%', height: '100dvh', display: 'flex', overflow: 'hidden', background: '#08080C', position: 'fixed', inset: 0 }}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop}>
 
       <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
       <input ref={hdriRef} type="file" accept=".hdr,.exr" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { const url = URL.createObjectURL(f); setCustomHdri(url); setShowEnvBg(true); showToast(`HDRI: ${f.name}`); } }} />
 
-      {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '120px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.1s' }}>{toast}</div>}
+      {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, animation: 'fadeIn 0.1s', maxWidth: 'calc(100vw - 32px)', textAlign: 'center' }}>{toast}</div>}
 
       {dragOver && <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(108,99,255,0.06)', border: '2px dashed rgba(108,99,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}><div style={{ color: '#6C63FF', marginBottom: '6px' }}><IconUpload /></div><div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Drop 3D model</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '3px' }}>GLB, GLTF, FBX, OBJ</div></div>
@@ -743,12 +743,12 @@ export default function Page() {
 
         {/* Mobile model picker strip */}
         <div className="mobile-model-bar" style={{
-          display: 'none', position: 'absolute', bottom: '60px', left: '0', right: '0',
-          zIndex: 19, padding: '0 8px',
+          display: 'none', position: 'absolute', bottom: '50px', left: '0', right: '0',
+          zIndex: 19, padding: '0 6px', maxWidth: '100%', overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', padding: '6px 4px', WebkitOverflowScrolling: 'touch' as any,
+          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', overflowY: 'hidden', padding: '6px 4px', WebkitOverflowScrolling: 'touch' as any,
             background: 'rgba(8,8,12,0.9)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)',
-            backdropFilter: 'blur(12px)',
+            maxWidth: '100%',
           }}>
             {PRESET_MODELS.map(m => (
               <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); }} style={{
