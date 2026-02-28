@@ -10,9 +10,10 @@ interface DefaultModelProps {
   wireframe: boolean;
   shadingMode: ShadingMode;
   modelPath?: string;
+  overrideColor: string | null;
 }
 
-export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb' }: DefaultModelProps) {
+export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb', overrideColor }: DefaultModelProps) {
   const { scene: originalScene } = useGLTF(modelPath);
   const groupRef = useRef<THREE.Group>(null);
 
@@ -52,14 +53,17 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
       mesh.receiveShadow = true;
 
       if (shadingMode === 'pbr') {
-        // Already cloned PBR materials above
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        mats.forEach(m => {
-          if ((m as THREE.MeshStandardMaterial).envMapIntensity !== undefined) {
-            (m as THREE.MeshStandardMaterial).envMapIntensity = 1.5;
-          }
-          m.needsUpdate = true;
-        });
+        if (overrideColor) {
+          mesh.material = new THREE.MeshStandardMaterial({ color: overrideColor, roughness: 0.4, metalness: 0.1, envMapIntensity: 1.5 });
+        } else {
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach(m => {
+            if ((m as THREE.MeshStandardMaterial).envMapIntensity !== undefined) {
+              (m as THREE.MeshStandardMaterial).envMapIntensity = 1.5;
+            }
+            m.needsUpdate = true;
+          });
+        }
       } else if (shadingMode === 'normals') {
         mesh.material = new THREE.MeshNormalMaterial({ flatShading: false });
       } else if (shadingMode === 'matcap') {
@@ -73,7 +77,7 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
     });
 
     return cloned;
-  }, [originalScene, shadingMode, matcapTex]);
+  }, [originalScene, shadingMode, matcapTex, overrideColor]);
 
   // Auto-center/scale
   useEffect(() => {

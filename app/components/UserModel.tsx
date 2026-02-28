@@ -13,9 +13,10 @@ interface UserModelProps {
   file: File;
   wireframe: boolean;
   shadingMode: ShadingMode;
+  overrideColor: string | null;
 }
 
-export default function UserModel({ file, wireframe, shadingMode }: UserModelProps) {
+export default function UserModel({ file, wireframe, shadingMode, overrideColor }: UserModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [model, setModel] = useState<THREE.Group | null>(null);
 
@@ -53,13 +54,17 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
         mesh.receiveShadow = true;
 
         if (shadingMode === 'pbr') {
-          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          mats.forEach(mat => {
-            if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
-              (mat as THREE.MeshStandardMaterial).envMapIntensity = 1.2;
-              mat.needsUpdate = true;
-            }
-          });
+          if (overrideColor) {
+            mesh.material = new THREE.MeshStandardMaterial({ color: overrideColor, roughness: 0.4, metalness: 0.1, envMapIntensity: 1.2 });
+          } else {
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            mats.forEach(mat => {
+              if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
+                (mat as THREE.MeshStandardMaterial).envMapIntensity = 1.2;
+                mat.needsUpdate = true;
+              }
+            });
+          }
         } else if (shadingMode === 'normals') {
           mesh.material = new THREE.MeshNormalMaterial({ flatShading: false });
         } else if (shadingMode === 'matcap') {

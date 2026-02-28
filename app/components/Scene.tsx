@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useRef, useCallback, useEffect } from 'react';
+import React, { Suspense, useRef, useCallback, useEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping } from '@react-three/postprocessing';
@@ -97,6 +97,8 @@ export interface SceneProps {
   showEnvBackground: boolean;
   customHdri: string | null;
   onStats?: (stats: SceneStats) => void;
+  onLightDrag?: (deltaX: number, deltaY: number) => void;
+  overrideColor: string | null;
 }
 
 /* ── Hotspot marker ── */
@@ -171,7 +173,7 @@ export default function Scene(props: SceneProps) {
     activeHotspot, setActiveHotspot, canvasRef, glRef,
     lightIntensity, lightAngle, lightHeight, ambientIntensity, userFile, fov,
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
-    modelPath, showEnvBackground, customHdri, onStats,
+    modelPath, showEnvBackground, customHdri, onStats, onLightDrag, overrideColor,
   } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
@@ -185,6 +187,16 @@ export default function Scene(props: SceneProps) {
   const lightZ = Math.sin(MathUtils.degToRad(lightAngle)) * 6;
   const showWireframe = false; // Each shading mode handles its own wireframe internally
 
+  // Alt+RMB light control
+  const altDrag = useRef(false);
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.altKey && e.button === 2) { altDrag.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault(); }
+  }, []);
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (altDrag.current && onLightDrag) { onLightDrag(e.movementX, e.movementY); e.preventDefault(); e.stopPropagation(); }
+  }, [onLightDrag]);
+  const handlePointerUp = useCallback(() => { altDrag.current = false; }, []);
+
   return (
     <Canvas
       shadows
@@ -192,6 +204,10 @@ export default function Scene(props: SceneProps) {
       gl={{ preserveDrawingBuffer: true, antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
       style={{ background: 'transparent' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onContextMenu={(e) => { if (e.altKey) e.preventDefault(); }}
     >
       <PerspectiveCamera makeDefault position={[3, 2, 5]} fov={fov} near={0.1} far={100} />
 
@@ -216,10 +232,10 @@ export default function Scene(props: SceneProps) {
 
         {/* Model */}
         {userFile ? (
-          <UserModel key={`user-${shadingMode}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} />
+          <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} />
         ) : (
           <>
-            <DefaultModel key={`${modelPath || 'default'}-${shadingMode}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} />
+            <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} />
             {showHotspots && shadingMode === 'pbr' && (!modelPath || modelPath === '/models/DamagedHelmet.glb') && HOTSPOTS.map((h, i) => (
               <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
             ))}
@@ -236,7 +252,7 @@ export default function Scene(props: SceneProps) {
         ) : (
           <ClearBackground />
         )}
-        {showGrid && shadingMode === 'pbr' && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="rgba(108,99,255,0.04)" sectionColor="rgba(108,99,255,0.08)" fadeDistance={15} infiniteGrid />}
+        {showGrid && shadingMode === 'pbr' && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="#1a1833" sectionColor="#2a2555" fadeDistance={15} infiniteGrid />}
 
         {/* Post-processing */}
         {enablePostProcessing && shadingMode === 'pbr' && (

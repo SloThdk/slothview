@@ -150,6 +150,9 @@ export default function Page() {
   // Scene stats
   const [sceneStats, setSceneStats] = useState<SceneStats | null>(null);
 
+  // Override color (null = original materials)
+  const [overrideColor, setOverrideColor] = useState<string | null>(null);
+
   // UI
   const [shadingOverlay, setShadingOverlay] = useState(false);
   // shadingPreviews removed — using button-based picker now
@@ -552,6 +555,30 @@ export default function Page() {
                   </div>
                 </div>
 
+                {/* Model Color Override */}
+                <div style={{ marginBottom: '10px' }}>
+                  <span style={stl.label}>Model Color</span>
+                  <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button onClick={() => setOverrideColor(null)} title="Original materials" style={{
+                      padding: '4px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
+                      background: !overrideColor ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
+                      color: !overrideColor ? '#6C63FF' : 'rgba(255,255,255,0.35)',
+                      border: !overrideColor ? '1px solid rgba(108,99,255,0.3)' : '1px solid rgba(255,255,255,0.04)',
+                    }}>Original</button>
+                    {['#ffffff','#333333','#cc3333','#3366cc','#33aa55','#ffaa00','#cc66ff','#ff6699'].map(c => (
+                      <button key={c} onClick={() => setOverrideColor(c)} title={c} style={{
+                        width: '22px', height: '22px', borderRadius: '5px', background: c,
+                        border: overrideColor === c ? '2px solid #6C63FF' : '1.5px solid rgba(255,255,255,0.06)',
+                        transition: 'all 0.15s',
+                      }} />
+                    ))}
+                    <label title="Custom color" style={{ position: 'relative', width: '22px', height: '22px', borderRadius: '5px', border: '1.5px dashed rgba(255,255,255,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>+</span>
+                      <input type="color" value={overrideColor || '#6C63FF'} onChange={(e) => setOverrideColor(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                    </label>
+                  </div>
+                </div>
+
                 {/* Toggles */}
                 {[
                   { l: 'Grid', d: 'Reference plane', a: showGrid, fn: () => setShowGrid(!showGrid), i: <IconGrid /> },
@@ -618,6 +645,8 @@ export default function Page() {
           modelPath={PRESET_MODELS.find(m => m.id === selectedModel)?.path}
           showEnvBackground={showEnvBg} customHdri={customHdri}
           onStats={setSceneStats}
+          onLightDrag={(dx, dy) => { setLightAng(a => a + dx * 0.5); setLightH(h => Math.max(1, Math.min(15, h - dy * 0.05))); }}
+          overrideColor={overrideColor}
         />
 
         {/* ── Shading mode picker overlay ── */}

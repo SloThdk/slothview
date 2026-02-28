@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SlothView 3D | Interactive Product Viewer',
   description: 'Premium interactive 3D product viewer and configurator by Sloth Studio.',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
