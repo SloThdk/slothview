@@ -679,23 +679,29 @@ export default function Page() {
                   }} />
                   {/* Divider */}
                   <div style={{ position: 'absolute', top: 0, bottom: 0, right: '48%', width: '1px', background: 'rgba(255,255,255,0.15)', zIndex: 2 }} />
-                  {/* Label at bottom */}
-                  <div style={{
-                    position: 'absolute', bottom: '48px', left: 0, right: 0,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    zIndex: 3, pointerEvents: 'none',
-                  }}>
-                    <span className="shading-overlay-label" style={{
-                      fontSize: '11px', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-                      color: isActive ? '#fff' : 'rgba(255,255,255,0.8)',
-                      textShadow: '0 2px 12px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)',
-                      background: isActive ? 'rgba(108,99,255,0.85)' : 'rgba(0,0,0,0.6)',
-                      padding: '4px 10px', borderRadius: '4px',
-                    }}>{m.label}</span>
-                  </div>
                 </button>
               );
             })}
+            {/* Labels row — outside clip paths so always visible */}
+            <div style={{ position: 'absolute', bottom: '48px', left: 0, right: 0, display: 'flex', zIndex: 31, pointerEvents: 'none' }}>
+              {SHADING_MODES.map((m, i) => {
+                const count = SHADING_MODES.length;
+                const w = 100 / count;
+                const isActive = shadingMode === m.id;
+                return (
+                  <div key={m.id} style={{ width: `${w}%`, display: 'flex', justifyContent: 'center' }}>
+                    <span className="shading-overlay-label" style={{
+                      fontSize: '11px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
+                      color: '#fff',
+                      textShadow: '0 2px 12px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,1)',
+                      background: isActive ? 'rgba(108,99,255,0.9)' : 'rgba(0,0,0,0.7)',
+                      padding: '5px 12px', borderRadius: '5px',
+                      backdropFilter: 'blur(4px)',
+                    }}>{m.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
