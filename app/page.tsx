@@ -144,6 +144,7 @@ export default function Page() {
   const [dragOver, setDragOver] = useState(false);
 
   // UI
+  const [shadingOverlay, setShadingOverlay] = useState(false);
   const [tab, setTab] = useState<'scene' | 'camera' | 'render' | 'display'>('scene');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -565,33 +566,65 @@ export default function Page() {
           modelPath={PRESET_MODELS.find(m => m.id === selectedModel)?.path}
         />
 
-        {/* ── Bottom viewport toolbar (always visible, Marmoset-style) ── */}
+        {/* ── Marmoset-style diagonal stripe shading overlay ── */}
+        {shadingOverlay && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 30, top: '32px', cursor: 'pointer' }} onClick={() => setShadingOverlay(false)}>
+            {SHADING_MODES.map((m, i) => {
+              const count = SHADING_MODES.length;
+              const w = 100 / count;
+              const skew = 8;
+              const left = w * i;
+              return (
+                <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); setShadingOverlay(false); showToast(m.label); }} style={{
+                  position: 'absolute', top: 0, bottom: 0,
+                  left: `${left - 2}%`, width: `${w + 4}%`,
+                  clipPath: `polygon(${skew}% 0, ${100 + skew}% 0, ${100 - skew}% 100%, ${-skew}% 100%)`,
+                  background: shadingMode === m.id
+                    ? 'rgba(108,99,255,0.12)'
+                    : i % 2 === 0 ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.35)',
+                  backdropFilter: 'blur(2px)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+                  border: 'none', cursor: 'pointer',
+                  transition: 'background 0.2s',
+                }}>
+                  <span style={{
+                    fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+                    color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.7)',
+                    textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+                    transform: 'rotate(-12deg)',
+                    pointerEvents: 'none',
+                  }}>{m.label}</span>
+                  {shadingMode === m.id && (
+                    <span style={{ fontSize: '8px', color: '#6C63FF', fontWeight: 700, marginTop: '4px', letterSpacing: '0.1em', transform: 'rotate(-12deg)', pointerEvents: 'none' }}>ACTIVE</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Bottom viewport toolbar ── */}
         <div className="viewport-toolbar" style={{
           position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 20, display: 'flex', alignItems: 'center', gap: '6px',
+          zIndex: 20, display: 'flex', alignItems: 'center', gap: '4px',
           background: 'rgba(8,8,12,0.92)', border: '1px solid rgba(255,255,255,0.06)',
           borderRadius: '10px', padding: '4px', backdropFilter: 'blur(16px)',
           boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
         }}>
-          {/* Shading mode strip — diagonal dividers between modes */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-            {SHADING_MODES.map((m, i) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center' }}>
-                <button onClick={() => setShadingMode(m.id)} style={{
-                  padding: '8px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                  letterSpacing: '0.02em',
-                  background: shadingMode === m.id ? 'rgba(108,99,255,0.18)' : 'transparent',
-                  color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.35)',
-                  border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.3)' : '1px solid transparent',
-                  transition: 'all 0.15s',
-                  position: 'relative',
-                }}>{m.label}</button>
-                {i < SHADING_MODES.length - 1 && (
-                  <span style={{ color: 'rgba(255,255,255,0.08)', fontSize: '14px', fontWeight: 300, userSelect: 'none', margin: '0 1px' }}>/</span>
-                )}
-              </div>
-            ))}
-          </div>
+          {/* Shading button — opens stripe overlay */}
+          <Tip text="Shading modes" pos="top">
+            <button onClick={() => setShadingOverlay(!shadingOverlay)} style={{
+              padding: '8px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+              letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px',
+              background: shadingOverlay ? 'rgba(108,99,255,0.18)' : 'transparent',
+              color: shadingOverlay ? '#6C63FF' : 'rgba(255,255,255,0.4)',
+              border: shadingOverlay ? '1px solid rgba(108,99,255,0.3)' : '1px solid transparent',
+              transition: 'all 0.15s',
+            }}>
+              <IconLayers />
+              <span>{SHADING_MODES.find(m => m.id === shadingMode)?.label || 'PBR'}</span>
+            </button>
+          </Tip>
 
           {/* Separator */}
           <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.06)' }} />
