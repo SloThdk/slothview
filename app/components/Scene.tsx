@@ -5,7 +5,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
-import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping } from 'three';
+import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import Product from './Product';
 import DefaultModel from './DefaultModel';
@@ -30,13 +30,15 @@ function CustomHDRI({ url, background }: { url: string; background: boolean }) {
   return null;
 }
 
-/* Clear scene background/environment when leaving PBR */
+/* Set solid background and clear environment when leaving PBR */
 function ClearBackground() {
-  const { scene } = useThree();
+  const { scene, gl } = useThree();
   useEffect(() => {
-    scene.background = null;
+    scene.background = new Color('#08080C');
     scene.environment = null;
-  }, [scene]);
+    gl.setClearColor('#08080C', 1);
+    gl.autoClear = true;
+  }, [scene, gl]);
   return null;
 }
 
@@ -201,7 +203,7 @@ export default function Scene(props: SceneProps) {
     <Canvas
       shadows
       onCreated={handleCanvasCreated as any}
-      gl={{ preserveDrawingBuffer: true, antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      gl={{ preserveDrawingBuffer: true, antialias: true, alpha: false, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
       style={{ background: 'transparent' }}
       onPointerDown={handlePointerDown}
