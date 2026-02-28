@@ -83,12 +83,18 @@ function Tip({ text, children, pos = 'bottom' }: { text: string; children: React
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, unit = '' }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string }) {
+function Slider({ label, value, min, max, step, onChange, unit = '', defaultValue }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string; defaultValue?: number }) {
+  const isDefault = defaultValue !== undefined && Math.abs(value - defaultValue) < step * 0.5;
   return (
     <div style={{ marginBottom: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: '0.02em' }}>{label}</span>
-        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>{value.toFixed(step < 1 ? step < 0.1 ? 2 : 1 : 0)}{unit}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>{value.toFixed(step < 1 ? step < 0.1 ? 2 : 1 : 0)}{unit}</span>
+          {defaultValue !== undefined && !isDefault && (
+            <button onClick={() => onChange(defaultValue)} title="Reset to default" style={{ fontSize: '8px', color: 'rgba(108,99,255,0.6)', padding: '0 2px', lineHeight: 1, cursor: 'pointer', border: 'none', background: 'none' }}>↺</button>
+          )}
+        </div>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
         style={{ width: '100%', accentColor: '#6C63FF', height: '2px', opacity: 0.8 }} />
@@ -160,6 +166,11 @@ export default function Page() {
 
   // User scene lights
   const [sceneLights, setSceneLights] = useState<SceneLight[]>([]);
+
+  // Scene Camera
+  const [showSceneCamera, setShowSceneCamera] = useState(false);
+  const [cameraPos, setCameraPos] = useState<[number,number,number]>([3, 2, 5]);
+  const [cameraViewMode, setCameraViewMode] = useState(false);
 
   // Override color (null = original materials)
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
@@ -530,10 +541,10 @@ export default function Page() {
                     }}>{p.n}</button>
                   ))}
                 </div>
-                <Slider label="Key Light" value={lightI} min={0} max={3} step={0.05} onChange={setLightI} />
-                <Slider label="Fill / Ambient" value={ambI} min={0} max={1} step={0.02} onChange={setAmbI} />
-                <Slider label="Light Angle" value={lightAng} min={0} max={360} step={1} onChange={setLightAng} unit="deg" />
-                <Slider label="Light Height" value={lightH} min={1} max={15} step={0.5} onChange={setLightH} />
+                <Slider label="Key Light" value={lightI} min={0} max={3} step={0.05} onChange={setLightI} defaultValue={1.2} />
+                <Slider label="Fill / Ambient" value={ambI} min={0} max={1} step={0.02} onChange={setAmbI} defaultValue={0.3} />
+                <Slider label="Light Angle" value={lightAng} min={0} max={360} step={1} onChange={setLightAng} unit="deg" defaultValue={45} />
+                <Slider label="Light Height" value={lightH} min={1} max={15} step={0.5} onChange={setLightH} defaultValue={8} />
               </div>
             )}
 
@@ -546,7 +557,7 @@ export default function Page() {
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Focal Length</span>
                     <span style={{ fontSize: '14px', fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, color: '#fff' }}>{focalLength}<span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>mm</span></span>
                   </div>
-                  <Slider label="Field of View" value={fov} min={15} max={120} step={1} onChange={setFov} unit="deg" />
+                  <Slider label="Field of View" value={fov} min={15} max={120} step={1} onChange={setFov} unit="deg" defaultValue={40} />
                   <div style={{ display: 'flex', gap: '3px', marginTop: '6px' }}>
                     {[{l:'24mm',v:73},{l:'35mm',v:54},{l:'50mm',v:39},{l:'85mm',v:24},{l:'135mm',v:15}].map(p => (
                       <button key={p.l} onClick={() => setFov(p.v)} style={{
@@ -578,6 +589,57 @@ export default function Page() {
                   </button>
                   {autoRotate && <div style={{ padding: '0 4px' }}><Slider label="Speed" value={autoRotateSpeed} min={0.1} max={5} step={0.1} onChange={setAutoRotateSpeed} /></div>}
                 </div>
+
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '12px 0' }} />
+                <span style={stl.label}>Scene Camera</span>
+
+                {/* Toggle camera visibility */}
+                <button onClick={() => { setShowSceneCamera(!showSceneCamera); if (cameraViewMode) setCameraViewMode(false); }} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '5px', marginBottom: '8px',
+                  background: showSceneCamera ? 'rgba(108,99,255,0.06)' : 'transparent',
+                  border: showSceneCamera ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: showSceneCamera ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}><IconCamera /></span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: showSceneCamera ? '#fff' : 'rgba(255,255,255,0.4)' }}>Show Camera Object</span>
+                  </div>
+                  <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: showSceneCamera ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: showSceneCamera ? '16px' : '2px', transition: 'left 0.2s' }} />
+                  </div>
+                </button>
+
+                {showSceneCamera && (
+                  <>
+                    {/* Camera view toggle */}
+                    <button onClick={() => setCameraViewMode(!cameraViewMode)} style={{
+                      width: '100%', padding: '10px', borderRadius: '6px', marginBottom: '10px',
+                      background: cameraViewMode ? 'linear-gradient(135deg,#6C63FF,#5046e5)' : 'rgba(108,99,255,0.06)',
+                      border: '1px solid rgba(108,99,255,0.3)',
+                      color: '#fff', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em',
+                    }}>
+                      {cameraViewMode ? 'Exit Camera View' : 'Enter Camera View'}
+                    </button>
+
+                    {/* Camera position */}
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '8px', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px', fontWeight: 600 }}>Position</div>
+                      <Slider label="X" value={cameraPos[0]} min={-15} max={15} step={0.1} onChange={v => setCameraPos([v, cameraPos[1], cameraPos[2]])} defaultValue={3} />
+                      <Slider label="Y" value={cameraPos[1]} min={0} max={15} step={0.1} onChange={v => setCameraPos([cameraPos[0], v, cameraPos[2]])} defaultValue={2} />
+                      <Slider label="Z" value={cameraPos[2]} min={-15} max={15} step={0.1} onChange={v => setCameraPos([cameraPos[0], cameraPos[1], v])} defaultValue={5} />
+                    </div>
+
+                    {!cameraViewMode && (
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 0' }}>
+                        Drag the camera gizmo in the viewport to move it
+                      </div>
+                    )}
+                    {cameraViewMode && (
+                      <div style={{ fontSize: '9px', color: '#6C63FF', textAlign: 'center', padding: '4px 0', background: 'rgba(108,99,255,0.06)', borderRadius: '4px' }}>
+                        Viewing from scene camera · Orbit disabled
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
@@ -596,9 +658,9 @@ export default function Page() {
                 </button>
                 {enablePP && (
                   <>
-                    <Slider label="Bloom Intensity" value={bloomI} min={0} max={1} step={0.01} onChange={setBloomI} />
-                    <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} />
-                    <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} />
+                    <Slider label="Bloom Intensity" value={bloomI} min={0} max={1} step={0.01} onChange={setBloomI} defaultValue={0.15} />
+                    <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} defaultValue={0.9} />
+                    <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} defaultValue={0.3} />
                     <button onClick={() => setSsao(!ssao)} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '5px', width: '100%', marginBottom: '4px',
                       background: ssao ? 'rgba(108,99,255,0.06)' : 'transparent', border: ssao ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
@@ -609,16 +671,16 @@ export default function Page() {
                       </div>
                     </button>
                     {ssao && <>
-                      <Slider label="AO Radius" value={ssaoRadius} min={0.1} max={2} step={0.05} onChange={setSsaoRadius} />
-                      <Slider label="AO Intensity" value={ssaoIntensity} min={0} max={4} step={0.1} onChange={setSsaoIntensity} />
+                      <Slider label="AO Radius" value={ssaoRadius} min={0.1} max={2} step={0.05} onChange={setSsaoRadius} defaultValue={0.5} />
+                      <Slider label="AO Intensity" value={ssaoIntensity} min={0} max={4} step={0.1} onChange={setSsaoIntensity} defaultValue={1.0} />
                     </>}
                     <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '8px 0' }} />
                     <span style={stl.label}>Color Grading</span>
-                    <Slider label="Brightness" value={brightness} min={-0.4} max={0.4} step={0.01} onChange={setBrightness} />
-                    <Slider label="Contrast" value={contrast} min={-0.4} max={0.4} step={0.01} onChange={setContrast} />
+                    <Slider label="Brightness" value={brightness} min={-0.4} max={0.4} step={0.01} onChange={setBrightness} defaultValue={0} />
+                    <Slider label="Contrast" value={contrast} min={-0.4} max={0.4} step={0.01} onChange={setContrast} defaultValue={0} />
                     <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '8px 0' }} />
                     <span style={stl.label}>Lens Effects</span>
-                    <Slider label="Chromatic Aberration" value={chromaticAb} min={0} max={0.01} step={0.0005} onChange={setChromaticAb} />
+                    <Slider label="Chromatic Aberration" value={chromaticAb} min={0} max={0.01} step={0.0005} onChange={setChromaticAb} defaultValue={0} />
                   </>
                 )}
 
@@ -738,6 +800,7 @@ export default function Page() {
               setEnablePP(true); setAutoRotate(false); setShowGrid(true);
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
               setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
+              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -787,6 +850,10 @@ export default function Page() {
           ssaoRadius={ssaoRadius} ssaoIntensity={ssaoIntensity}
           chromaticAb={chromaticAb} brightness={brightness} contrast={contrast}
           sceneLights={sceneLights}
+          showSceneCamera={showSceneCamera}
+          cameraPos={cameraPos}
+          cameraViewMode={cameraViewMode}
+          onCameraMove={setCameraPos}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -950,7 +1017,7 @@ export default function Page() {
       )}
 
       {/* Camera boundary overlay */}
-      {(showCameraBoundary || rendering) && (
+      {(showCameraBoundary || rendering || cameraViewMode) && (
         <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 12, pointerEvents: 'none' }}>
           {/* Dim corners */}
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />

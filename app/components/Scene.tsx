@@ -1,8 +1,8 @@
 'use client';
 
-import React, { Suspense, useRef, useCallback, useEffect } from 'react';
+import React, { Suspense, useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera, TransformControls, Line } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
 import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2 } from 'three';
@@ -109,6 +109,10 @@ export interface SceneProps {
   brightness: number;
   contrast: number;
   sceneLights: SceneLight[];
+  showSceneCamera: boolean;
+  cameraPos: [number, number, number];
+  cameraViewMode: boolean;
+  onCameraMove: (p: [number, number, number]) => void;
 }
 
 /* ── Hotspot marker ── */
@@ -142,6 +146,67 @@ function HotspotMarker({ hotspot, index, active, onClick }: { hotspot: Hotspot; 
         )}
       </div>
     </Html>
+  );
+}
+
+/* ── Scene Camera Gizmo ── */
+function SceneCameraGizmo({ position, onMove, orbitRef }: {
+  position: [number, number, number];
+  onMove: (p: [number, number, number]) => void;
+  orbitRef: React.RefObject<any>;
+}) {
+  const groupRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
+
+  const col = '#6C63FF';
+  const frustumPts: [number,number,number][] = [
+    [0,0,0], [0.2,0.14,-0.35], [0,0,0], [-0.2,0.14,-0.35],
+    [0,0,0], [0.2,-0.14,-0.35], [0,0,0], [-0.2,-0.14,-0.35],
+    [0.2,0.14,-0.35], [-0.2,0.14,-0.35], [-0.2,0.14,-0.35], [-0.2,-0.14,-0.35],
+    [-0.2,-0.14,-0.35], [0.2,-0.14,-0.35], [0.2,-0.14,-0.35], [0.2,0.14,-0.35],
+  ];
+
+  return (
+    <>
+      <group ref={groupRef} position={position}>
+        {/* Camera body */}
+        <mesh>
+          <boxGeometry args={[0.22, 0.16, 0.14]} />
+          <meshBasicMaterial color={col} wireframe />
+        </mesh>
+        {/* Lens */}
+        <mesh position={[0, 0, -0.1]} rotation={[Math.PI/2, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.04, 0.08, 6]} />
+          <meshBasicMaterial color={col} wireframe />
+        </mesh>
+        {/* Frustum lines */}
+        {frustumPts.filter((_,i)=>i%2===0).map((pt,i) => (
+          <Line key={i} points={[pt, frustumPts[i*2+1]]} color={col} lineWidth={0.8} transparent opacity={0.5} />
+        ))}
+      </group>
+      {ready && groupRef.current && (
+        <TransformControls
+          object={groupRef.current}
+          mode="translate"
+          size={0.7}
+          onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+          onMouseUp={() => {
+            if (orbitRef.current) orbitRef.current.enabled = true;
+            if (groupRef.current) {
+              const p = groupRef.current.position;
+              onMove([Math.round(p.x*10)/10, Math.round(p.y*10)/10, Math.round(p.z*10)/10]);
+            }
+          }}
+          onChange={() => {
+            if (groupRef.current) {
+              const p = groupRef.current.position;
+              onMove([Math.round(p.x*10)/10, Math.round(p.y*10)/10, Math.round(p.z*10)/10]);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -198,7 +263,10 @@ export default function Scene(props: SceneProps) {
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
     modelPath, showEnvBackground, customHdri, onStats, onLightDrag, overrideColor,
     ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast, sceneLights,
+    showSceneCamera, cameraPos, cameraViewMode, onCameraMove,
   } = props;
+
+  const orbitRef = useRef<any>(null);
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     (canvasRef as React.MutableRefObject<HTMLCanvasElement | null>).current = gl.domElement;
@@ -233,7 +301,10 @@ export default function Scene(props: SceneProps) {
       onPointerUp={handlePointerUp}
       onContextMenu={(e) => { if (e.altKey) e.preventDefault(); }}
     >
-      <PerspectiveCamera makeDefault position={[3, 2, 5]} fov={fov} near={0.1} far={100} />
+      {cameraViewMode
+        ? <PerspectiveCamera makeDefault position={cameraPos} fov={fov} near={0.1} far={100} />
+        : <PerspectiveCamera makeDefault position={[3, 2, 5]} fov={fov} near={0.1} far={100} />
+      }
 
       <Suspense fallback={null}>
         {/* Lighting */}
@@ -296,9 +367,16 @@ export default function Scene(props: SceneProps) {
           </EffectComposer>
         )}
 
+        {/* Scene Camera Gizmo — only visible when not in camera view */}
+        {showSceneCamera && !cameraViewMode && (
+          <SceneCameraGizmo position={cameraPos} onMove={onCameraMove} orbitRef={orbitRef} />
+        )}
+
         {/* Controls */}
         <OrbitControls
+          ref={orbitRef}
           makeDefault
+          enabled={!cameraViewMode}
           autoRotate={autoRotate}
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
