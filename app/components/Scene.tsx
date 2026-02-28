@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useRef, useCallback } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid } from '@react-three/drei';
 import { WebGLRenderer } from 'three';
 import Product from './Product';
@@ -36,6 +36,7 @@ interface SceneProps {
   activeHotspot: number | null;
   setActiveHotspot: (i: number | null) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  glRef: React.RefObject<WebGLRenderer | null>;
   lightIntensity: number;
   lightAngle: number;
   ambientIntensity: number;
@@ -79,16 +80,20 @@ function HotspotMarker({ hotspot, index, active, onClick }: { hotspot: Hotspot; 
 }
 
 export default function Scene(props: SceneProps) {
-  const { bodyColor, accentColor, baseColor, material, environment, exploded, wireframe, autoRotate, autoRotateSpeed, showHotspots, showGrid, activeHotspot, setActiveHotspot, canvasRef, lightIntensity, lightAngle, ambientIntensity, userFile } = props;
-  const controlsRef = useRef(null);
+  const { bodyColor, accentColor, baseColor, material, environment, exploded, wireframe, autoRotate, autoRotateSpeed, showHotspots, showGrid, activeHotspot, setActiveHotspot, canvasRef, glRef, lightIntensity, lightAngle, ambientIntensity, userFile } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     if (canvasRef) {
       (canvasRef as React.MutableRefObject<HTMLCanvasElement | null>).current = gl.domElement;
     }
-    gl.toneMapping = 1; // ACESFilmic
-    gl.toneMappingExposure = 1.2;
-  }, [canvasRef]);
+    if (glRef) {
+      (glRef as React.MutableRefObject<WebGLRenderer | null>).current = gl;
+    }
+    gl.toneMapping = 6; // ACESFilmicToneMapping
+    gl.toneMappingExposure = 1.15;
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = 2; // PCFSoftShadowMap
+  }, [canvasRef, glRef]);
 
   const lightX = Math.cos(lightAngle * Math.PI / 180) * 6;
   const lightZ = Math.sin(lightAngle * Math.PI / 180) * 6;
@@ -98,15 +103,16 @@ export default function Scene(props: SceneProps) {
       shadows
       camera={{ position: [3, 2, 5], fov: 40 }}
       onCreated={handleCanvasCreated as any}
-      gl={{ preserveDrawingBuffer: true, antialias: true, alpha: true }}
+      gl={{ preserveDrawingBuffer: true, antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      dpr={[1, 2]}
       style={{ background: 'transparent' }}
     >
       <Suspense fallback={null}>
         <ambientLight intensity={ambientIntensity} />
-        <directionalLight position={[lightX, 8, lightZ]} intensity={lightIntensity} castShadow shadow-mapSize={2048} />
-        <directionalLight position={[-lightX, 4, -lightZ]} intensity={lightIntensity * 0.3} color="#8888ff" />
-        <pointLight position={[0, 3, 0]} intensity={0.4} color={accentColor} />
-        <hemisphereLight args={['#b1e1ff', '#b97a20', 0.25]} />
+        <directionalLight position={[lightX, 8, lightZ]} intensity={lightIntensity} castShadow shadow-mapSize={2048} shadow-bias={-0.001} />
+        <directionalLight position={[-lightX, 4, -lightZ]} intensity={lightIntensity * 0.25} color="#8888ff" />
+        <pointLight position={[0, 3, 0]} intensity={0.35} color={accentColor} distance={8} />
+        <hemisphereLight args={['#b1e1ff', '#b97a20', 0.2]} />
 
         {userFile ? (
           <UserModel file={userFile} wireframe={wireframe} />
@@ -120,20 +126,25 @@ export default function Scene(props: SceneProps) {
         )}
 
         <Environment preset={environment as any} background={false} />
-        <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
-        {showGrid && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="rgba(108,99,255,0.06)" sectionColor="rgba(108,99,255,0.12)" fadeDistance={15} infiniteGrid />}
+        <ContactShadows position={[0, -1.5, 0]} opacity={0.35} scale={10} blur={2.5} far={4} />
+        {showGrid && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="rgba(108,99,255,0.05)" sectionColor="rgba(108,99,255,0.1)" fadeDistance={15} infiniteGrid />}
 
+        {/* Industry-standard orbit: LMB rotate, MMB pan, scroll zoom */}
         <OrbitControls
-          ref={controlsRef}
+          makeDefault
           autoRotate={autoRotate}
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
           enableZoom={true}
           enableDamping={true}
-          dampingFactor={0.05}
-          minDistance={2}
-          maxDistance={12}
-          maxPolarAngle={Math.PI / 1.8}
+          dampingFactor={0.08}
+          rotateSpeed={0.8}
+          panSpeed={0.6}
+          zoomSpeed={1.0}
+          minDistance={1.5}
+          maxDistance={15}
+          maxPolarAngle={Math.PI * 0.85}
+          mouseButtons={{ LEFT: 0, MIDDLE: 2, RIGHT: 2 }}
         />
       </Suspense>
     </Canvas>

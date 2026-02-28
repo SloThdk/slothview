@@ -7,6 +7,7 @@ import {
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
   IconBox, IconSliders, IconEye, IconX, IconMenu, IconCheck, IconFile, IconTrash, IconZap,
 } from './components/Icons';
+import type { WebGLRenderer } from 'three';
 
 const Scene = dynamic(() => import('./components/Scene'), { ssr: false });
 
@@ -120,7 +121,10 @@ export default function HomePage() {
   const [ambientIntensity, setAmbientIntensity] = useState(0.3);
   const [userFile, setUserFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [renderRes, setRenderRes] = useState<'2x' | '4x'>('2x');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const glRef = useRef<WebGLRenderer | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
@@ -144,6 +148,42 @@ export default function HomePage() {
     const url = `${window.location.origin}?${config}`;
     navigator.clipboard.writeText(url).then(() => showToast('Config URL copied to clipboard'));
   }, [bodyColor, accentColor, baseColor, material, environment]);
+
+  const handleRender = useCallback(() => {
+    const gl = glRef.current;
+    const canvas = canvasRef.current;
+    if (!gl || !canvas) return;
+    setRendering(true);
+    
+    const multiplier = renderRes === '4x' ? 4 : 2;
+    const origW = canvas.width;
+    const origH = canvas.height;
+    const renderW = origW * multiplier;
+    const renderH = origH * multiplier;
+
+    // Temporarily resize for high-res capture
+    gl.setSize(renderW, renderH, false);
+    gl.setPixelRatio(1);
+    
+    // Force a render at high res
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const dataUrl = gl.domElement.toDataURL('image/png');
+        
+        // Restore original size
+        gl.setSize(origW, origH, false);
+        gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        const link = document.createElement('a');
+        link.download = `slothview-render-${renderW}x${renderH}-${Date.now()}.png`;
+        link.href = dataUrl;
+        link.click();
+        
+        setRendering(false);
+        showToast(`Render exported at ${renderW}x${renderH}px`);
+      });
+    });
+  }, [renderRes]);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -509,7 +549,23 @@ export default function HomePage() {
           border: '1px solid var(--border)', borderRadius: '8px', padding: '3px',
           backdropFilter: 'blur(12px)',
         }}>
-          {toolBtn(<IconCamera />, 'Screenshot (PNG)', false, handleScreenshot)}
+          {toolBtn(<IconCamera />, 'Quick Screenshot', false, handleScreenshot)}
+          {/* Render button with resolution picker */}
+          <Tooltip text={rendering ? 'Rendering...' : `Hi-Res Render (${renderRes})`} position="bottom">
+            <div style={{ position: 'relative' }}>
+              <button onClick={handleRender} disabled={rendering} style={{
+                width: '34px', height: '34px', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: rendering ? 'rgba(108,99,255,0.2)' : 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border)', color: rendering ? '#6C63FF' : 'var(--text-dim)',
+                transition: 'all 0.2s', opacity: rendering ? 0.6 : 1,
+              }}><IconZap /></button>
+              <button onClick={() => setRenderRes(renderRes === '2x' ? '4x' : '2x')} style={{
+                position: 'absolute', bottom: '-2px', right: '-2px', width: '14px', height: '14px', borderRadius: '3px',
+                background: '#6C63FF', color: '#fff', fontSize: '7px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1px solid rgba(0,0,0,0.3)',
+              }}>{renderRes}</button>
+            </div>
+          </Tooltip>
           {toolBtn(<IconMaximize />, 'Fullscreen', false, handleFullscreen)}
           {toolBtn(<IconShare />, 'Share Configuration', false, handleShare)}
         </div>
@@ -520,7 +576,7 @@ export default function HomePage() {
           material={material} environment={environment} exploded={exploded}
           wireframe={wireframe} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed}
           showHotspots={showHotspots} showGrid={showGrid} activeHotspot={activeHotspot}
-          setActiveHotspot={setActiveHotspot} canvasRef={canvasRef}
+          setActiveHotspot={setActiveHotspot} canvasRef={canvasRef} glRef={glRef}
           lightIntensity={lightIntensity} lightAngle={lightAngle}
           ambientIntensity={ambientIntensity} userFile={userFile}
         />
@@ -533,11 +589,25 @@ export default function HomePage() {
           borderRadius: '8px', padding: '6px 14px', backdropFilter: 'blur(12px)',
           fontSize: '10px', color: 'var(--text-dim)',
         }}>
-          <span>Scroll to zoom</span>
-          <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
-          <span>Drag to rotate</span>
-          <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
-          <span>Right-click to pan</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="6"/><line x1="12" y1="7" x2="12" y2="10"/></svg>
+            Left-click: Orbit
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.06)' }}>|</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="6"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>
+            Middle/Right: Pan
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.06)' }}>|</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="7 15 12 20 17 15"/><polyline points="7 9 12 4 17 9"/></svg>
+            Scroll: Zoom
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.06)' }}>|</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Touch: 1-finger orbit, 2-finger zoom/pan
+          </span>
         </div>
       </div>
 
