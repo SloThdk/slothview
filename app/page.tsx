@@ -47,12 +47,12 @@ const LIGHT_PRESETS = [
   { n: 'Golden', i: 1.0, a: 0.35, ang: 60, h: 4 },
 ];
 
-const SHADING_MODES: { id: ShadingMode; label: string }[] = [
-  { id: 'pbr', label: 'PBR' },
-  { id: 'matcap', label: 'Matcap' },
-  { id: 'normals', label: 'Normals' },
-  { id: 'wireframe', label: 'Wire' },
-  { id: 'unlit', label: 'Unlit' },
+const SHADING_MODES: { id: ShadingMode; label: string; bg: string }[] = [
+  { id: 'pbr', label: 'PBR', bg: 'linear-gradient(135deg, #1a1a2e 0%, #2a2a4a 40%, #3a3a5a 70%, #1a1a2e 100%)' },
+  { id: 'matcap', label: 'Matcap', bg: 'radial-gradient(ellipse at 40% 35%, #d0d0e0 0%, #8888a0 35%, #404058 65%, #1a1a28 100%)' },
+  { id: 'normals', label: 'Normals', bg: 'linear-gradient(135deg, #4040ff 0%, #40ff40 25%, #ffff40 50%, #ff4040 75%, #8040ff 100%)' },
+  { id: 'wireframe', label: 'Wire', bg: 'repeating-linear-gradient(45deg, #0a0a10 0px, #0a0a10 3px, #1a1a28 3px, #1a1a28 4px)' },
+  { id: 'unlit', label: 'Unlit', bg: 'linear-gradient(135deg, #555 0%, #777 50%, #555 100%)' },
 ];
 
 const PRESET_MODELS = [
@@ -124,8 +124,8 @@ export default function Page() {
   const [lightH, setLightH] = useState(8);
   const [ambI, setAmbI] = useState(0.3);
 
-  // Post-processing
-  const [enablePP, setEnablePP] = useState(true);
+  // Post-processing (disable on mobile for performance)
+  const [enablePP, setEnablePP] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
   const [bloomI, setBloomI] = useState(0.15);
   const [bloomT, setBloomT] = useState(0.9);
   const [vigI, setVigI] = useState(0.3);
@@ -604,34 +604,50 @@ export default function Page() {
 
         {/* ── Marmoset-style diagonal stripe shading overlay ── */}
         {shadingOverlay && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 30, top: '32px', cursor: 'pointer' }} onClick={() => setShadingOverlay(false)}>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 30, top: '32px', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setShadingOverlay(false)}>
             {SHADING_MODES.map((m, i) => {
               const count = SHADING_MODES.length;
               const w = 100 / count;
-              const skew = 8;
+              const skew = 6;
               const left = w * i;
+              const isActive = shadingMode === m.id;
               return (
                 <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); setShadingOverlay(false); showToast(m.label); }} style={{
                   position: 'absolute', top: 0, bottom: 0,
                   left: `${left - 2}%`, width: `${w + 4}%`,
                   clipPath: `polygon(${skew}% 0, ${100 + skew}% 0, ${100 - skew}% 100%, ${-skew}% 100%)`,
-                  background: shadingMode === m.id
-                    ? 'rgba(108,99,255,0.12)'
-                    : i % 2 === 0 ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.35)',
-                  backdropFilter: 'blur(2px)',
+                  background: m.bg,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
                   border: 'none', cursor: 'pointer',
-                  transition: 'background 0.2s',
+                  transition: 'all 0.2s',
+                  outline: isActive ? '2px solid #6C63FF' : 'none',
+                  outlineOffset: '-2px',
                 }}>
+                  {/* Dark overlay for non-active */}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: isActive ? 'rgba(108,99,255,0.08)' : 'rgba(0,0,0,0.25)',
+                    transition: 'background 0.2s',
+                  }} />
+                  {/* Divider line */}
+                  <div style={{
+                    position: 'absolute', top: 0, bottom: 0, right: 0, width: '1px',
+                    background: 'rgba(255,255,255,0.1)',
+                    transform: `skewX(-${skew * 0.8}deg)`,
+                  }} />
                   <span className="shading-overlay-label" style={{
-                    fontSize: '15px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.8)',
-                    textShadow: '0 2px 12px rgba(0,0,0,0.9)',
+                    fontSize: '16px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,0.85)',
+                    textShadow: '0 2px 16px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,0.8)',
                     transform: 'rotate(-12deg)',
-                    pointerEvents: 'none',
+                    pointerEvents: 'none', position: 'relative', zIndex: 1,
                   }}>{m.label}</span>
-                  {shadingMode === m.id && (
-                    <span style={{ fontSize: '8px', color: '#6C63FF', fontWeight: 700, marginTop: '6px', letterSpacing: '0.12em', transform: 'rotate(-12deg)', pointerEvents: 'none', textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>ACTIVE</span>
+                  {isActive && (
+                    <div style={{ position: 'relative', zIndex: 1, marginTop: '8px', transform: 'rotate(-12deg)', pointerEvents: 'none',
+                      background: 'rgba(108,99,255,0.9)', borderRadius: '3px', padding: '2px 8px',
+                    }}>
+                      <span style={{ fontSize: '7px', color: '#fff', fontWeight: 800, letterSpacing: '0.15em' }}>ACTIVE</span>
+                    </div>
                   )}
                 </button>
               );

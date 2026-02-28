@@ -11,7 +11,7 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; touch-action: none; }
+html, body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
 button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
 input, select { font: inherit; }
 
@@ -61,6 +61,10 @@ input, select { font: inherit; }
   }
   .shading-overlay-label {
     font-size: 11px !important;
+  }
+  .viewport-toolbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   .toast-msg { bottom: 140px !important; }
   /* Bigger touch targets in sidebar */
