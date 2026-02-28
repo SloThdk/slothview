@@ -203,6 +203,19 @@ export default function Page() {
   // Keep shadingModeRef in sync so refreshPreviews can read current mode without stale closure
   useEffect(() => { shadingModeRef.current = shadingMode; }, [shadingMode]);
 
+  // Tab key toggles sidebar on desktop
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Only trigger on desktop, not when typing in an input/textarea
+      if (e.key === 'Tab' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        if (window.innerWidth > 768) setSidebarOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   const refreshPreviews = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
