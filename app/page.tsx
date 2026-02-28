@@ -338,36 +338,11 @@ export default function Page() {
                 )}
 
                 {!userFile && (
-                  <>
-                    <span style={stl.label}>Body</span>
-                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '10px' }}>{COLORS.map(c => cswatch(c, bodyColor === c.v, () => setBodyColor(c.v)))}</div>
-                    <span style={stl.label}>Accent</span>
-                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '10px' }}>{ACCENTS.map(c => cswatch(c, accentColor === c.v, () => setAccentColor(c.v)))}</div>
-                    <span style={stl.label}>Base</span>
-                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '10px' }}>{BASES.map(c => cswatch(c, baseColor === c.v, () => setBaseColor(c.v)))}</div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '12px' }}>
-                      <input type="color" value={bodyColor} onChange={e => setBodyColor(e.target.value)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', background: 'none' }} />
-                      <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace' }}>{bodyColor}</span>
-                    </div>
-
-                    <span style={stl.label}>Material</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '12px' }}>
-                      {MATERIALS.map(m => (
-                        <button key={m.v} onClick={() => setMat(m.v)} style={{
-                          padding: '8px 10px', borderRadius: '5px', textAlign: 'left',
-                          background: mat === m.v ? 'rgba(108,99,255,0.08)' : 'transparent',
-                          border: mat === m.v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.15s',
-                        }}>
-                          <div>
-                            <div style={{ fontSize: '10px', fontWeight: 600, color: mat === m.v ? '#fff' : 'rgba(255,255,255,0.5)' }}>{m.n}</div>
-                            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{m.d}</div>
-                          </div>
-                          {m.p > 0 && <span style={{ fontSize: '8px', color: '#FFB020', fontWeight: 600 }}>+{m.p}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                  <div style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '5px', padding: '8px 10px', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginBottom: '2px' }}>Default Model</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Damaged Helmet (glTF 2.0)</div>
+                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '2px' }}>KhronosGroup sample asset - PBR materials, normal maps, emissive</div>
+                  </div>
                 )}
 
                 <span style={stl.label}>Environment</span>
@@ -532,7 +507,6 @@ export default function Page() {
                 {[
                   { l: 'Grid', d: 'Reference plane', a: showGrid, fn: () => setShowGrid(!showGrid), i: <IconGrid /> },
                   ...(!userFile ? [
-                    { l: 'Exploded', d: 'Separate parts', a: exploded, fn: () => setExploded(!exploded), i: <IconExplode /> },
                     { l: 'Annotations', d: 'Feature hotspots', a: showHotspots, fn: () => setShowHotspots(!showHotspots), i: <IconHotspot /> },
                   ] : []),
                 ].map(f => (
@@ -556,17 +530,10 @@ export default function Page() {
             )}
           </div>
 
-          {/* Price footer */}
-          {!userFile && (
-            <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{COLORS.find(c => c.v === bodyColor)?.n} / {mat}</span>
-                <span style={{ fontFamily: 'Space Grotesk', fontSize: '16px', fontWeight: 800 }}>{price.toLocaleString()} <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 400 }}>DKK</span></span>
-              </div>
-              <button style={{ width: '100%', padding: '8px', borderRadius: '6px', background: 'linear-gradient(135deg, #6C63FF, #5046e5)', color: '#fff', fontSize: '10px', fontWeight: 700 }}>Add to Cart</button>
-              <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', marginTop: '3px' }}>Demo only</div>
-            </div>
-          )}
+          {/* Footer info */}
+          <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
+            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.15)', textAlign: 'center' }}>SlothView 3D Viewer - Demo</div>
+          </div>
         </div>
       </div>
 

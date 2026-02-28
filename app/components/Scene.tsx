@@ -7,6 +7,7 @@ import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping } from '@react-three
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
 import { WebGLRenderer, MathUtils } from 'three';
 import Product from './Product';
+import DefaultModel from './DefaultModel';
 import UserModel from './UserModel';
 
 /* ── Types ── */
@@ -19,11 +20,11 @@ interface Hotspot {
 }
 
 const HOTSPOTS: Hotspot[] = [
-  { position: [0, 0.75, 0.7], label: 'Hi-Fi Drivers', description: '40mm neodymium drivers with crystal-clear audio reproduction up to 40kHz.' },
-  { position: [0.7, 0, 0.2], label: 'Touch Controls', description: 'Capacitive touch surface for volume, track skip, and voice assistant.' },
-  { position: [0, -0.85, 0.55], label: 'LED Status Ring', description: 'RGB indicator ring showing connection, battery, and active mode.' },
-  { position: [0, 1.1, 0], label: 'Acoustic Chamber', description: 'Sealed chamber with passive bass radiator for deep, rich lows.' },
-  { position: [0, -1.2, 0], label: 'Weighted Base', description: 'Precision-machined aluminum with anti-vibration dampening.' },
+  { position: [0.5, 0.8, 0.8], label: 'Visor Assembly', description: 'Impact-resistant polycarbonate visor with anti-scratch and anti-fog coatings. UV400 protection rated.' },
+  { position: [-0.6, 0.3, 0.6], label: 'Ventilation System', description: 'Channeled airflow vents for thermal regulation. Adjustable intake and exhaust ports.' },
+  { position: [0, -0.3, 1.0], label: 'Chin Guard', description: 'Reinforced composite chin bar with energy-absorbing EPS liner. Meets ECE 22.06 standards.' },
+  { position: [0, 0.9, -0.2], label: 'Shell Construction', description: 'Multi-composite fiber shell with variable-density EPS. Optimized impact distribution across zones.' },
+  { position: [0.8, -0.1, -0.3], label: 'Retention System', description: 'Double-D ring titanium buckle with emergency quick-release mechanism. Race-grade retention.' },
 ];
 
 export interface SceneProps {
@@ -145,16 +146,8 @@ export default function Scene(props: SceneProps) {
           <UserModel file={userFile} wireframe={showWireframe} shadingMode={shadingMode} />
         ) : (
           <>
-            <Product
-              bodyColor={bodyColor}
-              accentColor={accentColor}
-              baseColor={baseColor}
-              material={material}
-              exploded={exploded}
-              wireframe={showWireframe}
-              shadingMode={shadingMode}
-            />
-            {showHotspots && !exploded && shadingMode === 'pbr' && HOTSPOTS.map((h, i) => (
+            <DefaultModel wireframe={showWireframe} shadingMode={shadingMode} />
+            {showHotspots && shadingMode === 'pbr' && HOTSPOTS.map((h, i) => (
               <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
             ))}
           </>
