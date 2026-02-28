@@ -261,20 +261,7 @@ export default function Page() {
           <span style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#6C63FF', fontSize: '7px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.1em' }}>DEMO</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {/* Shading mode pills */}
-          <div className="top-shading-modes" style={{ display: 'flex', gap: '1px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', padding: '1px' }}>
-            {SHADING_MODES.map(m => (
-              <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
-                padding: '3px 8px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
-                background: shadingMode === m.id ? 'rgba(108,99,255,0.15)' : 'transparent',
-                color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
-                transition: 'all 0.15s',
-              }}>{m.label}</button>
-            ))}
-          </div>
-          <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
-          <a className="top-bar-quote" href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
+          <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
         </div>
       </div>
 
@@ -558,12 +545,10 @@ export default function Page() {
           }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
         </Tip>
 
-        <div className="desktop-toolbar" style={{
+        {/* Share button top-right */}
+        <div style={{
           position: 'absolute', top: '40px', right: '8px', zIndex: 20,
-          display: 'flex', gap: '2px', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.04)',
-          borderRadius: '6px', padding: '2px',
         }}>
-          {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen)}
           {ibtn(<IconShare />, 'Share config', false, share)}
         </div>
 
@@ -580,46 +565,61 @@ export default function Page() {
           modelPath={PRESET_MODELS.find(m => m.id === selectedModel)?.path}
         />
 
-        {/* Nav hint (desktop only) */}
-        <div className="nav-hint" style={{
-          position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: '8px', alignItems: 'center',
-          background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.03)',
-          borderRadius: '5px', padding: '4px 10px', fontSize: '8px', color: 'rgba(255,255,255,0.2)',
+        {/* ── Bottom viewport toolbar (always visible, Marmoset-style) ── */}
+        <div className="viewport-toolbar" style={{
+          position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 20, display: 'flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(8,8,12,0.92)', border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '10px', padding: '4px', backdropFilter: 'blur(16px)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
         }}>
-          <span>LMB Orbit</span><span style={{ opacity: 0.15 }}>|</span>
-          <span>MMB/RMB Pan</span><span style={{ opacity: 0.15 }}>|</span>
-          <span>Scroll Zoom</span><span style={{ opacity: 0.15 }}>|</span>
-          <span>Touch: 1F orbit, 2F zoom/pan</span>
-        </div>
-
-        {/* Mobile bottom bar - app-like tabs */}
-        <div className="mobile-bottom-bar" style={{
-          display: 'none', position: 'absolute', bottom: '0', left: '0', right: '0',
-          background: 'rgba(8,8,12,0.98)', borderTop: '1px solid rgba(255,255,255,0.06)',
-          padding: '4px 4px 8px', zIndex: 20, flexDirection: 'column', gap: '4px',
-        }}>
-          {/* Shading modes row */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '2px', padding: '0 4px' }}>
-            {SHADING_MODES.map(m => (
-              <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
-                padding: '8px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                background: shadingMode === m.id ? 'rgba(108,99,255,0.15)' : 'transparent',
-                color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
-                flex: 1, minHeight: '36px',
-              }}>{m.label}</button>
+          {/* Shading mode strip — diagonal dividers between modes */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            {SHADING_MODES.map((m, i) => (
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center' }}>
+                <button onClick={() => setShadingMode(m.id)} style={{
+                  padding: '8px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                  letterSpacing: '0.02em',
+                  background: shadingMode === m.id ? 'rgba(108,99,255,0.18)' : 'transparent',
+                  color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.35)',
+                  border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.3)' : '1px solid transparent',
+                  transition: 'all 0.15s',
+                  position: 'relative',
+                }}>{m.label}</button>
+                {i < SHADING_MODES.length - 1 && (
+                  <span style={{ color: 'rgba(255,255,255,0.08)', fontSize: '14px', fontWeight: 300, userSelect: 'none', margin: '0 1px' }}>/</span>
+                )}
+              </div>
             ))}
           </div>
-          {/* Model quick-scroll row */}
-          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', padding: '0 4px', WebkitOverflowScrolling: 'touch' as any }}>
+
+          {/* Separator */}
+          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.06)' }} />
+
+          {/* Quick actions */}
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {ibtn(<IconGrid />, 'Grid', showGrid, () => setShowGrid(!showGrid))}
+            {ibtn(<IconRotate />, 'Auto-rotate', autoRotate, () => setAutoRotate(!autoRotate))}
+            {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen)}
+          </div>
+        </div>
+
+        {/* Mobile model picker strip */}
+        <div className="mobile-model-bar" style={{
+          display: 'none', position: 'absolute', bottom: '60px', left: '0', right: '0',
+          zIndex: 19, padding: '0 8px',
+        }}>
+          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', padding: '6px 4px', WebkitOverflowScrolling: 'touch' as any,
+            background: 'rgba(8,8,12,0.9)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(12px)',
+          }}>
             {PRESET_MODELS.map(m => (
               <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); }} style={{
                 padding: '6px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
                 background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
                 color: !userFile && selectedModel === m.id ? '#6C63FF' : 'rgba(255,255,255,0.35)',
                 border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
-                whiteSpace: 'nowrap', minHeight: '32px', flexShrink: 0,
+                whiteSpace: 'nowrap', flexShrink: 0,
               }}>{m.name}</button>
             ))}
             <button onClick={() => fileRef.current?.click()} style={{
@@ -627,14 +627,14 @@ export default function Page() {
               background: userFile ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
               color: userFile ? '#6C63FF' : 'rgba(255,255,255,0.35)',
               border: userFile ? '1px solid rgba(108,99,255,0.25)' : '1px dashed rgba(255,255,255,0.08)',
-              whiteSpace: 'nowrap', minHeight: '32px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px',
+              whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px',
             }}><IconUpload /> {userFile ? userFile.name.slice(0, 12) : 'Upload'}</button>
           </div>
         </div>
 
         {/* Mobile FAB - settings */}
         <button className="mobile-fab" onClick={() => setSidebarOpen(true)} style={{
-          display: 'none', position: 'absolute', bottom: '110px', right: '12px', zIndex: 25,
+          display: 'none', position: 'absolute', bottom: '130px', right: '12px', zIndex: 25,
           width: '44px', height: '44px', borderRadius: '12px',
           background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)',
           color: '#6C63FF', alignItems: 'center', justifyContent: 'center',

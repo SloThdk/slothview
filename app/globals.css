@@ -46,17 +46,19 @@ input, select { font: inherit; }
   .sidebar-backdrop {
     display: block !important;
   }
-  .top-shading-modes {
-    display: none !important;
-  }
-  .top-bar-quote {
-    display: none !important;
-  }
   .nav-hint { display: none !important; }
-  .mobile-bottom-bar { display: flex !important; }
+  .mobile-model-bar { display: block !important; }
   .mobile-fab { display: flex !important; }
-  .desktop-toolbar { display: none !important; }
-  .toast-msg { bottom: 120px !important; }
+  .viewport-toolbar {
+    bottom: 8px !important;
+    padding: 3px !important;
+    border-radius: 8px !important;
+  }
+  .viewport-toolbar button {
+    padding: 7px 10px !important;
+    font-size: 10px !important;
+  }
+  .toast-msg { bottom: 140px !important; }
   /* Bigger touch targets in sidebar */
   .sidebar-panel button {
     min-height: 40px;
@@ -76,7 +78,7 @@ input, select { font: inherit; }
 
 @media (min-width: 769px) {
   .sidebar-backdrop { display: none !important; }
-  .mobile-bottom-bar { display: none !important; }
+  .mobile-model-bar { display: none !important; }
   .mobile-fab { display: none !important; }
 }
 
