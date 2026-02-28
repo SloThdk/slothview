@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { ShadingMode, SceneStats, SceneLight } from './components/Scene';
 import {
@@ -166,6 +166,10 @@ export default function Page() {
 
   // User scene lights
   const [sceneLights, setSceneLights] = useState<SceneLight[]>([]);
+  const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
+  const handleMoveLight = useCallback((id: string, pos: [number,number,number]) => {
+    setSceneLights(ls => ls.map(l => l.id === id ? {...l, x: pos[0], y: pos[1], z: pos[2]} : l));
+  }, []);
 
   // Scene Camera
   const [showSceneCamera, setShowSceneCamera] = useState(false);
@@ -189,45 +193,63 @@ export default function Page() {
 
   const previewsReady = useRef(false);
   const capturingRef = useRef(false);
+  const captureGenRef = useRef(0);
+  const shadingModeRef = useRef<ShadingMode>('pbr');
+
+  // Keep shadingModeRef in sync so refreshPreviews can read current mode without stale closure
+  useEffect(() => { shadingModeRef.current = shadingMode; }, [shadingMode]);
 
   const refreshPreviews = useCallback(async () => {
-    if (capturingRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Abort any existing capture
+    capturingRef.current = false;
+    const gen = ++captureGenRef.current;
+    await new Promise<void>(r => setTimeout(r, 20)); // let abort take effect
     capturingRef.current = true;
 
-    const originalMode = shadingMode;
-    const modes: ShadingMode[] = ['pbr', 'matcap', 'normals', 'wireframe', 'unlit'];
+    const originalMode = shadingModeRef.current;
+    const modes: ShadingMode[] = ['pbr', 'matcap', 'normals', 'wireframe', 'unlit', 'toon'];
 
-    // Dark mask behind overlay — hidden by z-index
+    // Dark mask
     const container = canvas.parentElement;
     const mask = document.createElement('div');
     mask.style.cssText = 'position:absolute;inset:0;background:#08080C;z-index:29;pointer-events:none;opacity:1;transition:opacity 0.2s;';
     container?.appendChild(mask);
 
     for (const mode of modes) {
+      if (gen !== captureGenRef.current) break; // aborted by newer call or user click
       setShadingMode(mode);
-      await new Promise<void>(r => setTimeout(r, 380));
+      await new Promise<void>(r => setTimeout(r, 360));
+      if (gen !== captureGenRef.current) break;
       await new Promise<void>(r => { let c = 0; const t = () => { if (++c >= 6) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
+      if (gen !== captureGenRef.current) break;
       const img = canvas.toDataURL('image/jpeg', 0.82);
-      // Update each preview as it's ready — overlay fills in live
       setShadingPreviews(prev => ({ ...prev, [mode]: img }));
     }
 
-    setShadingMode(originalMode);
-    await new Promise<void>(r => setTimeout(r, 250));
+    // Only restore original mode if not aborted (user hasn't clicked a mode)
+    if (gen === captureGenRef.current) {
+      setShadingMode(originalMode);
+      await new Promise<void>(r => setTimeout(r, 200));
+    }
+
     mask.style.opacity = '0';
     setTimeout(() => mask.remove(), 220);
 
-    previewsReady.current = true;
-    capturingRef.current = false;
-  }, [shadingMode]);
+    if (gen === captureGenRef.current) {
+      previewsReady.current = true;
+      capturingRef.current = false;
+    }
+  }, []);
 
   const openShadingOverlay = useCallback(async () => {
     if (shadingOverlay) { setShadingOverlay(false); return; }
-    // Open overlay immediately — previews fill in live
+    // Clear stale previews so no wrong images flash
+    setShadingPreviews({});
+    previewsReady.current = false;
     setShadingOverlay(true);
-    if (!previewsReady.current) refreshPreviews();
+    refreshPreviews();
   }, [shadingOverlay, refreshPreviews]);
 
   const screenshot = useCallback(async () => {
@@ -445,7 +467,7 @@ export default function Page() {
                 <span style={stl.label}>Style Preset</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '4px', marginBottom: '12px' }}>
                   {[
-                    { id: 'toon', label: 'Toon', desc: 'Cel-shaded', apply: () => { setShadingMode('toon'); setLightI(2.8); setAmbI(0.08); setLightAng(35); setLightH(10); setEnablePP(false); setEnv('studio'); setShowEnvBg(false); } },
+                    { id: 'toon', label: 'Toon', desc: 'Cel-shaded', apply: () => { setShadingMode('toon'); setLightI(2.8); setAmbI(0.08); setLightAng(35); setLightH(10); setEnablePP(false); } },
                     { id: 'games', label: 'Games', desc: 'Balanced PBR', apply: () => { setShadingMode('pbr'); setLightI(1.5); setAmbI(0.25); setBloomI(0.12); setBloomT(0.85); setSsao(true); setSsaoRadius(0.3); setSsaoIntensity(1.2); setChromaticAb(0); setEnablePP(true); setEnv('city'); setShowEnvBg(true); } },
                     { id: 'cinematic', label: 'Cinematic', desc: 'Film look', apply: () => { setShadingMode('pbr'); setLightI(1.8); setAmbI(0.06); setBloomI(0.45); setBloomT(0.65); setVigI(0.55); setSsao(true); setSsaoRadius(0.6); setSsaoIntensity(1.8); setChromaticAb(0.002); setBrightness(0.05); setContrast(0.12); setEnablePP(true); setEnv('sunset'); setShowEnvBg(true); } },
                   ].map(p => (
@@ -471,23 +493,37 @@ export default function Page() {
                 {sceneLights.length === 0 && (
                   <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '8px 0', marginBottom: '8px' }}>No scene lights added</div>
                 )}
-                {sceneLights.map((light, idx) => (
-                  <div key={light.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '8px', marginBottom: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Point Light {idx + 1}</span>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <label style={{ width: '18px', height: '18px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
-                          <input type="color" value={light.color} onChange={e => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, color: e.target.value} : l))} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                        </label>
-                        <button onClick={() => setSceneLights(ls => ls.filter(l => l.id !== light.id))} style={{ fontSize: '10px', color: '#f87171', opacity: 0.6, padding: '0 2px' }}>✕</button>
+                {sceneLights.map((light, idx) => {
+                  const isSel = selectedLightId === light.id;
+                  return (
+                    <div key={light.id} onClick={() => setSelectedLightId(isSel ? null : light.id)} style={{
+                      background: isSel ? 'rgba(108,99,255,0.06)' : 'rgba(255,255,255,0.02)',
+                      border: isSel ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: '6px', padding: '8px', marginBottom: '6px', cursor: 'pointer',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isSel ? '8px' : '0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: light.color, boxShadow: `0 0 6px ${light.color}` }} />
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: isSel ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.45)' }}>Point Light {idx + 1}</span>
+                          {isSel && <span style={{ fontSize: '8px', color: '#6C63FF', fontWeight: 700 }}>SELECTED</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <label onClick={e => e.stopPropagation()} style={{ width: '18px', height: '18px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
+                            <input type="color" value={light.color} onChange={e => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, color: e.target.value} : l))} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                          </label>
+                          <button onClick={e => { e.stopPropagation(); setSceneLights(ls => ls.filter(l => l.id !== light.id)); if (isSel) setSelectedLightId(null); }} style={{ fontSize: '10px', color: '#f87171', opacity: 0.6, padding: '0 2px' }}>✕</button>
+                        </div>
                       </div>
+                      {isSel && <>
+                        <div style={{ fontSize: '8px', color: 'rgba(108,99,255,0.7)', marginBottom: '6px' }}>Drag the gizmo in viewport to move</div>
+                        <Slider label="Intensity" value={light.intensity} min={0} max={5} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, intensity: v} : l))} defaultValue={1.5} />
+                        <Slider label="X" value={light.x} min={-10} max={10} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, x: v} : l))} />
+                        <Slider label="Y" value={light.y} min={0} max={12} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, y: v} : l))} />
+                        <Slider label="Z" value={light.z} min={-10} max={10} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, z: v} : l))} />
+                      </>}
                     </div>
-                    <Slider label="Intensity" value={light.intensity} min={0} max={5} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, intensity: v} : l))} />
-                    <Slider label="X" value={light.x} min={-10} max={10} step={0.5} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, x: v} : l))} />
-                    <Slider label="Y" value={light.y} min={0} max={12} step={0.5} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, y: v} : l))} />
-                    <Slider label="Z" value={light.z} min={-10} max={10} step={0.5} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, z: v} : l))} />
-                  </div>
-                ))}
+                  );
+                })}
 
                 <span style={stl.label}>Environment</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '2px', marginBottom: '12px' }}>
@@ -815,6 +851,7 @@ export default function Page() {
 
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
+        {/* Mobile burger — mobile only */}
         {!shadingOverlay && !sidebarOpen && (
           <button className="burger-btn" onClick={() => setSidebarOpen(true)} style={{
             position: 'absolute', top: '40px', left: '8px', zIndex: 50,
@@ -823,6 +860,18 @@ export default function Page() {
             color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 2px 12px rgba(108,99,255,0.4)',
           }}><IconMenu /></button>
+        )}
+        {/* Desktop sidebar pull-tab — shows when sidebar is closed */}
+        {!shadingOverlay && !sidebarOpen && (
+          <button className="desktop-edge-tab" onClick={() => setSidebarOpen(true)} title="Open panel" style={{
+            position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 50,
+            width: '16px', height: '60px', borderRadius: '0 6px 6px 0',
+            background: 'rgba(108,99,255,0.18)', border: '1px solid rgba(108,99,255,0.25)', borderLeft: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.2s',
+          }}>
+            <svg width="8" height="12" viewBox="0 0 8 12" fill="none"><path d="M2 2l4 4-4 4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
         )}
 
         {/* Share button top-right */}
@@ -850,6 +899,9 @@ export default function Page() {
           ssaoRadius={ssaoRadius} ssaoIntensity={ssaoIntensity}
           chromaticAb={chromaticAb} brightness={brightness} contrast={contrast}
           sceneLights={sceneLights}
+          selectedLightId={selectedLightId}
+          onSelectLight={setSelectedLightId}
+          onMoveLight={handleMoveLight}
           showSceneCamera={showSceneCamera}
           cameraPos={cameraPos}
           cameraViewMode={cameraViewMode}
@@ -857,8 +909,8 @@ export default function Page() {
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
-        {shadingOverlay && Object.keys(shadingPreviews).length > 0 && (
-          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, display: 'flex', overflow: 'hidden', cursor: 'pointer' }}
+        {shadingOverlay && (
+          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, display: 'flex', overflow: 'hidden', cursor: 'pointer', animation: 'fadeInOverlay 0.25s ease' }}
             onClick={() => setShadingOverlay(false)}>
             {SHADING_MODES.map((m, i) => {
               const isActive = shadingMode === m.id;
@@ -868,7 +920,9 @@ export default function Page() {
                   flex: 1, position: 'relative',
                   borderRight: i < SHADING_MODES.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
                   transition: 'flex 0.2s ease',
-                }} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }}>
+                  animation: `fadeInStrip 0.3s ease ${i * 0.04}s both`,
+                  transformOrigin: 'top',
+                }} onClick={(e) => { e.stopPropagation(); captureGenRef.current++; capturingRef.current = false; setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }}>
                   {imgSrc ? (
                     <img src={imgSrc} alt={m.label} draggable={false} style={{
                       position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',

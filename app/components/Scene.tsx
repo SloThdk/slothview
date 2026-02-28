@@ -30,15 +30,17 @@ function CustomHDRI({ url, background }: { url: string; background: boolean }) {
   return null;
 }
 
-/* Set solid background and clear environment when leaving PBR */
-function ClearBackground() {
+/* Set solid background, clear environment lighting (no PBR env effects) */
+function ClearBackground({ keepBg }: { keepBg?: boolean }) {
   const { scene, gl } = useThree();
   useEffect(() => {
-    scene.background = new Color('#08080C');
+    if (!keepBg) {
+      scene.background = new Color('#08080C');
+    }
     scene.environment = null;
     gl.setClearColor('#08080C', 1);
     gl.autoClear = true;
-  }, [scene, gl]);
+  }, [scene, gl, keepBg]);
   return null;
 }
 
@@ -109,6 +111,9 @@ export interface SceneProps {
   brightness: number;
   contrast: number;
   sceneLights: SceneLight[];
+  selectedLightId: string | null;
+  onSelectLight: (id: string | null) => void;
+  onMoveLight: (id: string, pos: [number, number, number]) => void;
   showSceneCamera: boolean;
   cameraPos: [number, number, number];
   cameraViewMode: boolean;
@@ -210,6 +215,72 @@ function SceneCameraGizmo({ position, onMove, orbitRef }: {
   );
 }
 
+/* ── Scene Light Object ── */
+function SceneLightObject({ light, selected, onSelect, onMove, orbitRef }: {
+  light: SceneLight;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onMove: (id: string, pos: [number, number, number]) => void;
+  orbitRef: React.RefObject<any>;
+}) {
+  const groupRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
+
+  return (
+    <>
+      <group
+        ref={groupRef}
+        position={[light.x, light.y, light.z]}
+        onClick={(e) => { e.stopPropagation(); onSelect(light.id); }}
+      >
+        {/* Core emissive sphere */}
+        <mesh>
+          <sphereGeometry args={[0.07, 12, 12]} />
+          <meshBasicMaterial color={light.color} />
+        </mesh>
+        {/* Inner glow */}
+        <mesh>
+          <sphereGeometry args={[0.14, 12, 12]} />
+          <meshBasicMaterial color={light.color} transparent opacity={0.18} />
+        </mesh>
+        {/* Outer wireframe radius indicator */}
+        <mesh>
+          <sphereGeometry args={selected ? [0.28, 8, 8] : [0.22, 8, 8]} />
+          <meshBasicMaterial color={selected ? '#6C63FF' : light.color} wireframe transparent opacity={selected ? 0.8 : 0.35} />
+        </mesh>
+        {/* Cross-hair lines through center */}
+        {selected && <>
+          <Line points={[[-0.28,0,0],[0.28,0,0]]} color="#6C63FF" lineWidth={0.6} />
+          <Line points={[[0,-0.28,0],[0,0.28,0]]} color="#6C63FF" lineWidth={0.6} />
+          <Line points={[[0,0,-0.28],[0,0,0.28]]} color="#6C63FF" lineWidth={0.6} />
+        </>}
+      </group>
+      {selected && ready && groupRef.current && (
+        <TransformControls
+          object={groupRef.current}
+          mode="translate"
+          size={0.65}
+          onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+          onMouseUp={() => {
+            if (orbitRef.current) orbitRef.current.enabled = true;
+            if (groupRef.current) {
+              const p = groupRef.current.position;
+              onMove(light.id, [+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1)]);
+            }
+          }}
+          onChange={() => {
+            if (groupRef.current) {
+              const p = groupRef.current.position;
+              onMove(light.id, [+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1)]);
+            }
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 /* ── Stats collector (runs inside Canvas) ── */
 function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
   const { scene, gl } = useThree();
@@ -263,6 +334,7 @@ export default function Scene(props: SceneProps) {
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
     modelPath, showEnvBackground, customHdri, onStats, onLightDrag, overrideColor,
     ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast, sceneLights,
+    selectedLightId, onSelectLight, onMoveLight,
     showSceneCamera, cameraPos, cameraViewMode, onCameraMove,
   } = props;
 
@@ -326,9 +398,18 @@ export default function Scene(props: SceneProps) {
             </>}
           </>
         )}
-        {/* User-added scene lights */}
+        {/* User-added scene lights — actual point light + visible 3D object */}
         {sceneLights.map(l => (
-          <pointLight key={l.id} position={[l.x, l.y, l.z]} color={l.color} intensity={l.intensity} distance={12} decay={2} />
+          <React.Fragment key={l.id}>
+            <pointLight position={[l.x, l.y, l.z]} color={l.color} intensity={l.intensity} distance={12} decay={2} />
+            <SceneLightObject
+              light={l}
+              selected={selectedLightId === l.id}
+              onSelect={onSelectLight}
+              onMove={onMoveLight}
+              orbitRef={orbitRef}
+            />
+          </React.Fragment>
         ))}
 
         {/* Model */}
@@ -337,18 +418,24 @@ export default function Scene(props: SceneProps) {
         ) : (
           <>
             <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} />
-            {showHotspots && shadingMode === 'pbr' && (!modelPath || modelPath === '/models/DamagedHelmet.glb') && HOTSPOTS.map((h, i) => (
+            {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
               <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
             ))}
           </>
         )}
 
-        {/* Environment — only in PBR mode */}
-        {(shadingMode === 'pbr') ? (
+        {/* Environment — PBR gets full lighting + optional bg; other modes get bg only if enabled */}
+        {shadingMode === 'pbr' ? (
           <>
             {!customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
             {customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}
             <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2.5} far={4} />
+          </>
+        ) : showEnvBackground ? (
+          <>
+            {!customHdri && <Environment preset={environment as any} background={true} />}
+            {customHdri && <CustomHDRI url={customHdri} background={true} />}
+            <ClearBackground keepBg />
           </>
         ) : (
           <ClearBackground />
