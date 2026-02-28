@@ -247,7 +247,7 @@ export default function Page() {
 
       <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
 
-      {toast && <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.1s' }}>{toast}</div>}
+      {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '120px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.1s' }}>{toast}</div>}
 
       {dragOver && <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(108,99,255,0.06)', border: '2px dashed rgba(108,99,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}><div style={{ color: '#6C63FF', marginBottom: '6px' }}><IconUpload /></div><div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Drop 3D model</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '3px' }}>GLB, GLTF, FBX, OBJ</div></div>
@@ -634,7 +634,7 @@ export default function Page() {
 
         {/* Mobile FAB - settings */}
         <button className="mobile-fab" onClick={() => setSidebarOpen(true)} style={{
-          display: 'none', position: 'absolute', bottom: '100px', right: '12px', zIndex: 25,
+          display: 'none', position: 'absolute', bottom: '140px', right: '12px', zIndex: 25,
           width: '44px', height: '44px', borderRadius: '12px',
           background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)',
           color: '#6C63FF', alignItems: 'center', justifyContent: 'center',
@@ -642,7 +642,7 @@ export default function Page() {
         }}><IconSliders /></button>
       </div>
 
-      <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{
+      <a className="built-by-link" href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{
         position: 'fixed', bottom: '10px', right: '10px', zIndex: 50,
         background: 'rgba(8,8,12,0.95)', border: '1px solid rgba(255,255,255,0.04)',
         borderRadius: '5px', padding: '4px 10px', fontSize: '9px',
