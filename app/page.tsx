@@ -130,6 +130,11 @@ export default function Page() {
   const [bloomT, setBloomT] = useState(0.9);
   const [vigI, setVigI] = useState(0.3);
   const [ssao, setSsao] = useState(true);
+  const [ssaoRadius, setSsaoRadius] = useState(0.5);
+  const [ssaoIntensity, setSsaoIntensity] = useState(1.0);
+  const [chromaticAb, setChromaticAb] = useState(0);
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
 
   // Render
   const [rendering, setRendering] = useState(false);
@@ -206,25 +211,30 @@ export default function Page() {
     setShadingOverlay(true);
   }, [shadingOverlay, refreshPreviews]);
 
-  const screenshot = useCallback(() => {
+  const screenshot = useCallback(async () => {
     if (!canvasRef.current) return;
+    const hadGrid = showGrid;
+    if (hadGrid) setShowGrid(false);
+    await new Promise<void>(r => { let c = 0; const t = () => { if (++c >= 3) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
     const a = document.createElement('a');
     a.download = `slothview-${Date.now()}.png`;
     a.href = canvasRef.current.toDataURL('image/png');
     a.click();
+    if (hadGrid) setShowGrid(true);
     showToast('Screenshot saved');
-  }, []);
+  }, [showGrid]);
 
   const render = useCallback(() => {
     const gl = glRef.current, c = canvasRef.current;
     if (!gl || !c) return;
+    const hadGrid = showGrid;
+    if (hadGrid) setShowGrid(false);
     setRendering(true);
     const mul = renderRes === '4x' ? 4 : 2;
     const oW = c.width, oH = c.height;
     const rW = oW * mul, rH = oH * mul;
     gl.setSize(rW, rH, false);
     gl.setPixelRatio(1);
-    // Multi-sample by rendering multiple frames
     let frame = 0;
     const doFrame = () => {
       if (frame < renderSamples) {
@@ -239,11 +249,13 @@ export default function Page() {
         a.href = url;
         a.click();
         setRendering(false);
+        if (hadGrid) setShowGrid(true);
         showToast(`Rendered ${rW}x${rH} @ ${renderSamples} samples`);
       }
     };
-    requestAnimationFrame(doFrame);
-  }, [renderRes, renderSamples]);
+    // Small delay to let grid hide before capturing
+    setTimeout(() => requestAnimationFrame(doFrame), 100);
+  }, [renderRes, renderSamples, showGrid]);
 
   const fullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -525,14 +537,25 @@ export default function Page() {
                     <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} />
                     <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} />
                     <button onClick={() => setSsao(!ssao)} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '5px', width: '100%', marginBottom: '8px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '5px', width: '100%', marginBottom: '4px',
                       background: ssao ? 'rgba(108,99,255,0.06)' : 'transparent', border: ssao ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
                     }}>
-                      <span style={{ fontSize: '10px', fontWeight: 600, color: ssao ? '#fff' : 'rgba(255,255,255,0.4)' }}>SSAO</span>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: ssao ? '#fff' : 'rgba(255,255,255,0.4)' }}>SSAO (Ambient Occlusion)</span>
                       <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: ssao ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: ssao ? '16px' : '2px', transition: 'left 0.2s' }} />
                       </div>
                     </button>
+                    {ssao && <>
+                      <Slider label="AO Radius" value={ssaoRadius} min={0.1} max={2} step={0.05} onChange={setSsaoRadius} />
+                      <Slider label="AO Intensity" value={ssaoIntensity} min={0} max={4} step={0.1} onChange={setSsaoIntensity} />
+                    </>}
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '8px 0' }} />
+                    <span style={stl.label}>Color Grading</span>
+                    <Slider label="Brightness" value={brightness} min={-0.4} max={0.4} step={0.01} onChange={setBrightness} />
+                    <Slider label="Contrast" value={contrast} min={-0.4} max={0.4} step={0.01} onChange={setContrast} />
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '8px 0' }} />
+                    <span style={stl.label}>Lens Effects</span>
+                    <Slider label="Chromatic Aberration" value={chromaticAb} min={0} max={0.01} step={0.0005} onChange={setChromaticAb} />
                   </>
                 )}
 
@@ -682,6 +705,8 @@ export default function Page() {
           onStats={setSceneStats}
           onLightDrag={(dx, dy) => { setLightAng(a => a + dx * 0.5); setLightH(h => Math.max(1, Math.min(15, h - dy * 0.05))); }}
           overrideColor={overrideColor}
+          ssaoRadius={ssaoRadius} ssaoIntensity={ssaoIntensity}
+          chromaticAb={chromaticAb} brightness={brightness} contrast={contrast}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -718,6 +743,35 @@ export default function Page() {
             })}
           </div>
         )}
+
+        {/* ── Navigation hints bar ── */}
+        <div className="nav-hint" style={{
+          position: 'absolute', bottom: '56px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 18, display: 'flex', gap: '14px', alignItems: 'center',
+          fontSize: '9px', color: 'rgba(255,255,255,0.22)', whiteSpace: 'nowrap',
+          pointerEvents: 'none', letterSpacing: '0.03em',
+        }}>
+          {[
+            { icon: '🖱', label: 'LMB · Orbit' },
+            { icon: '🖱', label: 'RMB · Pan' },
+            { icon: '⚙', label: 'Scroll · Zoom' },
+            { icon: '⚙', label: 'Alt+RMB · Light' },
+          ].map(h => (
+            <span key={h.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ opacity: 0.4, fontFamily: 'monospace', fontSize: '8px', background: 'rgba(255,255,255,0.05)', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(255,255,255,0.06)' }}>{h.label}</span>
+            </span>
+          ))}
+        </div>
+
+        {/* ── Mobile nav hint ── */}
+        <div className="mobile-nav-hint" style={{
+          display: 'none', position: 'absolute', top: '48px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 18, flexDirection: 'row', gap: '6px', alignItems: 'center', pointerEvents: 'none',
+        }}>
+          {[{ label: '1 finger · Orbit' }, { label: '2 fingers · Zoom/Pan' }].map(h => (
+            <span key={h.label} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', whiteSpace: 'nowrap' }}>{h.label}</span>
+          ))}
+        </div>
 
         {/* ── Bottom viewport toolbar ── */}
         <div className="viewport-toolbar" style={{

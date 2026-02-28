@@ -3,9 +3,9 @@
 import React, { Suspense, useRef, useCallback, useEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
-import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color } from 'three';
+import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2 } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import Product from './Product';
 import DefaultModel from './DefaultModel';
@@ -101,6 +101,11 @@ export interface SceneProps {
   onStats?: (stats: SceneStats) => void;
   onLightDrag?: (deltaX: number, deltaY: number) => void;
   overrideColor: string | null;
+  ssaoRadius: number;
+  ssaoIntensity: number;
+  chromaticAb: number;
+  brightness: number;
+  contrast: number;
 }
 
 /* ── Hotspot marker ── */
@@ -176,6 +181,7 @@ export default function Scene(props: SceneProps) {
     lightIntensity, lightAngle, lightHeight, ambientIntensity, userFile, fov,
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
     modelPath, showEnvBackground, customHdri, onStats, onLightDrag, overrideColor,
+    ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast,
   } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
@@ -261,7 +267,9 @@ export default function Scene(props: SceneProps) {
           <EffectComposer multisampling={4}>
             <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.4} mipmapBlur />
             {vignetteIntensity > 0 ? <Vignette offset={0.3} darkness={vignetteIntensity} /> : <></>}
-            {ssaoEnabled ? <N8AO aoRadius={0.5} intensity={1} distanceFalloff={0.5} /> : <></>}
+            {ssaoEnabled ? <N8AO aoRadius={ssaoRadius} intensity={ssaoIntensity} distanceFalloff={0.5} /> : <></>}
+            {chromaticAb > 0 ? <ChromaticAberration offset={new Vector2(chromaticAb, chromaticAb)} /> : <></>}
+            {(brightness !== 0 || contrast !== 0) ? <BrightnessContrast brightness={brightness} contrast={contrast} /> : <></>}
             <ToneMapping mode={ToneMappingMode.AGX} />
           </EffectComposer>
         )}
