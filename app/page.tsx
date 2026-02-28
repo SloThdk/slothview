@@ -657,11 +657,13 @@ export default function Page() {
               const imgSrc = shadingPreviews[m.id];
               const w = 100 / count;
               const l = w * i;
-              const lean = 10;
+              const lean = 5;
+              // Wider clip with more overlap so each stripe shows more content
+              const pad = 4;
               return (
                 <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); showToast(m.label); }} style={{
                   position: 'absolute', top: 0, bottom: 0, left: 0, width: '100%',
-                  clipPath: `polygon(${l + lean}% 0%, ${l + w + lean}% 0%, ${l + w - lean}% 100%, ${l - lean}% 100%)`,
+                  clipPath: `polygon(${l + lean - pad}% 0%, ${l + w + lean + pad}% 0%, ${l + w - lean + pad}% 100%, ${l - lean - pad}% 100%)`,
                   background: '#000',
                   border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden',
                   animation: 'stripeIn 0.3s ease both',
