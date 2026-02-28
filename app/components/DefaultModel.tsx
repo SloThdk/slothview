@@ -71,12 +71,18 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
     originalMaterials.current = matMap;
   }, [scene]);
 
-  // Apply shading mode
+  // Apply shading mode — dispose old materials first to prevent layering
   useEffect(() => {
     scene.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
       const mesh = child as THREE.Mesh;
       const orig = originalMaterials.current.get(mesh);
+
+      // Dispose current material(s) before replacing
+      const currentMats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      currentMats.forEach(m => {
+        if (m && !originalMaterials.current.has(mesh as any)) m.dispose();
+      });
 
       if (shadingMode === 'pbr' && orig) {
         mesh.material = Array.isArray(orig) ? orig.map(m => m.clone()) : orig.clone();
@@ -99,7 +105,7 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
         mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
       }
     });
-  }, [scene, shadingMode, wireframe, matcapTex]);
+  }, [scene, shadingMode, matcapTex]);
 
   useFrame((state) => {
     if (groupRef.current) {

@@ -30,6 +30,16 @@ function CustomHDRI({ url, background }: { url: string; background: boolean }) {
   return null;
 }
 
+/* Clear scene background/environment when leaving PBR */
+function ClearBackground() {
+  const { scene } = useThree();
+  useEffect(() => {
+    scene.background = null;
+    scene.environment = null;
+  }, [scene]);
+  return null;
+}
+
 /* ── Types ── */
 export type ShadingMode = 'pbr' | 'matcap' | 'normals' | 'wireframe' | 'unlit';
 
@@ -177,11 +187,17 @@ export default function Scene(props: SceneProps) {
           </>
         )}
 
-        {/* Environment */}
-        {shadingMode === 'pbr' && !customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
-        {shadingMode === 'pbr' && customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}
-        {shadingMode === 'pbr' && <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2.5} far={4} />}
-        {showGrid && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="rgba(108,99,255,0.04)" sectionColor="rgba(108,99,255,0.08)" fadeDistance={15} infiniteGrid />}
+        {/* Environment — only in PBR mode */}
+        {shadingMode === 'pbr' ? (
+          <>
+            {!customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
+            {customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}
+            <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2.5} far={4} />
+          </>
+        ) : (
+          <ClearBackground />
+        )}
+        {showGrid && shadingMode === 'pbr' && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="rgba(108,99,255,0.04)" sectionColor="rgba(108,99,255,0.08)" fadeDistance={15} infiniteGrid />}
 
         {/* Post-processing */}
         {enablePostProcessing && shadingMode === 'pbr' && (

@@ -81,13 +81,17 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // Apply shading mode
+  // Apply shading mode — dispose old materials to prevent layering
   useEffect(() => {
     if (!model) return;
     model.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
       const mesh = child as THREE.Mesh;
       const orig = originalMaterials.current.get(mesh);
+
+      // Dispose current materials before replacing
+      const currentMats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      currentMats.forEach(m => { if (m) m.dispose(); });
 
       if (shadingMode === 'pbr' && orig) {
         mesh.material = Array.isArray(orig) ? orig.map(m => m.clone()) : orig.clone();
@@ -104,7 +108,7 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
         mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
       }
     });
-  }, [model, shadingMode, wireframe, matcapTex]);
+  }, [model, shadingMode, matcapTex]);
 
   useFrame((state) => {
     if (groupRef.current) groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.35) * 0.02;
