@@ -634,7 +634,7 @@ export default function Page() {
 
         {/* Mobile FAB - settings */}
         <button className="mobile-fab" onClick={() => setSidebarOpen(true)} style={{
-          display: 'none', position: 'absolute', bottom: '140px', right: '12px', zIndex: 25,
+          display: 'none', position: 'absolute', bottom: '110px', right: '12px', zIndex: 25,
           width: '44px', height: '44px', borderRadius: '12px',
           background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)',
           color: '#6C63FF', alignItems: 'center', justifyContent: 'center',
@@ -642,12 +642,7 @@ export default function Page() {
         }}><IconSliders /></button>
       </div>
 
-      <a className="built-by-link" href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{
-        position: 'fixed', bottom: '10px', right: '10px', zIndex: 50,
-        background: 'rgba(8,8,12,0.95)', border: '1px solid rgba(255,255,255,0.04)',
-        borderRadius: '5px', padding: '4px 10px', fontSize: '9px',
-        color: 'rgba(255,255,255,0.3)', textDecoration: 'none',
-      }}>Built by <span style={{ color: '#6C63FF', fontWeight: 600 }}>Sloth Studio</span> &rarr;</a>
+      {/* Built by link removed — demo info kept in top bar only */}
     </div>
   );
 }

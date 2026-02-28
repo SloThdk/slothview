@@ -56,8 +56,7 @@ input, select { font: inherit; }
   .mobile-bottom-bar { display: flex !important; }
   .mobile-fab { display: flex !important; }
   .desktop-toolbar { display: none !important; }
-  .built-by-link { bottom: 108px !important; right: 8px !important; font-size: 8px !important; padding: 3px 8px !important; }
-  .toast-msg { bottom: 140px !important; }
+  .toast-msg { bottom: 120px !important; }
   /* Bigger touch targets in sidebar */
   .sidebar-panel button {
     min-height: 40px;
