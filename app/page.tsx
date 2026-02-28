@@ -328,7 +328,7 @@ export default function Page() {
         transition: 'width 0.25s ease', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', paddingTop: '32px', zIndex: 10,
       }}>
-        <div style={{ minWidth: '260px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ minWidth: '240px', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           {/* Panel tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
             {([
