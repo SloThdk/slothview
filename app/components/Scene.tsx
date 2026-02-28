@@ -177,10 +177,10 @@ export default function Scene(props: SceneProps) {
 
         {/* Model */}
         {userFile ? (
-          <UserModel file={userFile} wireframe={showWireframe} shadingMode={shadingMode} />
+          <UserModel key={`user-${shadingMode}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} />
         ) : (
           <>
-            <DefaultModel key={modelPath || 'default'} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} />
+            <DefaultModel key={`${modelPath || 'default'}-${shadingMode}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} />
             {showHotspots && shadingMode === 'pbr' && (!modelPath || modelPath === '/models/DamagedHelmet.glb') && HOTSPOTS.map((h, i) => (
               <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
             ))}

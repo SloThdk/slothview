@@ -15,24 +15,6 @@ interface DefaultModelProps {
 export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb' }: DefaultModelProps) {
   const { scene: originalScene } = useGLTF(modelPath);
   const groupRef = useRef<THREE.Group>(null);
-  const originalMaterials = useRef<Map<THREE.Mesh, THREE.Material | THREE.Material[]>>(new Map());
-
-  // Clone scene so we never mutate the GLTF cache
-  const scene = useMemo(() => {
-    const cloned = originalScene.clone(true);
-    // Deep-clone materials so each instance is independent
-    cloned.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        if (Array.isArray(mesh.material)) {
-          mesh.material = mesh.material.map(m => m.clone());
-        } else {
-          mesh.material = mesh.material.clone();
-        }
-      }
-    });
-    return cloned;
-  }, [originalScene]);
 
   // Procedural matcap
   const matcapTex = useMemo(() => {
@@ -46,49 +28,33 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
     return new THREE.CanvasTexture(canvas);
   }, []);
 
-  // Auto-center/scale + store original materials
-  useEffect(() => {
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 3 / maxDim;
-    if (groupRef.current) {
-      groupRef.current.scale.setScalar(scale);
-      groupRef.current.position.set(-center.x * scale, -center.y * scale + 0.1, -center.z * scale);
-    }
+  // Clone scene and apply shading mode immediately
+  const scene = useMemo(() => {
+    const cloned = originalScene.clone(true);
 
-    // Store originals
-    const matMap = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
-    scene.traverse((child) => {
+    // Deep-clone materials first
+    cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        matMap.set(mesh, Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone());
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map(m => m.clone());
+        } else {
+          mesh.material = mesh.material.clone();
+        }
       }
     });
-    originalMaterials.current = matMap;
-  }, [scene]);
 
-  // Apply shading mode — dispose old materials first to prevent layering
-  useEffect(() => {
-    scene.traverse((child) => {
+    // Apply shading mode
+    cloned.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
       const mesh = child as THREE.Mesh;
-      const orig = originalMaterials.current.get(mesh);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
 
-      // Dispose current material(s) before replacing
-      const currentMats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      currentMats.forEach(m => {
-        if (m && !originalMaterials.current.has(mesh as any)) m.dispose();
-      });
-
-      if (shadingMode === 'pbr' && orig) {
-        mesh.material = Array.isArray(orig) ? orig.map(m => m.clone()) : orig.clone();
+      if (shadingMode === 'pbr') {
+        // Already cloned PBR materials above
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         mats.forEach(m => {
-          if ('wireframe' in m) (m as any).wireframe = false;
           if ((m as THREE.MeshStandardMaterial).envMapIntensity !== undefined) {
             (m as THREE.MeshStandardMaterial).envMapIntensity = 1.5;
           }
@@ -99,13 +65,28 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
       } else if (shadingMode === 'matcap') {
         mesh.material = new THREE.MeshMatcapMaterial({ matcap: matcapTex });
       } else if (shadingMode === 'unlit') {
-        const origMat = orig ? (Array.isArray(orig) ? orig[0] : orig) as THREE.MeshStandardMaterial : null;
+        const origMat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
         mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', map: origMat?.map || null });
       } else if (shadingMode === 'wireframe') {
         mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
       }
     });
-  }, [scene, shadingMode, matcapTex]);
+
+    return cloned;
+  }, [originalScene, shadingMode, matcapTex]);
+
+  // Auto-center/scale
+  useEffect(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 3 / maxDim;
+    if (groupRef.current) {
+      groupRef.current.scale.setScalar(scale);
+      groupRef.current.position.set(-center.x * scale, -center.y * scale + 0.1, -center.z * scale);
+    }
+  }, [scene]);
 
   useFrame((state) => {
     if (groupRef.current) {

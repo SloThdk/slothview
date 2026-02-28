@@ -18,7 +18,6 @@ interface UserModelProps {
 export default function UserModel({ file, wireframe, shadingMode }: UserModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [model, setModel] = useState<THREE.Group | null>(null);
-  const originalMaterials = useRef<Map<THREE.Mesh, THREE.Material | THREE.Material[]>>(new Map());
 
   // Procedural matcap
   const matcapTex = useMemo(() => {
@@ -46,13 +45,14 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
       group.scale.setScalar(scale);
       group.position.sub(center.multiplyScalar(scale));
 
-      const matMap = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+      // Apply shading mode on load
       group.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          matMap.set(mesh, Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone());
+        if (!(child as THREE.Mesh).isMesh) return;
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        if (shadingMode === 'pbr') {
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           mats.forEach(mat => {
             if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
@@ -60,9 +60,18 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
               mat.needsUpdate = true;
             }
           });
+        } else if (shadingMode === 'normals') {
+          mesh.material = new THREE.MeshNormalMaterial({ flatShading: false });
+        } else if (shadingMode === 'matcap') {
+          mesh.material = new THREE.MeshMatcapMaterial({ matcap: matcapTex });
+        } else if (shadingMode === 'unlit') {
+          const origMat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+          mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', map: origMat?.map || null });
+        } else if (shadingMode === 'wireframe') {
+          mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
         }
       });
-      originalMaterials.current = matMap;
+
       setModel(group);
     };
 
@@ -71,7 +80,7 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
       const draco = new DRACOLoader();
       draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
       loader.setDRACOLoader(draco);
-      loader.load(url, (gltf) => processModel(gltf.scene), undefined, console.error);
+      loader.load(url, (gltf) => processModel(gltf.scene.clone(true)), undefined, console.error);
     } else if (ext === 'fbx') {
       new FBXLoader().load(url, processModel, undefined, console.error);
     } else if (ext === 'obj') {
@@ -79,36 +88,7 @@ export default function UserModel({ file, wireframe, shadingMode }: UserModelPro
     }
 
     return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  // Apply shading mode — dispose old materials to prevent layering
-  useEffect(() => {
-    if (!model) return;
-    model.traverse((child) => {
-      if (!(child as THREE.Mesh).isMesh) return;
-      const mesh = child as THREE.Mesh;
-      const orig = originalMaterials.current.get(mesh);
-
-      // Dispose current materials before replacing
-      const currentMats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      currentMats.forEach(m => { if (m) m.dispose(); });
-
-      if (shadingMode === 'pbr' && orig) {
-        mesh.material = Array.isArray(orig) ? orig.map(m => m.clone()) : orig.clone();
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        mats.forEach(m => { if ('wireframe' in m) (m as any).wireframe = false; m.needsUpdate = true; });
-      } else if (shadingMode === 'normals') {
-        mesh.material = new THREE.MeshNormalMaterial({ flatShading: false });
-      } else if (shadingMode === 'matcap') {
-        mesh.material = new THREE.MeshMatcapMaterial({ matcap: matcapTex });
-      } else if (shadingMode === 'unlit') {
-        const origMat = orig ? (Array.isArray(orig) ? orig[0] : orig) as THREE.MeshStandardMaterial : null;
-        mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', map: origMat?.map || null });
-      } else if (shadingMode === 'wireframe') {
-        mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
-      }
-    });
-  }, [model, shadingMode, matcapTex]);
+  }, [file, shadingMode, matcapTex]);
 
   useFrame((state) => {
     if (groupRef.current) groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.35) * 0.02;
