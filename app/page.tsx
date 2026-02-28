@@ -103,7 +103,7 @@ export default function Page() {
   const [showHotspots, setShowHotspots] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<number | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
 
   // Camera
   const [fov, setFov] = useState(40);
@@ -249,7 +249,7 @@ export default function Page() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {/* Shading mode pills */}
-          <div style={{ display: 'flex', gap: '1px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', padding: '1px' }}>
+          <div className="top-shading-modes" style={{ display: 'flex', gap: '1px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', padding: '1px' }}>
             {SHADING_MODES.map(m => (
               <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
                 padding: '3px 8px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
@@ -265,8 +265,11 @@ export default function Page() {
         </div>
       </div>
 
+      {/* Sidebar backdrop (mobile) */}
+      {sidebarOpen && <div className="sidebar-backdrop" style={{ display: 'none', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 35, top: '32px' }} onClick={() => setSidebarOpen(false)} />}
+
       {/* ── Sidebar ── */}
-      <div style={{
+      <div className="sidebar-panel" data-closed={!sidebarOpen} style={{
         width: sidebarOpen ? '260px' : '0px', flexShrink: 0,
         background: 'rgba(10,10,14,0.98)', borderRight: '1px solid rgba(255,255,255,0.03)',
         transition: 'width 0.25s ease', overflow: 'hidden',
@@ -316,6 +319,23 @@ export default function Page() {
                   </div>
                   {userFile && <button onClick={e => { e.stopPropagation(); setUserFile(null); showToast('Removed'); }} style={{ marginLeft: 'auto', color: '#f87171', opacity: 0.6 }}><IconTrash /></button>}
                 </button>
+
+                {userFile && (
+                  <div style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '5px', padding: '8px 10px', marginBottom: '10px', fontSize: '9px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>Format</span>
+                      <span style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>{userFile.name.split('.').pop()?.toUpperCase()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>Size</span>
+                      <span style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>{(userFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>Materials</span>
+                      <span style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>Original PBR</span>
+                    </div>
+                  </div>
+                )}
 
                 {!userFile && (
                   <>
@@ -491,6 +511,24 @@ export default function Page() {
             {/* ── Display tab ── */}
             {tab === 'display' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {/* Background color */}
+                <div style={{ marginBottom: '10px' }}>
+                  <span style={stl.label}>Background</span>
+                  <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                    {[
+                      { n: 'Dark', v: '#08080C' }, { n: 'Midnight', v: '#0a0a1a' },
+                      { n: 'Charcoal', v: '#1a1a1e' }, { n: 'Slate', v: '#2a2a32' },
+                      { n: 'Light', v: '#e0e0e4' }, { n: 'White', v: '#ffffff' },
+                    ].map(c => (
+                      <button key={c.v} onClick={() => { document.body.style.background = c.v; showToast(`BG: ${c.n}`); }} title={c.n} style={{
+                        width: '24px', height: '24px', borderRadius: '5px', background: c.v,
+                        border: '1.5px solid rgba(255,255,255,0.06)', transition: 'all 0.15s',
+                      }} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Toggles */}
                 {[
                   { l: 'Grid', d: 'Reference plane', a: showGrid, fn: () => setShowGrid(!showGrid), i: <IconGrid /> },
                   ...(!userFile ? [
@@ -564,8 +602,8 @@ export default function Page() {
           ssaoEnabled={ssao} enablePostProcessing={enablePP}
         />
 
-        {/* Nav hint */}
-        <div style={{
+        {/* Nav hint (desktop only) */}
+        <div className="nav-hint" style={{
           position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', gap: '8px', alignItems: 'center',
           background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.03)',
@@ -575,6 +613,22 @@ export default function Page() {
           <span>MMB/RMB Pan</span><span style={{ opacity: 0.15 }}>|</span>
           <span>Scroll Zoom</span><span style={{ opacity: 0.15 }}>|</span>
           <span>Touch: 1F orbit, 2F zoom/pan</span>
+        </div>
+
+        {/* Mobile bottom bar */}
+        <div className="mobile-shading" style={{
+          display: 'none', position: 'absolute', bottom: '0', left: '0', right: '0',
+          background: 'rgba(8,8,12,0.98)', borderTop: '1px solid rgba(255,255,255,0.04)',
+          padding: '6px 8px', gap: '2px', zIndex: 20, justifyContent: 'center',
+        }}>
+          {SHADING_MODES.map(m => (
+            <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
+              padding: '6px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 600,
+              background: shadingMode === m.id ? 'rgba(108,99,255,0.15)' : 'transparent',
+              color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.25)',
+              border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
+            }}>{m.label}</button>
+          ))}
         </div>
       </div>
 
