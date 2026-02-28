@@ -1,17 +1,25 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import {
+  IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
+  IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
+  IconBox, IconSliders, IconEye, IconX, IconMenu, IconCheck, IconFile, IconTrash, IconZap,
+} from './components/Icons';
 
 const Scene = dynamic(() => import('./components/Scene'), { ssr: false });
 
+/* ── Data ── */
 const COLORS = [
   { name: 'Obsidian', value: '#1a1a2e' },
-  { name: 'Arctic White', value: '#e8e8ec' },
+  { name: 'Arctic', value: '#e8e8ec' },
   { name: 'Navy', value: '#0f1b3d' },
   { name: 'Crimson', value: '#8b1a1a' },
   { name: 'Forest', value: '#1a3a2a' },
   { name: 'Charcoal', value: '#2d2d3a' },
+  { name: 'Slate', value: '#3d4f5f' },
+  { name: 'Copper', value: '#5a3825' },
 ];
 
 const ACCENTS = [
@@ -21,6 +29,8 @@ const ACCENTS = [
   { name: 'Rose', value: '#FF4F81' },
   { name: 'Ice', value: '#4FC3F7' },
   { name: 'Pure', value: '#ffffff' },
+  { name: 'Coral', value: '#FF6B6B' },
+  { name: 'Lime', value: '#A3E635' },
 ];
 
 const BASES = [
@@ -28,13 +38,15 @@ const BASES = [
   { name: 'Silver', value: '#b8b8c0' },
   { name: 'Gold', value: '#c4a35a' },
   { name: 'Black', value: '#0a0a0e' },
+  { name: 'Brushed', value: '#6b7280' },
 ];
 
-const MATERIALS: { name: string; value: 'glossy' | 'matte' | 'metallic' | 'glass' }[] = [
-  { name: 'Glossy', value: 'glossy' },
-  { name: 'Matte', value: 'matte' },
-  { name: 'Metallic', value: 'metallic' },
-  { name: 'Glass', value: 'glass' },
+type MaterialType = 'glossy' | 'matte' | 'metallic' | 'glass';
+const MATERIALS: { name: string; value: MaterialType; desc: string; price: number }[] = [
+  { name: 'Glossy', value: 'glossy', desc: 'High-shine reflective finish', price: 0 },
+  { name: 'Matte', value: 'matte', desc: 'Soft, diffused surface', price: 0 },
+  { name: 'Metallic', value: 'metallic', desc: 'Brushed metal appearance', price: 299 },
+  { name: 'Glass', value: 'glass', desc: 'Translucent frosted glass', price: 499 },
 ];
 
 const ENVIRONMENTS = [
@@ -44,71 +56,72 @@ const ENVIRONMENTS = [
   { name: 'Forest', value: 'forest' },
   { name: 'Night', value: 'night' },
   { name: 'Warehouse', value: 'warehouse' },
+  { name: 'Dawn', value: 'dawn' },
+  { name: 'Apartment', value: 'apartment' },
+  { name: 'Lobby', value: 'lobby' },
+  { name: 'Park', value: 'park' },
 ];
 
-const MATERIAL_PRICES = { glossy: 0, matte: 0, metallic: 299, glass: 499 };
+const LIGHTING_PRESETS = [
+  { name: 'Default', intensity: 1.2, ambient: 0.3, angle: 45 },
+  { name: 'Dramatic', intensity: 2.0, ambient: 0.1, angle: 80 },
+  { name: 'Soft', intensity: 0.7, ambient: 0.5, angle: 30 },
+  { name: 'Backlit', intensity: 1.5, ambient: 0.2, angle: 180 },
+  { name: 'Top-Down', intensity: 1.8, ambient: 0.15, angle: 0 },
+  { name: 'Warm', intensity: 1.0, ambient: 0.4, angle: 60 },
+];
+
 const BASE_PRICE = 2499;
 
-const SVG_ICONS = {
-  camera: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  ),
-  maximize: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-    </svg>
-  ),
-  grid: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-    </svg>
-  ),
-  explode: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="2" /><path d="M12 2v4m0 12v4M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
-    </svg>
-  ),
-  rotate: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-    </svg>
-  ),
-  wireframe: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-    </svg>
-  ),
-  tag: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  ),
-  share: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  ),
-};
+/* ── Tooltip ── */
+function Tooltip({ text, children, position = 'bottom' }: { text: string; children: React.ReactNode; position?: 'bottom' | 'top' | 'left' }) {
+  const [show, setShow] = useState(false);
+  const posStyle: React.CSSProperties = position === 'top'
+    ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '6px' }
+    : position === 'left'
+    ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '6px' }
+    : { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '6px' };
 
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex' }} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      {children}
+      {show && (
+        <div style={{
+          position: 'absolute', ...posStyle, zIndex: 200,
+          background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(108,99,255,0.2)',
+          borderRadius: '6px', padding: '5px 10px', fontSize: '10px', color: 'rgba(255,255,255,0.7)',
+          whiteSpace: 'nowrap', pointerEvents: 'none', backdropFilter: 'blur(8px)',
+          animation: 'fadeIn 0.15s ease',
+        }}>{text}</div>
+      )}
+    </div>
+  );
+}
+
+/* ── Page ── */
 export default function HomePage() {
   const [bodyColor, setBodyColor] = useState('#1a1a2e');
   const [accentColor, setAccentColor] = useState('#6C63FF');
   const [baseColor, setBaseColor] = useState('#2a2a35');
-  const [material, setMaterial] = useState<'glossy' | 'matte' | 'metallic' | 'glass'>('glossy');
+  const [material, setMaterial] = useState<MaterialType>('glossy');
   const [environment, setEnvironment] = useState('studio');
   const [exploded, setExploded] = useState(false);
   const [wireframe, setWireframe] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [autoRotateSpeed, setAutoRotateSpeed] = useState(1.0);
   const [showHotspots, setShowHotspots] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState('');
-  const [activePanel, setActivePanel] = useState<'colors' | 'material' | 'environment' | 'features'>('colors');
+  const [activePanel, setActivePanel] = useState<'colors' | 'material' | 'environment' | 'lighting' | 'features'>('colors');
+  const [lightIntensity, setLightIntensity] = useState(1.2);
+  const [lightAngle, setLightAngle] = useState(45);
+  const [ambientIntensity, setAmbientIntensity] = useState(0.3);
+  const [userFile, setUserFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
@@ -118,330 +131,424 @@ export default function HomePage() {
     link.download = `slothview-${Date.now()}.png`;
     link.href = canvasRef.current.toDataURL('image/png');
     link.click();
-    showToast('Screenshot saved!');
+    showToast('Screenshot exported');
   }, []);
 
   const handleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
   }, []);
 
   const handleShare = useCallback(() => {
     const config = `body=${bodyColor.slice(1)}&accent=${accentColor.slice(1)}&base=${baseColor.slice(1)}&mat=${material}&env=${environment}`;
     const url = `${window.location.origin}?${config}`;
-    navigator.clipboard.writeText(url).then(() => showToast('Configuration link copied!'));
+    navigator.clipboard.writeText(url).then(() => showToast('Config URL copied to clipboard'));
   }, [bodyColor, accentColor, baseColor, material, environment]);
 
-  const totalPrice = BASE_PRICE + MATERIAL_PRICES[material];
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (['glb', 'gltf', 'fbx', 'obj'].includes(ext || '')) {
+        setUserFile(file);
+        showToast(`Loaded: ${file.name}`);
+      } else {
+        showToast('Supported formats: GLB, GLTF, FBX, OBJ');
+      }
+    }
+  }, []);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUserFile(file);
+      showToast(`Loaded: ${file.name}`);
+    }
+  }, []);
+
+  const totalPrice = BASE_PRICE + (MATERIALS.find(m => m.value === material)?.price || 0);
   const bodyName = COLORS.find(c => c.value === bodyColor)?.name || 'Custom';
   const accentName = ACCENTS.find(c => c.value === accentColor)?.name || 'Custom';
 
-  const toolbarBtn = (icon: React.ReactNode, label: string, active: boolean, onClick: () => void) => (
-    <button
-      key={label}
-      onClick={onClick}
-      title={label}
-      style={{
-        width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: active ? 'var(--accent-glow)' : 'rgba(255,255,255,0.04)',
-        border: active ? '1px solid rgba(108,99,255,0.4)' : '1px solid var(--border)',
-        color: active ? '#6C63FF' : 'var(--text-dim)',
-        transition: 'all 0.2s ease',
-      }}
-    >
-      {icon}
-    </button>
+  const applyLightingPreset = (preset: typeof LIGHTING_PRESETS[0]) => {
+    setLightIntensity(preset.intensity);
+    setAmbientIntensity(preset.ambient);
+    setLightAngle(preset.angle);
+    showToast(`Lighting: ${preset.name}`);
+  };
+
+  /* ── Shared styles ── */
+  const panelTab = (id: string, label: string, icon: React.ReactNode) => (
+    <Tooltip text={label} position="bottom" key={id}>
+      <button onClick={() => setActivePanel(id as any)} style={{
+        flex: 1, padding: '8px 4px', borderRadius: '6px', fontSize: '0px',
+        background: activePanel === id ? 'var(--accent-glow)' : 'transparent',
+        color: activePanel === id ? '#6C63FF' : 'var(--text-dim)',
+        border: activePanel === id ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.2s',
+      }}>{icon}</button>
+    </Tooltip>
   );
 
-  const colorSwatch = (c: { name: string; value: string }, selected: boolean, onClick: () => void) => (
-    <button
-      key={c.value}
-      onClick={onClick}
-      title={c.name}
-      style={{
-        width: '36px', height: '36px', borderRadius: '10px', background: c.value,
+  const toolBtn = (icon: React.ReactNode, label: string, active: boolean, onClick: () => void) => (
+    <Tooltip text={label} position="bottom" key={label}>
+      <button onClick={onClick} style={{
+        width: '34px', height: '34px', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: active ? 'var(--accent-glow)' : 'rgba(255,255,255,0.03)',
+        border: active ? '1px solid rgba(108,99,255,0.35)' : '1px solid var(--border)',
+        color: active ? '#6C63FF' : 'var(--text-dim)',
+        transition: 'all 0.2s',
+      }}>{icon}</button>
+    </Tooltip>
+  );
+
+  const swatch = (c: { name: string; value: string }, selected: boolean, onClick: () => void) => (
+    <Tooltip text={c.name} position="top" key={c.value}>
+      <button onClick={onClick} style={{
+        width: '32px', height: '32px', borderRadius: '8px', background: c.value,
         border: selected ? '2px solid #6C63FF' : '2px solid transparent',
-        boxShadow: selected ? '0 0 12px rgba(108,99,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.15)' : 'inset 0 0 0 1px rgba(255,255,255,0.1)',
-        transition: 'all 0.2s ease', position: 'relative',
-      }}
-    >
-      {selected && <div style={{ position: 'absolute', inset: 0, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c.value === '#e8e8ec' || c.value === '#b8b8c0' || c.value === '#ffffff' ? '#000' : '#fff'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-      </div>}
+        boxShadow: selected ? '0 0 10px rgba(108,99,255,0.35)' : 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+        transition: 'all 0.2s', position: 'relative', flexShrink: 0,
+      }}>
+        {selected && <div style={{ position: 'absolute', inset: 0, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: c.value === '#e8e8ec' || c.value === '#b8b8c0' || c.value === '#ffffff' ? '#000' : '#fff' }}><IconCheck /></div>
+        </div>}
+      </button>
+    </Tooltip>
+  );
+
+  const sliderRow = (label: string, value: number, min: number, max: number, step: number, onChange: (v: number) => void) => (
+    <div style={{ marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>{value.toFixed(step < 1 ? 1 : 0)}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
+        style={{ width: '100%', accentColor: '#6C63FF', height: '3px' }} />
+    </div>
+  );
+
+  const toggleRow = (label: string, desc: string, active: boolean, toggle: () => void, icon: React.ReactNode) => (
+    <button key={label} onClick={toggle} style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 12px', borderRadius: '8px', width: '100%',
+      background: active ? 'var(--accent-glow)' : 'rgba(255,255,255,0.015)',
+      border: active ? '1px solid rgba(108,99,255,0.25)' : '1px solid var(--border)',
+      transition: 'all 0.2s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ color: active ? '#6C63FF' : 'var(--text-dim)' }}>{icon}</span>
+        <div style={{ textAlign: 'left' }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: active ? '#fff' : 'rgba(255,255,255,0.6)' }}>{label}</div>
+          <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>{desc}</div>
+        </div>
+      </div>
+      <div style={{
+        width: '32px', height: '18px', borderRadius: '9px',
+        background: active ? '#6C63FF' : 'rgba(255,255,255,0.1)',
+        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+      }}>
+        <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: active ? '16px' : '2px', transition: 'left 0.2s' }} />
+      </div>
     </button>
   );
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden', position: 'relative' }}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleFileDrop}
+    >
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={handleFileSelect} />
+
       {/* Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 100,
-          background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.4)',
-          borderRadius: '10px', padding: '10px 20px', color: '#a5a0ff', fontSize: '13px', fontWeight: 600,
-          backdropFilter: 'blur(8px)', animation: 'fadeIn 0.2s ease',
+          position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 100,
+          background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.3)',
+          borderRadius: '8px', padding: '8px 18px', color: '#a5a0ff', fontSize: '12px', fontWeight: 600,
+          backdropFilter: 'blur(12px)', animation: 'fadeIn 0.15s ease',
         }}>{toast}</div>
+      )}
+
+      {/* Drag overlay */}
+      {dragOver && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(108,99,255,0.08)',
+          border: '2px dashed rgba(108,99,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#6C63FF', marginBottom: '8px' }}><IconUpload /></div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Drop your 3D model here</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>GLB, GLTF, FBX, or OBJ</div>
+          </div>
+        </div>
       )}
 
       {/* Demo Banner */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
-        background: '#0D0D0D', borderBottom: '1px solid rgba(255,255,255,0.06)',
-        padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
-        fontSize: '12px',
+        background: '#0D0D0D', borderBottom: '1px solid rgba(255,255,255,0.04)',
+        padding: '7px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+        fontSize: '11px',
       }}>
-        <span style={{ background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)', color: '#6C63FF', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '100px', letterSpacing: '0.08em' }}>DEMO</span>
-        <span style={{ color: 'rgba(255,255,255,0.5)' }}>Interactive 3D product viewer by Sloth Studio</span>
-        <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
-        <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none' }}>Get a quote &rarr;</a>
+        <span style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)', color: '#6C63FF', fontSize: '8px', fontWeight: 800, padding: '2px 7px', borderRadius: '100px', letterSpacing: '0.1em' }}>DEMO</span>
+        <span style={{ color: 'rgba(255,255,255,0.4)' }}>Interactive 3D product viewer</span>
+        <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+        <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '11px' }}>Get a quote &rarr;</a>
       </div>
 
       {/* Sidebar */}
       <div style={{
-        width: sidebarOpen ? '320px' : '0px', flexShrink: 0,
-        background: 'rgba(10,10,14,0.95)', borderRight: '1px solid var(--border)',
-        backdropFilter: 'blur(16px)', transition: 'width 0.3s ease', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', paddingTop: '40px', zIndex: 10,
+        width: sidebarOpen ? '300px' : '0px', flexShrink: 0,
+        background: 'rgba(10,10,14,0.97)', borderRight: '1px solid var(--border)',
+        backdropFilter: 'blur(20px)', transition: 'width 0.3s ease', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', paddingTop: '34px', zIndex: 10,
       }}>
-        <div style={{ padding: '20px 20px 10px', minWidth: '320px' }}>
-          <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '18px', fontWeight: 700, marginBottom: '2px' }}>
-            <span style={{ color: '#6C63FF' }}>Sloth</span>View 3D
+        <div style={{ padding: '16px 16px 8px', minWidth: '300px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '16px', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                <span style={{ color: '#6C63FF' }}>Sloth</span>View <span style={{ color: 'var(--text-dim)', fontWeight: 400, fontSize: '12px' }}>3D</span>
+              </div>
+            </div>
+            {userFile && (
+              <Tooltip text="Remove model" position="left">
+                <button onClick={() => { setUserFile(null); showToast('Model removed'); }} style={{
+                  width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171',
+                }}><IconTrash /></button>
+              </Tooltip>
+            )}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '16px' }}>Product Configurator</div>
 
-          {/* Tab nav */}
-          <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '3px', marginBottom: '16px' }}>
-            {(['colors', 'material', 'environment', 'features'] as const).map(p => (
-              <button key={p} onClick={() => setActivePanel(p)} style={{
-                flex: 1, padding: '7px 4px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                background: activePanel === p ? 'var(--accent-glow)' : 'transparent',
-                color: activePanel === p ? '#6C63FF' : 'var(--text-dim)',
-                border: activePanel === p ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
-                textTransform: 'capitalize', transition: 'all 0.2s',
-              }}>{p}</button>
-            ))}
+          {/* File upload area */}
+          <button onClick={() => fileInputRef.current?.click()} style={{
+            width: '100%', padding: '10px', borderRadius: '8px', marginBottom: '12px',
+            background: userFile ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.02)',
+            border: userFile ? '1px solid rgba(108,99,255,0.25)' : '1px dashed rgba(255,255,255,0.1)',
+            display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s',
+          }}>
+            <span style={{ color: userFile ? '#6C63FF' : 'var(--text-dim)' }}>{userFile ? <IconFile /> : <IconUpload />}</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: userFile ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                {userFile ? userFile.name : 'Load your own model'}
+              </div>
+              <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>
+                {userFile ? `${(userFile.size / 1024 / 1024).toFixed(1)} MB` : 'GLB, GLTF, FBX, OBJ - drag & drop supported'}
+              </div>
+            </div>
+          </button>
+
+          {/* Panel tabs */}
+          <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.02)', borderRadius: '7px', padding: '3px', marginBottom: '12px' }}>
+            {panelTab('colors', 'Colors', <IconPalette />)}
+            {panelTab('material', 'Material', <IconLayers />)}
+            {panelTab('environment', 'Environment', <IconBox />)}
+            {panelTab('lighting', 'Lighting', <IconSun />)}
+            {panelTab('features', 'Features', <IconSliders />)}
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px', minWidth: '320px' }}>
-          {activePanel === 'colors' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px', minWidth: '300px' }}>
+          {activePanel === 'colors' && !userFile && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Body Color</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {COLORS.map(c => colorSwatch(c, bodyColor === c.value, () => setBodyColor(c.value)))}
-                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Body</div>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>{COLORS.map(c => swatch(c, bodyColor === c.value, () => setBodyColor(c.value)))}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Accent Color</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {ACCENTS.map(c => colorSwatch(c, accentColor === c.value, () => setAccentColor(c.value)))}
-                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Accent</div>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>{ACCENTS.map(c => swatch(c, accentColor === c.value, () => setAccentColor(c.value)))}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Base</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {BASES.map(c => colorSwatch(c, baseColor === c.value, () => setBaseColor(c.value)))}
-                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Base</div>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>{BASES.map(c => swatch(c, baseColor === c.value, () => setBaseColor(c.value)))}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Custom Color</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Custom</div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input type="color" value={bodyColor} onChange={e => setBodyColor(e.target.value)} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer', background: 'none' }} />
-                  <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>{bodyColor.toUpperCase()}</span>
+                  <input type="color" value={bodyColor} onChange={e => setBodyColor(e.target.value)} style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer', background: 'none' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>{bodyColor.toUpperCase()}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {activePanel === 'material' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {activePanel === 'colors' && userFile && (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-dim)', fontSize: '12px' }}>
+              Color controls are for the built-in demo product. Load materials with your model file.
+            </div>
+          )}
+
+          {activePanel === 'material' && !userFile && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               {MATERIALS.map(m => (
                 <button key={m.value} onClick={() => setMaterial(m.value)} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', borderRadius: '10px',
-                  background: material === m.value ? 'var(--accent-glow)' : 'rgba(255,255,255,0.02)',
-                  border: material === m.value ? '1px solid rgba(108,99,255,0.4)' : '1px solid var(--border)',
+                  padding: '12px', borderRadius: '8px',
+                  background: material === m.value ? 'var(--accent-glow)' : 'rgba(255,255,255,0.015)',
+                  border: material === m.value ? '1px solid rgba(108,99,255,0.35)' : '1px solid var(--border)',
                   transition: 'all 0.2s',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{
-                      width: '32px', height: '32px', borderRadius: '8px',
-                      background: m.value === 'glossy' ? 'linear-gradient(135deg, #333, #555, #333)' :
-                        m.value === 'matte' ? '#3a3a3a' :
-                        m.value === 'metallic' ? 'linear-gradient(135deg, #666, #aaa, #666)' :
-                        'linear-gradient(135deg, rgba(108,99,255,0.2), rgba(108,99,255,0.05))',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }} />
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: material === m.value ? '#fff' : 'rgba(255,255,255,0.7)' }}>{m.name}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-                        {m.value === 'glossy' ? 'High-shine reflective finish' :
-                         m.value === 'matte' ? 'Soft, diffused surface' :
-                         m.value === 'metallic' ? 'Brushed metal appearance' :
-                         'Translucent frosted glass'}
-                      </div>
-                    </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: material === m.value ? '#fff' : 'rgba(255,255,255,0.65)' }}>{m.name}</div>
+                    <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>{m.desc}</div>
                   </div>
-                  {MATERIAL_PRICES[m.value] > 0 && (
-                    <span style={{ fontSize: '11px', color: '#FFB020', fontWeight: 600 }}>+{MATERIAL_PRICES[m.value]} DKK</span>
-                  )}
+                  {m.price > 0 && <span style={{ fontSize: '10px', color: '#FFB020', fontWeight: 600 }}>+{m.price} DKK</span>}
                 </button>
               ))}
+            </div>
+          )}
+
+          {activePanel === 'material' && userFile && (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-dim)', fontSize: '12px' }}>
+              Material controls are for the built-in demo product. Your model uses its own materials.
             </div>
           )}
 
           {activePanel === 'environment' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
               {ENVIRONMENTS.map(e => (
                 <button key={e.value} onClick={() => setEnvironment(e.value)} style={{
-                  padding: '16px 12px', borderRadius: '10px', textAlign: 'center',
-                  background: environment === e.value ? 'var(--accent-glow)' : 'rgba(255,255,255,0.02)',
-                  border: environment === e.value ? '1px solid rgba(108,99,255,0.4)' : '1px solid var(--border)',
+                  padding: '14px 10px', borderRadius: '8px', textAlign: 'center',
+                  background: environment === e.value ? 'var(--accent-glow)' : 'rgba(255,255,255,0.015)',
+                  border: environment === e.value ? '1px solid rgba(108,99,255,0.35)' : '1px solid var(--border)',
                   transition: 'all 0.2s',
                 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>
-                    {e.value === 'studio' ? '\u2728' : e.value === 'sunset' ? '\u{1F305}' : e.value === 'city' ? '\u{1F307}' : e.value === 'forest' ? '\u{1F332}' : e.value === 'night' ? '\u{1F30C}' : '\u{1F3ED}'}
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: environment === e.value ? '#fff' : 'rgba(255,255,255,0.6)' }}>{e.name}</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: environment === e.value ? '#fff' : 'rgba(255,255,255,0.55)' }}>{e.name}</div>
                 </button>
               ))}
+            </div>
+          )}
+
+          {activePanel === 'lighting' && (
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Presets</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', marginBottom: '16px' }}>
+                {LIGHTING_PRESETS.map(p => (
+                  <button key={p.name} onClick={() => applyLightingPreset(p)} style={{
+                    padding: '8px 4px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
+                    background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                    color: 'rgba(255,255,255,0.55)', transition: 'all 0.2s',
+                  }}>{p.name}</button>
+                ))}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Manual</div>
+              {sliderRow('Key Light Intensity', lightIntensity, 0, 3, 0.1, setLightIntensity)}
+              {sliderRow('Ambient Fill', ambientIntensity, 0, 1, 0.05, setAmbientIntensity)}
+              {sliderRow('Light Rotation', lightAngle, 0, 360, 1, setLightAngle)}
             </div>
           )}
 
           {activePanel === 'features' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {[
-                { label: 'Auto Rotate', active: autoRotate, toggle: () => setAutoRotate(!autoRotate), icon: SVG_ICONS.rotate },
-                { label: 'Exploded View', active: exploded, toggle: () => setExploded(!exploded), icon: SVG_ICONS.explode },
-                { label: 'Wireframe', active: wireframe, toggle: () => setWireframe(!wireframe), icon: SVG_ICONS.wireframe },
-                { label: 'Hotspots', active: showHotspots, toggle: () => setShowHotspots(!showHotspots), icon: SVG_ICONS.tag },
-                { label: 'Floor Grid', active: showGrid, toggle: () => setShowGrid(!showGrid), icon: SVG_ICONS.grid },
-              ].map(f => (
-                <button key={f.label} onClick={f.toggle} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 14px', borderRadius: '10px',
-                  background: f.active ? 'var(--accent-glow)' : 'rgba(255,255,255,0.02)',
-                  border: f.active ? '1px solid rgba(108,99,255,0.3)' : '1px solid var(--border)',
-                  transition: 'all 0.2s',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ color: f.active ? '#6C63FF' : 'var(--text-dim)' }}>{f.icon}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: f.active ? '#fff' : 'rgba(255,255,255,0.6)' }}>{f.label}</span>
-                  </div>
-                  <div style={{
-                    width: '36px', height: '20px', borderRadius: '10px',
-                    background: f.active ? '#6C63FF' : 'rgba(255,255,255,0.1)',
-                    position: 'relative', transition: 'background 0.2s',
-                  }}>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: f.active ? '18px' : '2px', transition: 'left 0.2s' }} />
-                  </div>
-                </button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {toggleRow('Auto Rotate', 'Slowly spin the model', autoRotate, () => setAutoRotate(!autoRotate), <IconRotate />)}
+              {autoRotate && (
+                <div style={{ padding: '4px 12px 8px' }}>
+                  {sliderRow('Rotation Speed', autoRotateSpeed, 0.2, 5, 0.1, setAutoRotateSpeed)}
+                </div>
+              )}
+              {!userFile && toggleRow('Exploded View', 'Separate components', exploded, () => setExploded(!exploded), <IconExplode />)}
+              {toggleRow('Wireframe', 'Show mesh topology', wireframe, () => setWireframe(!wireframe), <IconWireframe />)}
+              {!userFile && toggleRow('Annotations', 'Feature hotspots on model', showHotspots, () => setShowHotspots(!showHotspots), <IconHotspot />)}
+              {toggleRow('Floor Grid', 'Reference grid plane', showGrid, () => setShowGrid(!showGrid), <IconGrid />)}
             </div>
           )}
         </div>
 
-        {/* Price card at bottom of sidebar */}
-        <div style={{
-          padding: '16px 20px', borderTop: '1px solid var(--border)',
-          background: 'rgba(108,99,255,0.03)', minWidth: '320px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Configuration</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>{bodyName} / {accentName} / {material}</div>
+        {/* Price footer */}
+        {!userFile && (
+          <div style={{
+            padding: '12px 16px', borderTop: '1px solid var(--border)',
+            background: 'rgba(108,99,255,0.02)', minWidth: '300px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div>
+                <div style={{ fontSize: '9px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Config</div>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '1px' }}>{bodyName} / {accentName} / {material}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '20px', fontWeight: 800 }}>{totalPrice.toLocaleString()} <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 400 }}>DKK</span></div>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '22px', fontWeight: 800, color: '#fff' }}>{totalPrice.toLocaleString()} <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 400 }}>DKK</span></div>
-            </div>
+            <button style={{
+              width: '100%', padding: '10px', borderRadius: '8px',
+              background: 'linear-gradient(135deg, #6C63FF, #5046e5)',
+              color: '#fff', fontSize: '12px', fontWeight: 700,
+            }}>Add to Cart</button>
+            <div style={{ fontSize: '9px', color: 'var(--text-dim)', textAlign: 'center', marginTop: '4px' }}>Demo only</div>
           </div>
-          <button style={{
-            width: '100%', padding: '12px', borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6C63FF, #5046e5)',
-            color: '#fff', fontSize: '13px', fontWeight: 700, letterSpacing: '0.02em',
-            transition: 'all 0.2s',
-          }}>Add to Cart</button>
-          <div style={{ fontSize: '10px', color: 'var(--text-dim)', textAlign: 'center', marginTop: '6px' }}>Demo only - no real transaction</div>
-        </div>
+        )}
       </div>
 
       {/* Main viewport */}
-      <div style={{ flex: 1, position: 'relative', paddingTop: '36px' }}>
-        {/* Toggle sidebar button */}
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-          position: 'absolute', top: '48px', left: '12px', zIndex: 20,
-          width: '36px', height: '36px', borderRadius: '8px',
-          background: 'rgba(10,10,14,0.8)', border: '1px solid var(--border)',
-          color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(8px)',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            {sidebarOpen ? <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></> : <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>}
-          </svg>
-        </button>
+      <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
+        {/* Sidebar toggle */}
+        <Tooltip text={sidebarOpen ? 'Close panel' : 'Open panel'} position="bottom">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+            position: 'absolute', top: '42px', left: '10px', zIndex: 20,
+            width: '34px', height: '34px', borderRadius: '7px',
+            background: 'rgba(10,10,14,0.85)', border: '1px solid var(--border)',
+            color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(12px)',
+          }}>
+            {sidebarOpen ? <IconX /> : <IconMenu />}
+          </button>
+        </Tooltip>
 
         {/* Toolbar */}
         <div style={{
-          position: 'absolute', top: '48px', right: '12px', zIndex: 20,
-          display: 'flex', gap: '4px', background: 'rgba(10,10,14,0.8)',
-          border: '1px solid var(--border)', borderRadius: '10px', padding: '4px',
-          backdropFilter: 'blur(8px)',
+          position: 'absolute', top: '42px', right: '10px', zIndex: 20,
+          display: 'flex', gap: '3px', background: 'rgba(10,10,14,0.85)',
+          border: '1px solid var(--border)', borderRadius: '8px', padding: '3px',
+          backdropFilter: 'blur(12px)',
         }}>
-          {toolbarBtn(SVG_ICONS.camera, 'Screenshot', false, handleScreenshot)}
-          {toolbarBtn(SVG_ICONS.maximize, 'Fullscreen', false, handleFullscreen)}
-          {toolbarBtn(SVG_ICONS.share, 'Share Config', false, handleShare)}
+          {toolBtn(<IconCamera />, 'Screenshot (PNG)', false, handleScreenshot)}
+          {toolBtn(<IconMaximize />, 'Fullscreen', false, handleFullscreen)}
+          {toolBtn(<IconShare />, 'Share Configuration', false, handleShare)}
         </div>
 
-        {/* 3D Canvas */}
+        {/* Canvas */}
         <Scene
-          bodyColor={bodyColor}
-          accentColor={accentColor}
-          baseColor={baseColor}
-          material={material}
-          environment={environment}
-          exploded={exploded}
-          wireframe={wireframe}
-          autoRotate={autoRotate}
-          showHotspots={showHotspots}
-          showGrid={showGrid}
-          activeHotspot={activeHotspot}
-          setActiveHotspot={setActiveHotspot}
-          canvasRef={canvasRef}
+          bodyColor={bodyColor} accentColor={accentColor} baseColor={baseColor}
+          material={material} environment={environment} exploded={exploded}
+          wireframe={wireframe} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed}
+          showHotspots={showHotspots} showGrid={showGrid} activeHotspot={activeHotspot}
+          setActiveHotspot={setActiveHotspot} canvasRef={canvasRef}
+          lightIntensity={lightIntensity} lightAngle={lightAngle}
+          ambientIntensity={ambientIntensity} userFile={userFile}
         />
 
-        {/* Bottom info */}
+        {/* Controls hint */}
         <div style={{
-          position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: '16px', alignItems: 'center',
-          background: 'rgba(10,10,14,0.8)', border: '1px solid var(--border)',
-          borderRadius: '10px', padding: '8px 16px', backdropFilter: 'blur(8px)',
-          fontSize: '11px', color: 'var(--text-dim)',
+          position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: '12px', alignItems: 'center',
+          background: 'rgba(10,10,14,0.85)', border: '1px solid var(--border)',
+          borderRadius: '8px', padding: '6px 14px', backdropFilter: 'blur(12px)',
+          fontSize: '10px', color: 'var(--text-dim)',
         }}>
           <span>Scroll to zoom</span>
-          <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+          <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
           <span>Drag to rotate</span>
-          <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+          <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
           <span>Right-click to pan</span>
         </div>
       </div>
 
-      {/* Built by floating button */}
-      <a
-        href="https://sloth-studio.pages.dev"
-        target="_blank"
-        rel="noopener"
-        style={{
-          position: 'fixed', bottom: '16px', right: '16px', zIndex: 50,
-          background: 'rgba(10,10,14,0.9)', border: '1px solid var(--border)',
-          borderRadius: '8px', padding: '8px 14px', fontSize: '11px',
-          color: 'rgba(255,255,255,0.5)', textDecoration: 'none',
-          backdropFilter: 'blur(8px)', transition: 'all 0.2s',
-        }}
-      >
+      {/* Built by */}
+      <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{
+        position: 'fixed', bottom: '14px', right: '14px', zIndex: 50,
+        background: 'rgba(10,10,14,0.9)', border: '1px solid var(--border)',
+        borderRadius: '7px', padding: '6px 12px', fontSize: '10px',
+        color: 'rgba(255,255,255,0.45)', textDecoration: 'none',
+        backdropFilter: 'blur(12px)',
+      }}>
         Built by <span style={{ color: '#6C63FF', fontWeight: 600 }}>Sloth Studio</span> &rarr;
       </a>
     </div>
