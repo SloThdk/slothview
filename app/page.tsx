@@ -655,50 +655,43 @@ export default function Page() {
               const count = SHADING_MODES.length;
               const isActive = shadingMode === m.id;
               const imgSrc = shadingPreviews[m.id];
-              // Crossed diagonal clip paths — alternating lean direction
               const w = 100 / count;
               const l = w * i;
-              const lean = 12; // diagonal lean percentage
-              const evenStripe = i % 2 === 0;
-              // Create crossed/zigzag effect: even stripes lean right, odd lean left
-              const tl = evenStripe ? l - lean / 2 : l + lean / 2;
-              const tr = evenStripe ? l + w + lean / 2 : l + w - lean / 2;
-              const br = evenStripe ? l + w - lean / 2 : l + w + lean / 2;
-              const bl = evenStripe ? l + lean / 2 : l - lean / 2;
+              const lean = 10;
               return (
                 <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); showToast(m.label); }} style={{
                   position: 'absolute', top: 0, bottom: 0, left: 0, width: '100%',
-                  clipPath: `polygon(${tl}% 0%, ${tr}% 0%, ${br}% 100%, ${bl}% 100%)`,
+                  clipPath: `polygon(${l + lean}% 0%, ${l + w + lean}% 0%, ${l + w - lean}% 100%, ${l - lean}% 100%)`,
                   background: '#000',
                   border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden',
                   animation: 'stripeIn 0.3s ease both',
                   animationDelay: `${i * 0.04}s`,
                 }}>
-                  {/* Real rendered preview */}
                   {imgSrc && <img src={imgSrc} alt={m.label} draggable={false} style={{
                     position: 'absolute', top: 0, left: 0, width: '100vw', height: '100%', objectFit: 'cover',
                     opacity: isActive ? 1 : 0.7,
                     transition: 'opacity 0.2s',
                   }} />}
-                  {/* Label */}
                   <div style={{
-                    position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-                    zIndex: 2,
-                    background: isActive ? 'rgba(108,99,255,0.12)' : 'rgba(0,0,0,0.2)',
+                    position: 'absolute', inset: 0,
+                    background: isActive ? 'rgba(108,99,255,0.1)' : 'rgba(0,0,0,0.15)',
+                    zIndex: 1,
+                  }} />
+                  {/* Divider */}
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, right: '48%', width: '1px', background: 'rgba(255,255,255,0.15)', zIndex: 2 }} />
+                  {/* Label at bottom */}
+                  <div style={{
+                    position: 'absolute', bottom: '48px', left: 0, right: 0,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    zIndex: 3, pointerEvents: 'none',
                   }}>
                     <span className="shading-overlay-label" style={{
-                      fontSize: '15px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
-                      color: '#fff',
-                      textShadow: '0 2px 20px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,1)',
-                      pointerEvents: 'none',
+                      fontSize: '11px', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
+                      color: isActive ? '#fff' : 'rgba(255,255,255,0.8)',
+                      textShadow: '0 2px 12px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)',
+                      background: isActive ? 'rgba(108,99,255,0.85)' : 'rgba(0,0,0,0.6)',
+                      padding: '4px 10px', borderRadius: '4px',
                     }}>{m.label}</span>
-                    {isActive && (
-                      <div style={{ marginTop: '8px', pointerEvents: 'none',
-                        background: '#6C63FF', borderRadius: '3px', padding: '2px 8px',
-                      }}>
-                        <span style={{ fontSize: '7px', color: '#fff', fontWeight: 800, letterSpacing: '0.15em' }}>ACTIVE</span>
-                      </div>
-                    )}
                   </div>
                 </button>
               );
