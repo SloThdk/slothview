@@ -621,9 +621,10 @@ export default function Page() {
         <Tip text={sidebarOpen ? 'Hide panel' : 'Show panel'} pos="right">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
             position: 'absolute', top: '40px', left: '8px', zIndex: 20,
-            width: '28px', height: '28px', borderRadius: '5px',
-            background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.04)',
-            color: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '36px', height: '36px', borderRadius: '8px',
+            background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)',
+            color: '#6C63FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
         </Tip>
 
@@ -648,47 +649,38 @@ export default function Page() {
           showEnvBackground={showEnvBg} customHdri={customHdri}
         />
 
-        {/* ── Shading mode grid overlay ── */}
+        {/* ── Marmoset-style vertical split panes ── */}
         {shadingOverlay && Object.keys(shadingPreviews).length > 0 && (
-          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, background: 'rgba(4,4,8,0.95)',
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)',
-            gap: '3px', padding: '3px', overflow: 'hidden',
-          }}>
+          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, display: 'flex', overflow: 'hidden' }}
+            onClick={() => setShadingOverlay(false)}>
             {SHADING_MODES.map((m, i) => {
               const isActive = shadingMode === m.id;
               const imgSrc = shadingPreviews[m.id];
               return (
-                <button key={m.id} onClick={() => { setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }} style={{
-                  position: 'relative', border: isActive ? '2px solid #6C63FF' : '2px solid transparent',
-                  borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', background: '#0a0a10',
-                  animation: 'fadeIn 0.2s ease both', animationDelay: `${i * 0.03}s`,
-                  gridColumn: i === 4 ? '2 / 3' : undefined,
-                }}>
+                <div key={m.id} style={{ flex: 1, position: 'relative', cursor: 'pointer',
+                  borderRight: i < SHADING_MODES.length - 1 ? '1px solid rgba(255,255,255,0.12)' : 'none',
+                }} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }}>
+                  {/* Full render preview */}
                   {imgSrc && <img src={imgSrc} alt={m.label} draggable={false} style={{
                     position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                    opacity: isActive ? 1 : 0.75,
+                    opacity: isActive ? 1 : 0.8,
                   }} />}
+                  {/* Active highlight */}
+                  {isActive && <div style={{ position: 'absolute', inset: 0, border: '2px solid #6C63FF', zIndex: 2, pointerEvents: 'none' }} />}
+                  {/* Top-left label */}
                   <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px',
-                    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                    display: 'flex', justifyContent: 'center',
+                    position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 3,
+                    background: isActive ? 'rgba(108,99,255,0.9)' : 'rgba(0,0,0,0.7)',
+                    padding: '4px 10px', borderRadius: '4px', pointerEvents: 'none',
                   }}>
                     <span style={{
-                      fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
-                      color: isActive ? '#6C63FF' : 'rgba(255,255,255,0.8)',
-                    }}>{m.label}{isActive ? ' ●' : ''}</span>
+                      fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: '#fff',
+                    }}>{m.label}</span>
                   </div>
-                </button>
+                </div>
               );
             })}
-            {/* Close hint */}
-            <div style={{ gridColumn: '3 / 4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <button onClick={() => setShadingOverlay(false)} style={{
-                padding: '10px 16px', borderRadius: '8px', fontSize: '10px', fontWeight: 700,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em',
-              }}>CLOSE</button>
-            </div>
           </div>
         )}
 
