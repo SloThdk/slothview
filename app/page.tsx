@@ -618,13 +618,16 @@ export default function Page() {
 
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
-        <button className="burger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-          position: 'absolute', top: '40px', left: '8px', zIndex: 50,
-          width: '40px', height: '40px', borderRadius: '10px',
-          background: '#6C63FF', border: 'none',
-          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 2px 12px rgba(108,99,255,0.4)',
-        }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
+        {!shadingOverlay && (
+          <button className="burger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+            position: 'absolute', top: '40px', left: sidebarOpen ? undefined : '8px',
+            right: sidebarOpen ? '8px' : undefined, zIndex: 50,
+            width: '40px', height: '40px', borderRadius: '10px',
+            background: sidebarOpen ? 'rgba(255,255,255,0.08)' : '#6C63FF', border: 'none',
+            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: sidebarOpen ? 'none' : '0 2px 12px rgba(108,99,255,0.4)',
+          }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
+        )}
 
         {/* Share button top-right */}
         <div style={{
