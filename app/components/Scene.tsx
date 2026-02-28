@@ -5,10 +5,30 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
-import { WebGLRenderer, MathUtils } from 'three';
+import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping } from 'three';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import Product from './Product';
 import DefaultModel from './DefaultModel';
 import UserModel from './UserModel';
+
+/* Custom HDRI from blob URL */
+function CustomHDRI({ url, background }: { url: string; background: boolean }) {
+  const { scene, gl } = useThree();
+  useEffect(() => {
+    const loader = new RGBELoader();
+    loader.load(url, (texture) => {
+      texture.mapping = EquirectangularReflectionMapping;
+      scene.environment = texture;
+      if (background) scene.background = texture;
+      else scene.background = null;
+    });
+    return () => {
+      scene.environment = null;
+      scene.background = null;
+    };
+  }, [url, background, scene, gl]);
+  return null;
+}
 
 /* ── Types ── */
 export type ShadingMode = 'pbr' | 'matcap' | 'normals' | 'wireframe' | 'unlit';
@@ -56,6 +76,8 @@ export interface SceneProps {
   ssaoEnabled: boolean;
   enablePostProcessing: boolean;
   modelPath?: string;
+  showEnvBackground: boolean;
+  customHdri: string | null;
 }
 
 /* ── Hotspot marker ── */
@@ -100,7 +122,7 @@ export default function Scene(props: SceneProps) {
     activeHotspot, setActiveHotspot, canvasRef, glRef,
     lightIntensity, lightAngle, lightHeight, ambientIntensity, userFile, fov,
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
-    modelPath,
+    modelPath, showEnvBackground, customHdri,
   } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
@@ -156,7 +178,8 @@ export default function Scene(props: SceneProps) {
         )}
 
         {/* Environment */}
-        {shadingMode === 'pbr' && <Environment preset={environment as any} background={false} />}
+        {shadingMode === 'pbr' && !customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
+        {shadingMode === 'pbr' && customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}
         {shadingMode === 'pbr' && <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2.5} far={4} />}
         {showGrid && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="rgba(108,99,255,0.04)" sectionColor="rgba(108,99,255,0.08)" fadeDistance={15} infiniteGrid />}
 

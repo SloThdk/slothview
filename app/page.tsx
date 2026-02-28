@@ -139,6 +139,10 @@ export default function Page() {
   // Model selection
   const [selectedModel, setSelectedModel] = useState('chair');
 
+  // Environment
+  const [showEnvBg, setShowEnvBg] = useState(false);
+  const [customHdri, setCustomHdri] = useState<string | null>(null);
+
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -150,6 +154,7 @@ export default function Page() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const hdriRef = useRef<HTMLInputElement | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
@@ -247,6 +252,7 @@ export default function Page() {
       onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop}>
 
       <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
+      <input ref={hdriRef} type="file" accept=".hdr,.exr" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { const url = URL.createObjectURL(f); setCustomHdri(url); setShowEnvBg(true); showToast(`HDRI: ${f.name}`); } }} />
 
       {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '120px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.1s' }}>{toast}</div>}
 
@@ -355,6 +361,35 @@ export default function Page() {
                     }}>{e}</button>
                   ))}
                 </div>
+
+                {/* HDRI background toggle + custom upload */}
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                  <button onClick={() => setShowEnvBg(!showEnvBg)} style={{
+                    flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
+                    background: showEnvBg ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
+                    color: showEnvBg ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                    border: showEnvBg ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
+                  }}>
+                    <IconEye /> Background
+                  </button>
+                  <button onClick={() => hdriRef.current?.click()} style={{
+                    flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
+                    background: customHdri ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
+                    color: customHdri ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                    border: customHdri ? '1px solid rgba(108,99,255,0.2)' : '1px dashed rgba(255,255,255,0.06)',
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
+                  }}>
+                    <IconUpload /> {customHdri ? 'Custom' : 'Load HDR'}
+                  </button>
+                </div>
+                {customHdri && (
+                  <button onClick={() => { setCustomHdri(null); showToast('HDRI removed'); }} style={{
+                    width: '100%', padding: '4px 8px', borderRadius: '4px', fontSize: '8px', fontWeight: 600, marginBottom: '10px',
+                    background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)',
+                    color: '#f87171', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                  }}><IconTrash /> Remove custom HDRI</button>
+                )}
 
                 <span style={stl.label}>Lighting Presets</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '10px' }}>
@@ -564,6 +599,7 @@ export default function Page() {
           bloomIntensity={bloomI} bloomThreshold={bloomT} vignetteIntensity={vigI}
           ssaoEnabled={ssao} enablePostProcessing={enablePP}
           modelPath={PRESET_MODELS.find(m => m.id === selectedModel)?.path}
+          showEnvBackground={showEnvBg} customHdri={customHdri}
         />
 
         {/* ── Marmoset-style diagonal stripe shading overlay ── */}
