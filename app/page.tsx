@@ -722,9 +722,9 @@ export default function Page() {
         <div className="scene-stats" style={{
           position: 'absolute', bottom: '56px', right: '12px', zIndex: 15,
           background: 'rgba(8,8,12,0.75)', border: '1px solid rgba(255,255,255,0.04)',
-          borderRadius: '6px', padding: '6px 10px',
-          fontSize: '9px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)',
-          lineHeight: 1.6, pointerEvents: 'none', letterSpacing: '0.02em',
+          borderRadius: '8px', padding: '8px 14px',
+          fontSize: '12px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.45)',
+          lineHeight: 1.7, pointerEvents: 'none', letterSpacing: '0.03em',
         }}>
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TRI</span> {sceneStats.triangles.toLocaleString()}</div>
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>VTX</span> {sceneStats.vertices.toLocaleString()}</div>
