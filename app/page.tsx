@@ -152,7 +152,7 @@ export default function Page() {
 
   // UI
   const [shadingOverlay, setShadingOverlay] = useState(false);
-  const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
+  // shadingPreviews removed — using button-based picker now
   const [tab, setTab] = useState<'scene' | 'camera' | 'render' | 'display'>('scene');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -162,50 +162,11 @@ export default function Page() {
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
-  // Pre-cache shading previews in background (no visible flicker)
-  const previewsReady = useRef(false);
-  const refreshPreviews = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    // Hide the canvas briefly during capture to prevent visible flicker
-    const container = canvas.parentElement;
-    const origOpacity = container?.style.opacity || '';
+  // Preview capture removed — using instant button picker
 
-    const originalMode = shadingMode;
-    const previews: Record<string, string> = {};
-    const modes: ShadingMode[] = ['pbr', 'matcap', 'normals', 'wireframe', 'unlit'];
-
-    // Create a temp overlay to mask the flicker
-    const mask = document.createElement('div');
-    mask.style.cssText = 'position:absolute;inset:0;background:#08080C;z-index:29;transition:opacity 0.15s;';
-    container?.appendChild(mask);
-
-    for (const mode of modes) {
-      setShadingMode(mode);
-      await new Promise<void>(r => {
-        let c = 0;
-        const t = () => { c++; if (c >= 4) r(); else requestAnimationFrame(t); };
-        requestAnimationFrame(t);
-      });
-      previews[mode] = canvas.toDataURL('image/jpeg', 0.65);
-    }
-
-    setShadingMode(originalMode);
-    await new Promise<void>(r => { let c = 0; const t = () => { c++; if (c >= 3) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
-
-    // Fade out mask
-    mask.style.opacity = '0';
-    setTimeout(() => mask.remove(), 200);
-
-    setShadingPreviews(previews);
-    previewsReady.current = true;
-  }, [shadingMode]);
-
-  const openShadingOverlay = useCallback(async () => {
-    if (shadingOverlay) { setShadingOverlay(false); return; }
-    if (!previewsReady.current) await refreshPreviews();
-    setShadingOverlay(true);
-  }, [shadingOverlay, refreshPreviews]);
+  const openShadingOverlay = useCallback(() => {
+    setShadingOverlay(!shadingOverlay);
+  }, [shadingOverlay]);
 
   const screenshot = useCallback(() => {
     if (!canvasRef.current) return;
@@ -367,7 +328,7 @@ export default function Page() {
                 <span style={stl.label}>Model</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
                   {PRESET_MODELS.map(m => (
-                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); previewsReady.current = false; showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
+                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
                       width: '100%', padding: '6px 8px', borderRadius: '5px', textAlign: 'left',
                       background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.01)',
                       border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
@@ -659,38 +620,28 @@ export default function Page() {
           onStats={setSceneStats}
         />
 
-        {/* ── Marmoset-style vertical split panes ── */}
-        {shadingOverlay && Object.keys(shadingPreviews).length > 0 && (
-          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, display: 'flex', overflow: 'hidden' }}
+        {/* ── Shading mode picker overlay ── */}
+        {shadingOverlay && (
+          <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,8,12,0.85)' }}
             onClick={() => setShadingOverlay(false)}>
-            {SHADING_MODES.map((m, i) => {
-              const isActive = shadingMode === m.id;
-              const imgSrc = shadingPreviews[m.id];
-              return (
-                <div key={m.id} style={{ flex: 1, position: 'relative', cursor: 'pointer',
-                  borderRight: i < SHADING_MODES.length - 1 ? '1px solid rgba(255,255,255,0.12)' : 'none',
-                }} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }}>
-                  {/* Full render preview */}
-                  {imgSrc && <img src={imgSrc} alt={m.label} draggable={false} style={{
-                    position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                    opacity: isActive ? 1 : 0.8,
-                  }} />}
-                  {/* Active highlight */}
-                  {isActive && <div style={{ position: 'absolute', inset: 0, border: '2px solid #6C63FF', zIndex: 2, pointerEvents: 'none' }} />}
-                  {/* Top-left label */}
-                  <div style={{
-                    position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 3,
-                    background: isActive ? 'rgba(108,99,255,0.9)' : 'rgba(0,0,0,0.7)',
-                    padding: '4px 10px', borderRadius: '4px', pointerEvents: 'none',
-                  }}>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
-                      color: '#fff',
-                    }}>{m.label}</span>
-                  </div>
-                </div>
-              );
-            })}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', padding: '16px' }}
+              onClick={(e) => e.stopPropagation()}>
+              {SHADING_MODES.map((m) => {
+                const isActive = shadingMode === m.id;
+                return (
+                  <button key={m.id} onClick={() => { setShadingMode(m.id); setShadingOverlay(false); }} style={{
+                    padding: '12px 20px', borderRadius: '8px', cursor: 'pointer',
+                    background: isActive ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.04)',
+                    border: isActive ? '1px solid rgba(108,99,255,0.5)' : '1px solid rgba(255,255,255,0.06)',
+                    color: isActive ? '#6C63FF' : 'rgba(255,255,255,0.5)',
+                    fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                    transition: 'all 0.15s',
+                    minWidth: '80px',
+                  }}>{m.label}</button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', marginTop: '8px' }}>Click to select shading mode</div>
           </div>
         )}
 
