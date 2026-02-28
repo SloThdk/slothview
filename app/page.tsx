@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import type { ShadingMode } from './components/Scene';
 import {
   IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
@@ -13,614 +14,576 @@ const Scene = dynamic(() => import('./components/Scene'), { ssr: false });
 
 /* ── Data ── */
 const COLORS = [
-  { name: 'Obsidian', value: '#1a1a2e' },
-  { name: 'Arctic', value: '#e8e8ec' },
-  { name: 'Navy', value: '#0f1b3d' },
-  { name: 'Crimson', value: '#8b1a1a' },
-  { name: 'Forest', value: '#1a3a2a' },
-  { name: 'Charcoal', value: '#2d2d3a' },
-  { name: 'Slate', value: '#3d4f5f' },
-  { name: 'Copper', value: '#5a3825' },
+  { n: 'Obsidian', v: '#1a1a2e' }, { n: 'Arctic', v: '#e8e8ec' }, { n: 'Navy', v: '#0f1b3d' },
+  { n: 'Crimson', v: '#8b1a1a' }, { n: 'Forest', v: '#1a3a2a' }, { n: 'Charcoal', v: '#2d2d3a' },
+  { n: 'Slate', v: '#3d4f5f' }, { n: 'Copper', v: '#5a3825' },
 ];
-
 const ACCENTS = [
-  { name: 'Violet', value: '#6C63FF' },
-  { name: 'Emerald', value: '#00D4A8' },
-  { name: 'Amber', value: '#FFB020' },
-  { name: 'Rose', value: '#FF4F81' },
-  { name: 'Ice', value: '#4FC3F7' },
-  { name: 'Pure', value: '#ffffff' },
-  { name: 'Coral', value: '#FF6B6B' },
-  { name: 'Lime', value: '#A3E635' },
+  { n: 'Violet', v: '#6C63FF' }, { n: 'Emerald', v: '#00D4A8' }, { n: 'Amber', v: '#FFB020' },
+  { n: 'Rose', v: '#FF4F81' }, { n: 'Ice', v: '#4FC3F7' }, { n: 'Pure', v: '#ffffff' },
+  { n: 'Coral', v: '#FF6B6B' }, { n: 'Lime', v: '#A3E635' },
 ];
-
 const BASES = [
-  { name: 'Gunmetal', value: '#2a2a35' },
-  { name: 'Silver', value: '#b8b8c0' },
-  { name: 'Gold', value: '#c4a35a' },
-  { name: 'Black', value: '#0a0a0e' },
-  { name: 'Brushed', value: '#6b7280' },
+  { n: 'Gunmetal', v: '#2a2a35' }, { n: 'Silver', v: '#b8b8c0' },
+  { n: 'Gold', v: '#c4a35a' }, { n: 'Black', v: '#0a0a0e' }, { n: 'Brushed', v: '#6b7280' },
 ];
 
-type MaterialType = 'glossy' | 'matte' | 'metallic' | 'glass';
-const MATERIALS: { name: string; value: MaterialType; desc: string; price: number }[] = [
-  { name: 'Glossy', value: 'glossy', desc: 'High-shine reflective finish', price: 0 },
-  { name: 'Matte', value: 'matte', desc: 'Soft, diffused surface', price: 0 },
-  { name: 'Metallic', value: 'metallic', desc: 'Brushed metal appearance', price: 299 },
-  { name: 'Glass', value: 'glass', desc: 'Translucent frosted glass', price: 499 },
+type MatType = 'glossy' | 'matte' | 'metallic' | 'glass';
+const MATERIALS: { n: string; v: MatType; d: string; p: number }[] = [
+  { n: 'Glossy', v: 'glossy', d: 'High-shine reflective', p: 0 },
+  { n: 'Matte', v: 'matte', d: 'Soft diffused surface', p: 0 },
+  { n: 'Metallic', v: 'metallic', d: 'Brushed metal', p: 299 },
+  { n: 'Glass', v: 'glass', d: 'Translucent frosted', p: 499 },
 ];
 
-const ENVIRONMENTS = [
-  { name: 'Studio', value: 'studio' },
-  { name: 'Sunset', value: 'sunset' },
-  { name: 'City', value: 'city' },
-  { name: 'Forest', value: 'forest' },
-  { name: 'Night', value: 'night' },
-  { name: 'Warehouse', value: 'warehouse' },
-  { name: 'Dawn', value: 'dawn' },
-  { name: 'Apartment', value: 'apartment' },
-  { name: 'Lobby', value: 'lobby' },
-  { name: 'Park', value: 'park' },
+const ENVS = ['studio', 'sunset', 'city', 'forest', 'night', 'warehouse', 'dawn', 'apartment', 'lobby', 'park'];
+
+const LIGHT_PRESETS = [
+  { n: 'Studio', i: 1.2, a: 0.3, ang: 45, h: 8 },
+  { n: 'Dramatic', i: 2.2, a: 0.08, ang: 80, h: 10 },
+  { n: 'Soft', i: 0.6, a: 0.55, ang: 30, h: 6 },
+  { n: 'Backlit', i: 1.6, a: 0.15, ang: 180, h: 7 },
+  { n: 'Rim', i: 1.8, a: 0.1, ang: 120, h: 5 },
+  { n: 'Golden', i: 1.0, a: 0.35, ang: 60, h: 4 },
 ];
 
-const LIGHTING_PRESETS = [
-  { name: 'Default', intensity: 1.2, ambient: 0.3, angle: 45 },
-  { name: 'Dramatic', intensity: 2.0, ambient: 0.1, angle: 80 },
-  { name: 'Soft', intensity: 0.7, ambient: 0.5, angle: 30 },
-  { name: 'Backlit', intensity: 1.5, ambient: 0.2, angle: 180 },
-  { name: 'Top-Down', intensity: 1.8, ambient: 0.15, angle: 0 },
-  { name: 'Warm', intensity: 1.0, ambient: 0.4, angle: 60 },
+const SHADING_MODES: { id: ShadingMode; label: string }[] = [
+  { id: 'pbr', label: 'PBR' },
+  { id: 'matcap', label: 'Matcap' },
+  { id: 'normals', label: 'Normals' },
+  { id: 'wireframe', label: 'Wire' },
+  { id: 'unlit', label: 'Unlit' },
 ];
 
 const BASE_PRICE = 2499;
 
-/* ── Tooltip ── */
-function Tooltip({ text, children, position = 'bottom' }: { text: string; children: React.ReactNode; position?: 'bottom' | 'top' | 'left' }) {
-  const [show, setShow] = useState(false);
-  const posStyle: React.CSSProperties = position === 'top'
-    ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '6px' }
-    : position === 'left'
-    ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '6px' }
-    : { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '6px' };
-
+/* ── Helpers ── */
+function Tip({ text, children, pos = 'bottom' }: { text: string; children: React.ReactNode; pos?: 'bottom' | 'top' | 'left' | 'right' }) {
+  const [s, setS] = useState(false);
+  const p: React.CSSProperties = pos === 'top' ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '5px' }
+    : pos === 'left' ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '5px' }
+    : pos === 'right' ? { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '5px' }
+    : { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '5px' };
   return (
-    <div style={{ position: 'relative', display: 'inline-flex' }} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+    <div style={{ position: 'relative', display: 'inline-flex' }} onMouseEnter={() => setS(true)} onMouseLeave={() => setS(false)}>
       {children}
-      {show && (
-        <div style={{
-          position: 'absolute', ...posStyle, zIndex: 200,
-          background: 'rgba(10,10,14,0.95)', border: '1px solid rgba(108,99,255,0.2)',
-          borderRadius: '6px', padding: '5px 10px', fontSize: '10px', color: 'rgba(255,255,255,0.7)',
-          whiteSpace: 'nowrap', pointerEvents: 'none', backdropFilter: 'blur(8px)',
-          animation: 'fadeIn 0.15s ease',
-        }}>{text}</div>
-      )}
+      {s && <div style={{ position: 'absolute', ...p, zIndex: 200, background: 'rgba(8,8,12,0.96)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', padding: '4px 8px', fontSize: '9px', color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', pointerEvents: 'none', backdropFilter: 'blur(8px)', animation: 'fadeIn 0.1s ease', letterSpacing: '0.01em' }}>{text}</div>}
+    </div>
+  );
+}
+
+function Slider({ label, value, min, max, step, onChange, unit = '' }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string }) {
+  return (
+    <div style={{ marginBottom: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: '0.02em' }}>{label}</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>{value.toFixed(step < 1 ? step < 0.1 ? 2 : 1 : 0)}{unit}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
+        style={{ width: '100%', accentColor: '#6C63FF', height: '2px', opacity: 0.8 }} />
     </div>
   );
 }
 
 /* ── Page ── */
-export default function HomePage() {
+export default function Page() {
+  // Product config
   const [bodyColor, setBodyColor] = useState('#1a1a2e');
   const [accentColor, setAccentColor] = useState('#6C63FF');
   const [baseColor, setBaseColor] = useState('#2a2a35');
-  const [material, setMaterial] = useState<MaterialType>('glossy');
-  const [environment, setEnvironment] = useState('studio');
+  const [mat, setMat] = useState<MatType>('glossy');
+  const [env, setEnv] = useState('studio');
   const [exploded, setExploded] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [shadingMode, setShadingMode] = useState<ShadingMode>('pbr');
+
+  // Viewport
   const [autoRotate, setAutoRotate] = useState(false);
-  const [autoRotateSpeed, setAutoRotateSpeed] = useState(1.0);
+  const [autoRotateSpeed, setAutoRotateSpeed] = useState(0.8);
   const [showHotspots, setShowHotspots] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [toast, setToast] = useState('');
-  const [activePanel, setActivePanel] = useState<'colors' | 'material' | 'environment' | 'lighting' | 'features'>('colors');
-  const [lightIntensity, setLightIntensity] = useState(1.2);
-  const [lightAngle, setLightAngle] = useState(45);
-  const [ambientIntensity, setAmbientIntensity] = useState(0.3);
-  const [userFile, setUserFile] = useState<File | null>(null);
-  const [dragOver, setDragOver] = useState(false);
+
+  // Camera
+  const [fov, setFov] = useState(40);
+
+  // Lighting
+  const [lightI, setLightI] = useState(1.2);
+  const [lightAng, setLightAng] = useState(45);
+  const [lightH, setLightH] = useState(8);
+  const [ambI, setAmbI] = useState(0.3);
+
+  // Post-processing
+  const [enablePP, setEnablePP] = useState(true);
+  const [bloomI, setBloomI] = useState(0.15);
+  const [bloomT, setBloomT] = useState(0.9);
+  const [vigI, setVigI] = useState(0.3);
+  const [ssao, setSsao] = useState(true);
+
+  // Render
   const [rendering, setRendering] = useState(false);
   const [renderRes, setRenderRes] = useState<'2x' | '4x'>('2x');
+  const [renderSamples, setRenderSamples] = useState(4);
+
+  // File
+  const [userFile, setUserFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // UI
+  const [tab, setTab] = useState<'scene' | 'camera' | 'render' | 'display'>('scene');
+  const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
-  const handleScreenshot = useCallback(() => {
+  const screenshot = useCallback(() => {
     if (!canvasRef.current) return;
-    const link = document.createElement('a');
-    link.download = `slothview-${Date.now()}.png`;
-    link.href = canvasRef.current.toDataURL('image/png');
-    link.click();
-    showToast('Screenshot exported');
+    const a = document.createElement('a');
+    a.download = `slothview-${Date.now()}.png`;
+    a.href = canvasRef.current.toDataURL('image/png');
+    a.click();
+    showToast('Screenshot saved');
   }, []);
 
-  const handleFullscreen = useCallback(() => {
+  const render = useCallback(() => {
+    const gl = glRef.current, c = canvasRef.current;
+    if (!gl || !c) return;
+    setRendering(true);
+    const mul = renderRes === '4x' ? 4 : 2;
+    const oW = c.width, oH = c.height;
+    const rW = oW * mul, rH = oH * mul;
+    gl.setSize(rW, rH, false);
+    gl.setPixelRatio(1);
+    // Multi-sample by rendering multiple frames
+    let frame = 0;
+    const doFrame = () => {
+      if (frame < renderSamples) {
+        frame++;
+        requestAnimationFrame(doFrame);
+      } else {
+        const url = gl.domElement.toDataURL('image/png');
+        gl.setSize(oW, oH, false);
+        gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const a = document.createElement('a');
+        a.download = `slothview-render-${rW}x${rH}-${renderSamples}spp-${Date.now()}.png`;
+        a.href = url;
+        a.click();
+        setRendering(false);
+        showToast(`Rendered ${rW}x${rH} @ ${renderSamples} samples`);
+      }
+    };
+    requestAnimationFrame(doFrame);
+  }, [renderRes, renderSamples]);
+
+  const fullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
     else document.exitFullscreen();
   }, []);
 
-  const handleShare = useCallback(() => {
-    const config = `body=${bodyColor.slice(1)}&accent=${accentColor.slice(1)}&base=${baseColor.slice(1)}&mat=${material}&env=${environment}`;
-    const url = `${window.location.origin}?${config}`;
-    navigator.clipboard.writeText(url).then(() => showToast('Config URL copied to clipboard'));
-  }, [bodyColor, accentColor, baseColor, material, environment]);
+  const share = useCallback(() => {
+    const url = `${window.location.origin}?b=${bodyColor.slice(1)}&a=${accentColor.slice(1)}&m=${mat}&e=${env}`;
+    navigator.clipboard.writeText(url).then(() => showToast('Config URL copied'));
+  }, [bodyColor, accentColor, mat, env]);
 
-  const handleRender = useCallback(() => {
-    const gl = glRef.current;
-    const canvas = canvasRef.current;
-    if (!gl || !canvas) return;
-    setRendering(true);
-    
-    const multiplier = renderRes === '4x' ? 4 : 2;
-    const origW = canvas.width;
-    const origH = canvas.height;
-    const renderW = origW * multiplier;
-    const renderH = origH * multiplier;
-
-    // Temporarily resize for high-res capture
-    gl.setSize(renderW, renderH, false);
-    gl.setPixelRatio(1);
-    
-    // Force a render at high res
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const dataUrl = gl.domElement.toDataURL('image/png');
-        
-        // Restore original size
-        gl.setSize(origW, origH, false);
-        gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        
-        const link = document.createElement('a');
-        link.download = `slothview-render-${renderW}x${renderH}-${Date.now()}.png`;
-        link.href = dataUrl;
-        link.click();
-        
-        setRendering(false);
-        showToast(`Render exported at ${renderW}x${renderH}px`);
-      });
-    });
-  }, [renderRes]);
-
-  const handleFileDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const ext = file.name.split('.').pop()?.toLowerCase();
-      if (['glb', 'gltf', 'fbx', 'obj'].includes(ext || '')) {
-        setUserFile(file);
-        showToast(`Loaded: ${file.name}`);
-      } else {
-        showToast('Supported formats: GLB, GLTF, FBX, OBJ');
-      }
-    }
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const f = e.dataTransfer.files[0];
+    if (f && ['glb', 'gltf', 'fbx', 'obj'].includes(f.name.split('.').pop()?.toLowerCase() || '')) {
+      setUserFile(f); showToast(`Loaded: ${f.name}`);
+    } else showToast('Formats: GLB, GLTF, FBX, OBJ');
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUserFile(file);
-      showToast(`Loaded: ${file.name}`);
-    }
-  }, []);
+  const price = BASE_PRICE + (MATERIALS.find(m => m.v === mat)?.p || 0);
+  const focalLength = Math.round(36 / (2 * Math.tan((fov * Math.PI / 180) / 2)));
 
-  const totalPrice = BASE_PRICE + (MATERIALS.find(m => m.value === material)?.price || 0);
-  const bodyName = COLORS.find(c => c.value === bodyColor)?.name || 'Custom';
-  const accentName = ACCENTS.find(c => c.value === accentColor)?.name || 'Custom';
-
-  const applyLightingPreset = (preset: typeof LIGHTING_PRESETS[0]) => {
-    setLightIntensity(preset.intensity);
-    setAmbientIntensity(preset.ambient);
-    setLightAngle(preset.angle);
-    showToast(`Lighting: ${preset.name}`);
-  };
-
-  /* ── Shared styles ── */
-  const panelTab = (id: string, label: string, icon: React.ReactNode) => (
-    <Tooltip text={label} position="bottom" key={id}>
-      <button onClick={() => setActivePanel(id as any)} style={{
-        flex: 1, padding: '8px 4px', borderRadius: '6px', fontSize: '0px',
-        background: activePanel === id ? 'var(--accent-glow)' : 'transparent',
-        color: activePanel === id ? '#6C63FF' : 'var(--text-dim)',
-        border: activePanel === id ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.2s',
+  /* ── Shared UI ── */
+  const ibtn = (icon: React.ReactNode, tip: string, active: boolean, fn: () => void) => (
+    <Tip text={tip} pos="bottom" key={tip}>
+      <button onClick={fn} style={{
+        width: '30px', height: '30px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: active ? 'rgba(108,99,255,0.12)' : 'transparent',
+        border: active ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+        color: active ? '#6C63FF' : 'rgba(255,255,255,0.3)', transition: 'all 0.15s',
       }}>{icon}</button>
-    </Tooltip>
+    </Tip>
   );
 
-  const toolBtn = (icon: React.ReactNode, label: string, active: boolean, onClick: () => void) => (
-    <Tooltip text={label} position="bottom" key={label}>
-      <button onClick={onClick} style={{
-        width: '34px', height: '34px', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: active ? 'var(--accent-glow)' : 'rgba(255,255,255,0.03)',
-        border: active ? '1px solid rgba(108,99,255,0.35)' : '1px solid var(--border)',
-        color: active ? '#6C63FF' : 'var(--text-dim)',
-        transition: 'all 0.2s',
-      }}>{icon}</button>
-    </Tooltip>
-  );
-
-  const swatch = (c: { name: string; value: string }, selected: boolean, onClick: () => void) => (
-    <Tooltip text={c.name} position="top" key={c.value}>
-      <button onClick={onClick} style={{
-        width: '32px', height: '32px', borderRadius: '8px', background: c.value,
-        border: selected ? '2px solid #6C63FF' : '2px solid transparent',
-        boxShadow: selected ? '0 0 10px rgba(108,99,255,0.35)' : 'inset 0 0 0 1px rgba(255,255,255,0.08)',
-        transition: 'all 0.2s', position: 'relative', flexShrink: 0,
+  const cswatch = (c: { n: string; v: string }, sel: boolean, fn: () => void) => (
+    <Tip text={c.n} pos="top" key={c.v}>
+      <button onClick={fn} style={{
+        width: '24px', height: '24px', borderRadius: '5px', background: c.v,
+        border: sel ? '1.5px solid #6C63FF' : '1.5px solid transparent',
+        boxShadow: sel ? '0 0 6px rgba(108,99,255,0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+        transition: 'all 0.15s', flexShrink: 0, position: 'relative',
       }}>
-        {selected && <div style={{ position: 'absolute', inset: 0, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ color: c.value === '#e8e8ec' || c.value === '#b8b8c0' || c.value === '#ffffff' ? '#000' : '#fff' }}><IconCheck /></div>
+        {sel && <div style={{ position: 'absolute', inset: 0, borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={c.v === '#e8e8ec' || c.v === '#b8b8c0' || c.v === '#ffffff' ? '#000' : '#fff'} strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
         </div>}
       </button>
-    </Tooltip>
+    </Tip>
   );
 
-  const sliderRow = (label: string, value: number, min: number, max: number, step: number, onChange: (v: number) => void) => (
-    <div style={{ marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 500 }}>{label}</span>
-        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>{value.toFixed(step < 1 ? 1 : 0)}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: '#6C63FF', height: '3px' }} />
-    </div>
-  );
-
-  const toggleRow = (label: string, desc: string, active: boolean, toggle: () => void, icon: React.ReactNode) => (
-    <button key={label} onClick={toggle} style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '10px 12px', borderRadius: '8px', width: '100%',
-      background: active ? 'var(--accent-glow)' : 'rgba(255,255,255,0.015)',
-      border: active ? '1px solid rgba(108,99,255,0.25)' : '1px solid var(--border)',
-      transition: 'all 0.2s',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ color: active ? '#6C63FF' : 'var(--text-dim)' }}>{icon}</span>
-        <div style={{ textAlign: 'left' }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: active ? '#fff' : 'rgba(255,255,255,0.6)' }}>{label}</div>
-          <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>{desc}</div>
-        </div>
-      </div>
-      <div style={{
-        width: '32px', height: '18px', borderRadius: '9px',
-        background: active ? '#6C63FF' : 'rgba(255,255,255,0.1)',
-        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-      }}>
-        <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: active ? '16px' : '2px', transition: 'left 0.2s' }} />
-      </div>
-    </button>
-  );
+  const stl = { label: { fontSize: '9px' as const, color: 'rgba(255,255,255,0.25)' as const, fontWeight: 600 as const, textTransform: 'uppercase' as const, letterSpacing: '0.1em' as const, marginBottom: '5px' as const, display: 'block' as const } };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden', position: 'relative' }}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={handleFileDrop}
-    >
-      {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={handleFileSelect} />
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden', background: '#08080C', position: 'relative' }}
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop}>
 
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 100,
-          background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.3)',
-          borderRadius: '8px', padding: '8px 18px', color: '#a5a0ff', fontSize: '12px', fontWeight: 600,
-          backdropFilter: 'blur(12px)', animation: 'fadeIn 0.15s ease',
-        }}>{toast}</div>
-      )}
+      <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
 
-      {/* Drag overlay */}
-      {dragOver && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(108,99,255,0.08)',
-          border: '2px dashed rgba(108,99,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#6C63FF', marginBottom: '8px' }}><IconUpload /></div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Drop your 3D model here</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>GLB, GLTF, FBX, or OBJ</div>
-          </div>
+      {toast && <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.1s' }}>{toast}</div>}
+
+      {dragOver && <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(108,99,255,0.06)', border: '2px dashed rgba(108,99,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}><div style={{ color: '#6C63FF', marginBottom: '6px' }}><IconUpload /></div><div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Drop 3D model</div><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '3px' }}>GLB, GLTF, FBX, OBJ</div></div>
+      </div>}
+
+      {/* ── Top bar ── */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60, height: '32px', background: 'rgba(8,8,12,0.98)', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#6C63FF' }}>Sloth</span>View</span>
+          <span style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
+          <span style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#6C63FF', fontSize: '7px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.1em' }}>DEMO</span>
         </div>
-      )}
-
-      {/* Demo Banner */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
-        background: '#0D0D0D', borderBottom: '1px solid rgba(255,255,255,0.04)',
-        padding: '7px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-        fontSize: '11px',
-      }}>
-        <span style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)', color: '#6C63FF', fontSize: '8px', fontWeight: 800, padding: '2px 7px', borderRadius: '100px', letterSpacing: '0.1em' }}>DEMO</span>
-        <span style={{ color: 'rgba(255,255,255,0.4)' }}>Interactive 3D product viewer</span>
-        <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
-        <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '11px' }}>Get a quote &rarr;</a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Shading mode pills */}
+          <div style={{ display: 'flex', gap: '1px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', padding: '1px' }}>
+            {SHADING_MODES.map(m => (
+              <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
+                padding: '3px 8px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
+                background: shadingMode === m.id ? 'rgba(108,99,255,0.15)' : 'transparent',
+                color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
+                transition: 'all 0.15s',
+              }}>{m.label}</button>
+            ))}
+          </div>
+          <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
+          <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
+        </div>
       </div>
 
-      {/* Sidebar */}
+      {/* ── Sidebar ── */}
       <div style={{
-        width: sidebarOpen ? '300px' : '0px', flexShrink: 0,
-        background: 'rgba(10,10,14,0.97)', borderRight: '1px solid var(--border)',
-        backdropFilter: 'blur(20px)', transition: 'width 0.3s ease', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', paddingTop: '34px', zIndex: 10,
+        width: sidebarOpen ? '260px' : '0px', flexShrink: 0,
+        background: 'rgba(10,10,14,0.98)', borderRight: '1px solid rgba(255,255,255,0.03)',
+        transition: 'width 0.25s ease', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', paddingTop: '32px', zIndex: 10,
       }}>
-        <div style={{ padding: '16px 16px 8px', minWidth: '300px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div>
-              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '16px', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                <span style={{ color: '#6C63FF' }}>Sloth</span>View <span style={{ color: 'var(--text-dim)', fontWeight: 400, fontSize: '12px' }}>3D</span>
+        <div style={{ minWidth: '260px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {/* Panel tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+            {([
+              ['scene', 'Scene', <IconPalette key="s" />],
+              ['camera', 'Camera', <IconEye key="c" />],
+              ['render', 'Render', <IconZap key="r" />],
+              ['display', 'Display', <IconSliders key="d" />],
+            ] as [string, string, React.ReactNode][]).map(([id, label, icon]) => (
+              <Tip text={label} pos="bottom" key={id}>
+                <button onClick={() => setTab(id as any)} style={{
+                  flex: 1, padding: '10px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: tab === id ? '#6C63FF' : 'rgba(255,255,255,0.2)',
+                  borderBottom: tab === id ? '2px solid #6C63FF' : '2px solid transparent',
+                  transition: 'all 0.15s',
+                }}>{icon}</button>
+              </Tip>
+            ))}
+          </div>
+
+          {/* Panel content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+
+            {/* ── Scene tab ── */}
+            {tab === 'scene' && (
+              <div>
+                {/* File upload */}
+                <button onClick={() => fileRef.current?.click()} style={{
+                  width: '100%', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px',
+                  background: userFile ? 'rgba(108,99,255,0.06)' : 'rgba(255,255,255,0.015)',
+                  border: userFile ? '1px solid rgba(108,99,255,0.15)' : '1px dashed rgba(255,255,255,0.06)',
+                  display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s', textAlign: 'left',
+                }}>
+                  <span style={{ color: userFile ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}>{userFile ? <IconFile /> : <IconUpload />}</span>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: userFile ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)' }}>
+                      {userFile ? userFile.name : 'Import model'}
+                    </div>
+                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>
+                      {userFile ? `${(userFile.size / 1024 / 1024).toFixed(1)} MB` : 'GLB / GLTF / FBX / OBJ'}
+                    </div>
+                  </div>
+                  {userFile && <button onClick={e => { e.stopPropagation(); setUserFile(null); showToast('Removed'); }} style={{ marginLeft: 'auto', color: '#f87171', opacity: 0.6 }}><IconTrash /></button>}
+                </button>
+
+                {!userFile && (
+                  <>
+                    <span style={stl.label}>Body</span>
+                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '10px' }}>{COLORS.map(c => cswatch(c, bodyColor === c.v, () => setBodyColor(c.v)))}</div>
+                    <span style={stl.label}>Accent</span>
+                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '10px' }}>{ACCENTS.map(c => cswatch(c, accentColor === c.v, () => setAccentColor(c.v)))}</div>
+                    <span style={stl.label}>Base</span>
+                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '10px' }}>{BASES.map(c => cswatch(c, baseColor === c.v, () => setBaseColor(c.v)))}</div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '12px' }}>
+                      <input type="color" value={bodyColor} onChange={e => setBodyColor(e.target.value)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', background: 'none' }} />
+                      <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace' }}>{bodyColor}</span>
+                    </div>
+
+                    <span style={stl.label}>Material</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '12px' }}>
+                      {MATERIALS.map(m => (
+                        <button key={m.v} onClick={() => setMat(m.v)} style={{
+                          padding: '8px 10px', borderRadius: '5px', textAlign: 'left',
+                          background: mat === m.v ? 'rgba(108,99,255,0.08)' : 'transparent',
+                          border: mat === m.v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.15s',
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '10px', fontWeight: 600, color: mat === m.v ? '#fff' : 'rgba(255,255,255,0.5)' }}>{m.n}</div>
+                            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{m.d}</div>
+                          </div>
+                          {m.p > 0 && <span style={{ fontSize: '8px', color: '#FFB020', fontWeight: 600 }}>+{m.p}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <span style={stl.label}>Environment</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '2px', marginBottom: '12px' }}>
+                  {ENVS.map(e => (
+                    <button key={e} onClick={() => setEnv(e)} style={{
+                      padding: '6px 2px', borderRadius: '4px', textAlign: 'center', fontSize: '8px', fontWeight: 600,
+                      background: env === e ? 'rgba(108,99,255,0.1)' : 'transparent',
+                      color: env === e ? '#6C63FF' : 'rgba(255,255,255,0.25)',
+                      border: env === e ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
+                      textTransform: 'capitalize', transition: 'all 0.15s',
+                    }}>{e}</button>
+                  ))}
+                </div>
+
+                <span style={stl.label}>Lighting Presets</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '10px' }}>
+                  {LIGHT_PRESETS.map(p => (
+                    <button key={p.n} onClick={() => { setLightI(p.i); setAmbI(p.a); setLightAng(p.ang); setLightH(p.h); showToast(p.n); }} style={{
+                      padding: '5px 2px', borderRadius: '4px', fontSize: '8px', fontWeight: 600,
+                      background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)',
+                      color: 'rgba(255,255,255,0.35)', transition: 'all 0.15s',
+                    }}>{p.n}</button>
+                  ))}
+                </div>
+                <Slider label="Key Light" value={lightI} min={0} max={3} step={0.05} onChange={setLightI} />
+                <Slider label="Fill / Ambient" value={ambI} min={0} max={1} step={0.02} onChange={setAmbI} />
+                <Slider label="Light Angle" value={lightAng} min={0} max={360} step={1} onChange={setLightAng} unit="deg" />
+                <Slider label="Light Height" value={lightH} min={1} max={15} step={0.5} onChange={setLightH} />
               </div>
-            </div>
-            {userFile && (
-              <Tooltip text="Remove model" position="left">
-                <button onClick={() => { setUserFile(null); showToast('Model removed'); }} style={{
-                  width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171',
-                }}><IconTrash /></button>
-              </Tooltip>
+            )}
+
+            {/* ── Camera tab ── */}
+            {tab === 'camera' && (
+              <div>
+                <span style={stl.label}>Lens</span>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Focal Length</span>
+                    <span style={{ fontSize: '14px', fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, color: '#fff' }}>{focalLength}<span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>mm</span></span>
+                  </div>
+                  <Slider label="Field of View" value={fov} min={15} max={120} step={1} onChange={setFov} unit="deg" />
+                  <div style={{ display: 'flex', gap: '3px', marginTop: '6px' }}>
+                    {[{l:'24mm',v:73},{l:'35mm',v:54},{l:'50mm',v:39},{l:'85mm',v:24},{l:'135mm',v:15}].map(p => (
+                      <button key={p.l} onClick={() => setFov(p.v)} style={{
+                        flex: 1, padding: '4px 2px', borderRadius: '3px', fontSize: '8px', fontWeight: 600,
+                        background: Math.abs(fov - p.v) < 2 ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
+                        color: Math.abs(fov - p.v) < 2 ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                        border: Math.abs(fov - p.v) < 2 ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                        transition: 'all 0.15s',
+                      }}>{p.l}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <span style={stl.label}>Orbit</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <button onClick={() => setAutoRotate(!autoRotate)} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '5px',
+                    background: autoRotate ? 'rgba(108,99,255,0.06)' : 'transparent',
+                    border: autoRotate ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
+                    transition: 'all 0.15s',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: autoRotate ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}><IconRotate /></span>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: autoRotate ? '#fff' : 'rgba(255,255,255,0.45)' }}>Auto Rotate</span>
+                    </div>
+                    <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: autoRotate ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: autoRotate ? '16px' : '2px', transition: 'left 0.2s' }} />
+                    </div>
+                  </button>
+                  {autoRotate && <div style={{ padding: '0 4px' }}><Slider label="Speed" value={autoRotateSpeed} min={0.1} max={5} step={0.1} onChange={setAutoRotateSpeed} /></div>}
+                </div>
+              </div>
+            )}
+
+            {/* ── Render tab ── */}
+            {tab === 'render' && (
+              <div>
+                <span style={stl.label}>Post-Processing</span>
+                <button onClick={() => setEnablePP(!enablePP)} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '5px', width: '100%', marginBottom: '8px',
+                  background: enablePP ? 'rgba(108,99,255,0.06)' : 'transparent', border: enablePP ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: enablePP ? '#fff' : 'rgba(255,255,255,0.4)' }}>Enable Effects</span>
+                  <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: enablePP ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: enablePP ? '16px' : '2px', transition: 'left 0.2s' }} />
+                  </div>
+                </button>
+                {enablePP && (
+                  <>
+                    <Slider label="Bloom Intensity" value={bloomI} min={0} max={1} step={0.01} onChange={setBloomI} />
+                    <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} />
+                    <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} />
+                    <button onClick={() => setSsao(!ssao)} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '5px', width: '100%', marginBottom: '8px',
+                      background: ssao ? 'rgba(108,99,255,0.06)' : 'transparent', border: ssao ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
+                    }}>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: ssao ? '#fff' : 'rgba(255,255,255,0.4)' }}>SSAO</span>
+                      <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: ssao ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: ssao ? '16px' : '2px', transition: 'left 0.2s' }} />
+                      </div>
+                    </button>
+                  </>
+                )}
+
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
+
+                <span style={stl.label}>Export</span>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '3px', marginBottom: '8px' }}>
+                    {(['2x', '4x'] as const).map(r => (
+                      <button key={r} onClick={() => setRenderRes(r)} style={{
+                        flex: 1, padding: '5px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+                        background: renderRes === r ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
+                        color: renderRes === r ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                        border: renderRes === r ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                      }}>{r} Resolution</button>
+                    ))}
+                  </div>
+                  <Slider label="Samples" value={renderSamples} min={1} max={16} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" />
+                  <button onClick={render} disabled={rendering} style={{
+                    width: '100%', padding: '10px', borderRadius: '6px', marginTop: '4px',
+                    background: rendering ? 'rgba(108,99,255,0.08)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                    color: '#fff', fontSize: '11px', fontWeight: 700, opacity: rendering ? 0.5 : 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  }}>
+                    <IconZap />
+                    {rendering ? 'Rendering...' : 'Render Image'}
+                  </button>
+                </div>
+                <button onClick={screenshot} style={{
+                  width: '100%', padding: '8px', borderRadius: '5px',
+                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+                  color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                }}><IconCamera /> Quick Screenshot</button>
+              </div>
+            )}
+
+            {/* ── Display tab ── */}
+            {tab === 'display' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {[
+                  { l: 'Grid', d: 'Reference plane', a: showGrid, fn: () => setShowGrid(!showGrid), i: <IconGrid /> },
+                  ...(!userFile ? [
+                    { l: 'Exploded', d: 'Separate parts', a: exploded, fn: () => setExploded(!exploded), i: <IconExplode /> },
+                    { l: 'Annotations', d: 'Feature hotspots', a: showHotspots, fn: () => setShowHotspots(!showHotspots), i: <IconHotspot /> },
+                  ] : []),
+                ].map(f => (
+                  <button key={f.l} onClick={f.fn} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '5px',
+                    background: f.a ? 'rgba(108,99,255,0.06)' : 'transparent', border: f.a ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)', transition: 'all 0.15s',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: f.a ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}>{f.i}</span>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: f.a ? '#fff' : 'rgba(255,255,255,0.45)' }}>{f.l}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.d}</div>
+                      </div>
+                    </div>
+                    <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: f.a ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: f.a ? '16px' : '2px', transition: 'left 0.2s' }} />
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* File upload area */}
-          <button onClick={() => fileInputRef.current?.click()} style={{
-            width: '100%', padding: '10px', borderRadius: '8px', marginBottom: '12px',
-            background: userFile ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.02)',
-            border: userFile ? '1px solid rgba(108,99,255,0.25)' : '1px dashed rgba(255,255,255,0.1)',
-            display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s',
-          }}>
-            <span style={{ color: userFile ? '#6C63FF' : 'var(--text-dim)' }}>{userFile ? <IconFile /> : <IconUpload />}</span>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: userFile ? '#fff' : 'rgba(255,255,255,0.5)' }}>
-                {userFile ? userFile.name : 'Load your own model'}
+          {/* Price footer */}
+          {!userFile && (
+            <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{COLORS.find(c => c.v === bodyColor)?.n} / {mat}</span>
+                <span style={{ fontFamily: 'Space Grotesk', fontSize: '16px', fontWeight: 800 }}>{price.toLocaleString()} <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 400 }}>DKK</span></span>
               </div>
-              <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>
-                {userFile ? `${(userFile.size / 1024 / 1024).toFixed(1)} MB` : 'GLB, GLTF, FBX, OBJ - drag & drop supported'}
-              </div>
-            </div>
-          </button>
-
-          {/* Panel tabs */}
-          <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.02)', borderRadius: '7px', padding: '3px', marginBottom: '12px' }}>
-            {panelTab('colors', 'Colors', <IconPalette />)}
-            {panelTab('material', 'Material', <IconLayers />)}
-            {panelTab('environment', 'Environment', <IconBox />)}
-            {panelTab('lighting', 'Lighting', <IconSun />)}
-            {panelTab('features', 'Features', <IconSliders />)}
-          </div>
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px', minWidth: '300px' }}>
-          {activePanel === 'colors' && !userFile && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Body</div>
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>{COLORS.map(c => swatch(c, bodyColor === c.value, () => setBodyColor(c.value)))}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Accent</div>
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>{ACCENTS.map(c => swatch(c, accentColor === c.value, () => setAccentColor(c.value)))}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Base</div>
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>{BASES.map(c => swatch(c, baseColor === c.value, () => setBaseColor(c.value)))}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Custom</div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input type="color" value={bodyColor} onChange={e => setBodyColor(e.target.value)} style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer', background: 'none' }} />
-                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>{bodyColor.toUpperCase()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activePanel === 'colors' && userFile && (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-dim)', fontSize: '12px' }}>
-              Color controls are for the built-in demo product. Load materials with your model file.
-            </div>
-          )}
-
-          {activePanel === 'material' && !userFile && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              {MATERIALS.map(m => (
-                <button key={m.value} onClick={() => setMaterial(m.value)} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px', borderRadius: '8px',
-                  background: material === m.value ? 'var(--accent-glow)' : 'rgba(255,255,255,0.015)',
-                  border: material === m.value ? '1px solid rgba(108,99,255,0.35)' : '1px solid var(--border)',
-                  transition: 'all 0.2s',
-                }}>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: material === m.value ? '#fff' : 'rgba(255,255,255,0.65)' }}>{m.name}</div>
-                    <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>{m.desc}</div>
-                  </div>
-                  {m.price > 0 && <span style={{ fontSize: '10px', color: '#FFB020', fontWeight: 600 }}>+{m.price} DKK</span>}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {activePanel === 'material' && userFile && (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-dim)', fontSize: '12px' }}>
-              Material controls are for the built-in demo product. Your model uses its own materials.
-            </div>
-          )}
-
-          {activePanel === 'environment' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-              {ENVIRONMENTS.map(e => (
-                <button key={e.value} onClick={() => setEnvironment(e.value)} style={{
-                  padding: '14px 10px', borderRadius: '8px', textAlign: 'center',
-                  background: environment === e.value ? 'var(--accent-glow)' : 'rgba(255,255,255,0.015)',
-                  border: environment === e.value ? '1px solid rgba(108,99,255,0.35)' : '1px solid var(--border)',
-                  transition: 'all 0.2s',
-                }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: environment === e.value ? '#fff' : 'rgba(255,255,255,0.55)' }}>{e.name}</div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {activePanel === 'lighting' && (
-            <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Presets</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', marginBottom: '16px' }}>
-                {LIGHTING_PRESETS.map(p => (
-                  <button key={p.name} onClick={() => applyLightingPreset(p)} style={{
-                    padding: '8px 4px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
-                    color: 'rgba(255,255,255,0.55)', transition: 'all 0.2s',
-                  }}>{p.name}</button>
-                ))}
-              </div>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Manual</div>
-              {sliderRow('Key Light Intensity', lightIntensity, 0, 3, 0.1, setLightIntensity)}
-              {sliderRow('Ambient Fill', ambientIntensity, 0, 1, 0.05, setAmbientIntensity)}
-              {sliderRow('Light Rotation', lightAngle, 0, 360, 1, setLightAngle)}
-            </div>
-          )}
-
-          {activePanel === 'features' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {toggleRow('Auto Rotate', 'Slowly spin the model', autoRotate, () => setAutoRotate(!autoRotate), <IconRotate />)}
-              {autoRotate && (
-                <div style={{ padding: '4px 12px 8px' }}>
-                  {sliderRow('Rotation Speed', autoRotateSpeed, 0.2, 5, 0.1, setAutoRotateSpeed)}
-                </div>
-              )}
-              {!userFile && toggleRow('Exploded View', 'Separate components', exploded, () => setExploded(!exploded), <IconExplode />)}
-              {toggleRow('Wireframe', 'Show mesh topology', wireframe, () => setWireframe(!wireframe), <IconWireframe />)}
-              {!userFile && toggleRow('Annotations', 'Feature hotspots on model', showHotspots, () => setShowHotspots(!showHotspots), <IconHotspot />)}
-              {toggleRow('Floor Grid', 'Reference grid plane', showGrid, () => setShowGrid(!showGrid), <IconGrid />)}
+              <button style={{ width: '100%', padding: '8px', borderRadius: '6px', background: 'linear-gradient(135deg, #6C63FF, #5046e5)', color: '#fff', fontSize: '10px', fontWeight: 700 }}>Add to Cart</button>
+              <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', marginTop: '3px' }}>Demo only</div>
             </div>
           )}
         </div>
-
-        {/* Price footer */}
-        {!userFile && (
-          <div style={{
-            padding: '12px 16px', borderTop: '1px solid var(--border)',
-            background: 'rgba(108,99,255,0.02)', minWidth: '300px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div>
-                <div style={{ fontSize: '9px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Config</div>
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '1px' }}>{bodyName} / {accentName} / {material}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '20px', fontWeight: 800 }}>{totalPrice.toLocaleString()} <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 400 }}>DKK</span></div>
-              </div>
-            </div>
-            <button style={{
-              width: '100%', padding: '10px', borderRadius: '8px',
-              background: 'linear-gradient(135deg, #6C63FF, #5046e5)',
-              color: '#fff', fontSize: '12px', fontWeight: 700,
-            }}>Add to Cart</button>
-            <div style={{ fontSize: '9px', color: 'var(--text-dim)', textAlign: 'center', marginTop: '4px' }}>Demo only</div>
-          </div>
-        )}
       </div>
 
-      {/* Main viewport */}
+      {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
-        {/* Sidebar toggle */}
-        <Tooltip text={sidebarOpen ? 'Close panel' : 'Open panel'} position="bottom">
+        <Tip text={sidebarOpen ? 'Hide panel' : 'Show panel'} pos="right">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-            position: 'absolute', top: '42px', left: '10px', zIndex: 20,
-            width: '34px', height: '34px', borderRadius: '7px',
-            background: 'rgba(10,10,14,0.85)', border: '1px solid var(--border)',
-            color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(12px)',
-          }}>
-            {sidebarOpen ? <IconX /> : <IconMenu />}
-          </button>
-        </Tooltip>
+            position: 'absolute', top: '40px', left: '8px', zIndex: 20,
+            width: '28px', height: '28px', borderRadius: '5px',
+            background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.04)',
+            color: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
+        </Tip>
 
-        {/* Toolbar */}
         <div style={{
-          position: 'absolute', top: '42px', right: '10px', zIndex: 20,
-          display: 'flex', gap: '3px', background: 'rgba(10,10,14,0.85)',
-          border: '1px solid var(--border)', borderRadius: '8px', padding: '3px',
-          backdropFilter: 'blur(12px)',
+          position: 'absolute', top: '40px', right: '8px', zIndex: 20,
+          display: 'flex', gap: '2px', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.04)',
+          borderRadius: '6px', padding: '2px',
         }}>
-          {toolBtn(<IconCamera />, 'Quick Screenshot', false, handleScreenshot)}
-          {/* Render button with resolution picker */}
-          <Tooltip text={rendering ? 'Rendering...' : `Hi-Res Render (${renderRes})`} position="bottom">
-            <div style={{ position: 'relative' }}>
-              <button onClick={handleRender} disabled={rendering} style={{
-                width: '34px', height: '34px', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: rendering ? 'rgba(108,99,255,0.2)' : 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border)', color: rendering ? '#6C63FF' : 'var(--text-dim)',
-                transition: 'all 0.2s', opacity: rendering ? 0.6 : 1,
-              }}><IconZap /></button>
-              <button onClick={() => setRenderRes(renderRes === '2x' ? '4x' : '2x')} style={{
-                position: 'absolute', bottom: '-2px', right: '-2px', width: '14px', height: '14px', borderRadius: '3px',
-                background: '#6C63FF', color: '#fff', fontSize: '7px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '1px solid rgba(0,0,0,0.3)',
-              }}>{renderRes}</button>
-            </div>
-          </Tooltip>
-          {toolBtn(<IconMaximize />, 'Fullscreen', false, handleFullscreen)}
-          {toolBtn(<IconShare />, 'Share Configuration', false, handleShare)}
+          {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen)}
+          {ibtn(<IconShare />, 'Share config', false, share)}
         </div>
 
-        {/* Canvas */}
         <Scene
           bodyColor={bodyColor} accentColor={accentColor} baseColor={baseColor}
-          material={material} environment={environment} exploded={exploded}
-          wireframe={wireframe} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed}
+          material={mat} environment={env} exploded={exploded} wireframe={wireframe}
+          shadingMode={shadingMode} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed}
           showHotspots={showHotspots} showGrid={showGrid} activeHotspot={activeHotspot}
           setActiveHotspot={setActiveHotspot} canvasRef={canvasRef} glRef={glRef}
-          lightIntensity={lightIntensity} lightAngle={lightAngle}
-          ambientIntensity={ambientIntensity} userFile={userFile}
+          lightIntensity={lightI} lightAngle={lightAng} lightHeight={lightH}
+          ambientIntensity={ambI} userFile={userFile} fov={fov}
+          bloomIntensity={bloomI} bloomThreshold={bloomT} vignetteIntensity={vigI}
+          ssaoEnabled={ssao} enablePostProcessing={enablePP}
         />
 
-        {/* Controls hint */}
+        {/* Nav hint */}
         <div style={{
-          position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: '12px', alignItems: 'center',
-          background: 'rgba(10,10,14,0.85)', border: '1px solid var(--border)',
-          borderRadius: '8px', padding: '6px 14px', backdropFilter: 'blur(12px)',
-          fontSize: '10px', color: 'var(--text-dim)',
+          position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: '8px', alignItems: 'center',
+          background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.03)',
+          borderRadius: '5px', padding: '4px 10px', fontSize: '8px', color: 'rgba(255,255,255,0.2)',
         }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="6"/><line x1="12" y1="7" x2="12" y2="10"/></svg>
-            Left-click: Orbit
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.06)' }}>|</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="6"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>
-            Middle/Right: Pan
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.06)' }}>|</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="7 15 12 20 17 15"/><polyline points="7 9 12 4 17 9"/></svg>
-            Scroll: Zoom
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.06)' }}>|</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 3l14 9-14 9V3z"/></svg>
-            Touch: 1-finger orbit, 2-finger zoom/pan
-          </span>
+          <span>LMB Orbit</span><span style={{ opacity: 0.15 }}>|</span>
+          <span>MMB/RMB Pan</span><span style={{ opacity: 0.15 }}>|</span>
+          <span>Scroll Zoom</span><span style={{ opacity: 0.15 }}>|</span>
+          <span>Touch: 1F orbit, 2F zoom/pan</span>
         </div>
       </div>
 
-      {/* Built by */}
       <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{
-        position: 'fixed', bottom: '14px', right: '14px', zIndex: 50,
-        background: 'rgba(10,10,14,0.9)', border: '1px solid var(--border)',
-        borderRadius: '7px', padding: '6px 12px', fontSize: '10px',
-        color: 'rgba(255,255,255,0.45)', textDecoration: 'none',
-        backdropFilter: 'blur(12px)',
-      }}>
-        Built by <span style={{ color: '#6C63FF', fontWeight: 600 }}>Sloth Studio</span> &rarr;
-      </a>
+        position: 'fixed', bottom: '10px', right: '10px', zIndex: 50,
+        background: 'rgba(8,8,12,0.95)', border: '1px solid rgba(255,255,255,0.04)',
+        borderRadius: '5px', padding: '4px 10px', fontSize: '9px',
+        color: 'rgba(255,255,255,0.3)', textDecoration: 'none',
+      }}>Built by <span style={{ color: '#6C63FF', fontWeight: 600 }}>Sloth Studio</span> &rarr;</a>
     </div>
   );
 }
