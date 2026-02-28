@@ -274,7 +274,7 @@ export default function Page() {
             ))}
           </div>
           <span style={{ color: 'rgba(255,255,255,0.08)' }}>|</span>
-          <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
+          <a className="top-bar-quote" href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
         </div>
       </div>
 
@@ -318,7 +318,7 @@ export default function Page() {
                 <span style={stl.label}>Model</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
                   {PRESET_MODELS.map(m => (
-                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); }} style={{
+                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
                       width: '100%', padding: '6px 8px', borderRadius: '5px', textAlign: 'left',
                       background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.01)',
                       border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
@@ -558,7 +558,7 @@ export default function Page() {
           }}>{sidebarOpen ? <IconX /> : <IconMenu />}</button>
         </Tip>
 
-        <div style={{
+        <div className="desktop-toolbar" style={{
           position: 'absolute', top: '40px', right: '8px', zIndex: 20,
           display: 'flex', gap: '2px', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(255,255,255,0.04)',
           borderRadius: '6px', padding: '2px',
@@ -593,21 +593,53 @@ export default function Page() {
           <span>Touch: 1F orbit, 2F zoom/pan</span>
         </div>
 
-        {/* Mobile bottom bar */}
-        <div className="mobile-shading" style={{
+        {/* Mobile bottom bar - app-like tabs */}
+        <div className="mobile-bottom-bar" style={{
           display: 'none', position: 'absolute', bottom: '0', left: '0', right: '0',
-          background: 'rgba(8,8,12,0.98)', borderTop: '1px solid rgba(255,255,255,0.04)',
-          padding: '6px 8px', gap: '2px', zIndex: 20, justifyContent: 'center',
+          background: 'rgba(8,8,12,0.98)', borderTop: '1px solid rgba(255,255,255,0.06)',
+          padding: '4px 4px 8px', zIndex: 20, flexDirection: 'column', gap: '4px',
         }}>
-          {SHADING_MODES.map(m => (
-            <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
-              padding: '6px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 600,
-              background: shadingMode === m.id ? 'rgba(108,99,255,0.15)' : 'transparent',
-              color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.25)',
-              border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
-            }}>{m.label}</button>
-          ))}
+          {/* Shading modes row */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '2px', padding: '0 4px' }}>
+            {SHADING_MODES.map(m => (
+              <button key={m.id} onClick={() => setShadingMode(m.id)} style={{
+                padding: '8px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                background: shadingMode === m.id ? 'rgba(108,99,255,0.15)' : 'transparent',
+                color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                border: shadingMode === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
+                flex: 1, minHeight: '36px',
+              }}>{m.label}</button>
+            ))}
+          </div>
+          {/* Model quick-scroll row */}
+          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', padding: '0 4px', WebkitOverflowScrolling: 'touch' as any }}>
+            {PRESET_MODELS.map(m => (
+              <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); }} style={{
+                padding: '6px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
+                background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
+                color: !userFile && selectedModel === m.id ? '#6C63FF' : 'rgba(255,255,255,0.35)',
+                border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                whiteSpace: 'nowrap', minHeight: '32px', flexShrink: 0,
+              }}>{m.name}</button>
+            ))}
+            <button onClick={() => fileRef.current?.click()} style={{
+              padding: '6px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
+              background: userFile ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
+              color: userFile ? '#6C63FF' : 'rgba(255,255,255,0.35)',
+              border: userFile ? '1px solid rgba(108,99,255,0.25)' : '1px dashed rgba(255,255,255,0.08)',
+              whiteSpace: 'nowrap', minHeight: '32px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px',
+            }}><IconUpload /> {userFile ? userFile.name.slice(0, 12) : 'Upload'}</button>
+          </div>
         </div>
+
+        {/* Mobile FAB - settings */}
+        <button className="mobile-fab" onClick={() => setSidebarOpen(true)} style={{
+          display: 'none', position: 'absolute', bottom: '100px', right: '12px', zIndex: 25,
+          width: '44px', height: '44px', borderRadius: '12px',
+          background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)',
+          color: '#6C63FF', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        }}><IconSliders /></button>
       </div>
 
       <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{

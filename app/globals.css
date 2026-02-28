@@ -33,8 +33,8 @@ input, select { font: inherit; }
     top: 32px !important;
     bottom: 0 !important;
     z-index: 40 !important;
-    width: 280px !important;
-    max-width: 85vw !important;
+    width: 300px !important;
+    max-width: 88vw !important;
     animation: slideIn 0.2s ease;
     overflow-y: auto !important;
   }
@@ -47,18 +47,36 @@ input, select { font: inherit; }
     display: block !important;
   }
   .top-shading-modes {
-    max-width: 200px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    display: none !important;
   }
-  .top-shading-modes::-webkit-scrollbar { display: none; }
+  .top-bar-quote {
+    display: none !important;
+  }
   .nav-hint { display: none !important; }
-  .mobile-shading { display: flex !important; }
+  .mobile-bottom-bar { display: flex !important; }
+  .mobile-fab { display: flex !important; }
+  .desktop-toolbar { display: none !important; }
+  /* Bigger touch targets in sidebar */
+  .sidebar-panel button {
+    min-height: 40px;
+  }
+  .sidebar-panel input[type="range"] {
+    height: 4px !important;
+  }
+  .sidebar-panel input[type="range"]::-webkit-slider-thumb {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .sidebar-panel input[type="range"]::-moz-range-thumb {
+    width: 16px !important;
+    height: 16px !important;
+  }
 }
 
 @media (min-width: 769px) {
   .sidebar-backdrop { display: none !important; }
-  .mobile-shading { display: none !important; }
+  .mobile-bottom-bar { display: none !important; }
+  .mobile-fab { display: none !important; }
 }
 
 @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
