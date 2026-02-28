@@ -56,9 +56,9 @@ const SHADING_MODES: { id: ShadingMode; label: string }[] = [
 ];
 
 const PRESET_MODELS = [
+  { id: 'chair', name: 'Designer Chair', path: '/models/SheenChair.glb', cat: 'Furniture', desc: 'Modern fabric chair with sheen' },
   { id: 'helmet', name: 'Damaged Helmet', path: '/models/DamagedHelmet.glb', cat: 'Sci-Fi', desc: 'Battle-worn helmet with PBR materials' },
   { id: 'shoe', name: 'Sneaker', path: '/models/MaterialsVariantsShoe.glb', cat: 'Fashion', desc: 'Athletic shoe with material variants' },
-  { id: 'chair', name: 'Designer Chair', path: '/models/SheenChair.glb', cat: 'Furniture', desc: 'Modern fabric chair with sheen' },
   { id: 'car', name: 'Toy Car', path: '/models/ToyCar.glb', cat: 'Automotive', desc: 'Detailed miniature car model' },
   { id: 'dragon', name: 'Crystal Dragon', path: '/models/DragonAttenuation.glb', cat: 'Art', desc: 'Translucent dragon sculpture' },
   { id: 'camera', name: 'Antique Camera', path: '/models/AntiqueCamera.glb', cat: 'Vintage', desc: 'Classic folding camera with brass details' },
@@ -137,7 +137,7 @@ export default function Page() {
   const [renderSamples, setRenderSamples] = useState(4);
 
   // Model selection
-  const [selectedModel, setSelectedModel] = useState('helmet');
+  const [selectedModel, setSelectedModel] = useState('chair');
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
