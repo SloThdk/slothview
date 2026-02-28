@@ -618,7 +618,7 @@ export default function Page() {
 
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+        <button className="burger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{
           position: 'absolute', top: '40px', left: '8px', zIndex: 50,
           width: '40px', height: '40px', borderRadius: '10px',
           background: '#6C63FF', border: 'none',

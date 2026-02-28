@@ -51,6 +51,7 @@ input, select { font: inherit; }
   .sidebar-panel > div { min-width: 0 !important; overflow: hidden !important; }
   .sidebar-panel * { max-width: 100% !important; box-sizing: border-box !important; }
   .sidebar-backdrop { display: block !important; }
+  .burger-btn { position: fixed !important; top: 40px !important; left: 8px !important; z-index: 55 !important; }
   .nav-hint { display: none !important; }
   .mobile-model-bar { display: block !important; }
   .mobile-fab { display: flex !important; }
