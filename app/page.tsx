@@ -83,12 +83,15 @@ function Tip({ text, children, pos = 'bottom' }: { text: string; children: React
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, unit = '', defaultValue }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string; defaultValue?: number }) {
+function Slider({ label, value, min, max, step, onChange, unit = '', defaultValue, tooltip }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string; defaultValue?: number; tooltip?: string }) {
   const isDefault = defaultValue !== undefined && Math.abs(value - defaultValue) < step * 0.5;
   return (
     <div style={{ marginBottom: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: '0.02em' }}>{label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: '0.02em' }}>{label}</span>
+          {tooltip && <span title={tooltip} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', cursor: 'help', lineHeight: 1 }}>?</span>}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>{value.toFixed(step < 1 ? step < 0.1 ? 2 : 1 : 0)}{unit}</span>
           {defaultValue !== undefined && !isDefault && (
@@ -182,7 +185,7 @@ export default function Page() {
   // UI
   const [shadingOverlay, setShadingOverlay] = useState(false);
   const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<'scene' | 'camera' | 'render' | 'display'>('scene');
+  const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display'>('model');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
@@ -392,16 +395,18 @@ export default function Page() {
           onTouchMove={e => e.stopPropagation()}
         >
           {/* Panel tabs + close */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)', flexWrap: 'nowrap', overflowX: 'auto' }}>
             {([
-              ['scene', 'Scene', <IconPalette key="s" />],
-              ['camera', 'Camera', <IconEye key="c" />],
-              ['render', 'Render', <IconZap key="r" />],
-              ['display', 'Display', <IconSliders key="d" />],
+              ['model', 'Model', <svg key="mdl" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke="currentColor" strokeWidth="1.2"/></svg>],
+              ['scene', 'Environment', <svg key="env" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="3" stroke="currentColor" strokeWidth="1.2"/><path d="M7 1v1M7 12v1M1 7h1M12 7h1M2.5 2.5l.7.7M10.8 10.8l.7.7M10.8 2.5l-.7.7M2.5 10.8l.7.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>],
+              ['camera', 'Camera', <svg key="cam" width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="7" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 4L5.5 2h3l1 2" stroke="currentColor" strokeWidth="1.2"/></svg>],
+              ['light', 'Lighting', <svg key="lit" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 9v3M5 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M7 1v1M2.5 2.5l.7.7M1 5.5h1M12 5.5h1M10.8 2.5l-.7.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>],
+              ['render', 'Render', <svg key="ren" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h3M2 7h6M2 10h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="8" y="3" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/></svg>],
+              ['display', 'Display', <svg key="dsp" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2.5C2 2.5 4 5 7 5C10 5 12 2.5 12 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M2 8.5C2 8.5 4 6 7 6C10 6 12 8.5 12 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="3.5" r="1" fill="currentColor"/><circle cx="7" cy="7.5" r="1" fill="currentColor"/></svg>],
             ] as [string, string, React.ReactNode][]).map(([id, label, icon]) => (
               <Tip text={label} pos="bottom" key={id}>
                 <button onClick={() => setTab(id as any)} style={{
-                  flex: 1, padding: '10px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flex: 1, padding: '9px 4px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: tab === id ? '#6C63FF' : 'rgba(255,255,255,0.2)',
                   borderBottom: tab === id ? '2px solid #6C63FF' : '2px solid transparent',
                   transition: 'all 0.15s',
@@ -410,7 +415,7 @@ export default function Page() {
             ))}
             {/* Close sidebar button */}
             <button className="sidebar-close" onClick={() => setSidebarOpen(false)} style={{
-              padding: '10px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '9px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'rgba(255,255,255,0.25)', borderBottom: '2px solid transparent',
               transition: 'all 0.15s', flexShrink: 0,
             }}><IconX /></button>
@@ -419,11 +424,10 @@ export default function Page() {
           {/* Panel content */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
 
-            {/* ── Scene tab ── */}
-            {tab === 'scene' && (
+            {/* ── Model tab ── */}
+            {tab === 'model' && (
               <div>
-                {/* Model Gallery */}
-                <span style={stl.label}>Model</span>
+                <span style={stl.label}>Preset Models</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
                   {PRESET_MODELS.map(m => (
                     <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); previewsReady.current = false; showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
@@ -432,9 +436,7 @@ export default function Page() {
                       border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
                       display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s',
                     }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '4px', background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconBox />
-                      </div>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '4px', background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconBox /></div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: !userFile && selectedModel === m.id ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
                         <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{m.cat}</div>
@@ -444,34 +446,28 @@ export default function Page() {
                   ))}
                 </div>
 
-                {/* Upload own model */}
                 <button onClick={() => fileRef.current?.click()} style={{
-                  width: '100%', padding: '8px 10px', borderRadius: '6px', marginBottom: '10px',
+                  width: '100%', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px',
                   background: userFile ? 'rgba(108,99,255,0.06)' : 'rgba(255,255,255,0.015)',
                   border: userFile ? '1px solid rgba(108,99,255,0.15)' : '1px dashed rgba(255,255,255,0.06)',
                   display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s', textAlign: 'left',
                 }}>
                   <span style={{ color: userFile ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}>{userFile ? <IconFile /> : <IconUpload />}</span>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 600, color: userFile ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)' }}>
-                      {userFile ? userFile.name : 'Upload your own'}
-                    </div>
-                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>
-                      {userFile ? `${(userFile.size / 1024 / 1024).toFixed(1)} MB` : 'GLB / GLTF / FBX / OBJ'}
-                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: userFile ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)' }}>{userFile ? userFile.name : 'Upload your own'}</div>
+                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{userFile ? `${(userFile.size / 1024 / 1024).toFixed(1)} MB` : 'GLB / GLTF / FBX / OBJ'}</div>
                   </div>
                   {userFile && <button onClick={e => { e.stopPropagation(); setUserFile(null); showToast('Removed'); }} style={{ marginLeft: 'auto', color: '#f87171', opacity: 0.6 }}><IconTrash /></button>}
                 </button>
 
-                {/* Style Presets */}
                 <span style={stl.label}>Style Preset</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '4px', marginBottom: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '4px', marginBottom: '4px' }}>
                   {[
                     { id: 'toon', label: 'Toon', desc: 'Cel-shaded', apply: () => { setShadingMode('toon'); setLightI(2.8); setAmbI(0.08); setLightAng(35); setLightH(10); setEnablePP(false); } },
                     { id: 'games', label: 'Games', desc: 'Balanced PBR', apply: () => { setShadingMode('pbr'); setLightI(1.5); setAmbI(0.25); setBloomI(0.12); setBloomT(0.85); setSsao(true); setSsaoRadius(0.3); setSsaoIntensity(1.2); setChromaticAb(0); setEnablePP(true); setEnv('city'); setShowEnvBg(true); } },
                     { id: 'cinematic', label: 'Cinematic', desc: 'Film look', apply: () => { setShadingMode('pbr'); setLightI(1.8); setAmbI(0.06); setBloomI(0.45); setBloomT(0.65); setVigI(0.55); setSsao(true); setSsaoRadius(0.6); setSsaoIntensity(1.8); setChromaticAb(0.002); setBrightness(0.05); setContrast(0.12); setEnablePP(true); setEnv('sunset'); setShowEnvBg(true); } },
                   ].map(p => (
-                    <button key={p.id} onClick={() => { p.apply(); previewsReady.current = false; showToast(p.label); }} style={{
+                    <button key={p.id} onClick={() => { p.apply(); previewsReady.current = false; showToast(p.label); }} title={p.desc} style={{
                       padding: '8px 4px', borderRadius: '6px', textAlign: 'center',
                       background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
                       transition: 'all 0.15s', cursor: 'pointer',
@@ -481,17 +477,79 @@ export default function Page() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
 
-                {/* Scene Lights */}
+            {/* ── Environment tab (reusing 'scene' id) ── */}
+            {tab === 'scene' && (
+              <div>
+                <span style={stl.label}>HDRI Environment</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '2px', marginBottom: '12px' }}>
+                  {ENVS.map(e => (
+                    <button key={e} onClick={() => setEnv(e)} title={`Set environment to ${e}`} style={{
+                      padding: '6px 2px', borderRadius: '4px', textAlign: 'center', fontSize: '8px', fontWeight: 600,
+                      background: env === e ? 'rgba(108,99,255,0.1)' : 'transparent',
+                      color: env === e ? '#6C63FF' : 'rgba(255,255,255,0.25)',
+                      border: env === e ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
+                      textTransform: 'capitalize', transition: 'all 0.15s',
+                    }}>{e}</button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                  <button onClick={() => setShowEnvBg(!showEnvBg)} title="Show or hide the HDRI environment as the background" style={{
+                    flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
+                    background: showEnvBg ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
+                    color: showEnvBg ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                    border: showEnvBg ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
+                  }}><IconEye /> Background</button>
+                  <button onClick={() => hdriRef.current?.click()} title="Upload a custom HDR or EXR environment map" style={{
+                    flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
+                    background: customHdri ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
+                    color: customHdri ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                    border: customHdri ? '1px solid rgba(108,99,255,0.2)' : '1px dashed rgba(255,255,255,0.06)',
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
+                  }}><IconUpload /> {customHdri ? 'Custom' : 'Load HDR'}</button>
+                </div>
+                {customHdri && (
+                  <button onClick={() => { setCustomHdri(null); showToast('HDRI removed'); }} style={{
+                    width: '100%', padding: '4px 8px', borderRadius: '4px', fontSize: '8px', fontWeight: 600, marginBottom: '10px',
+                    background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)',
+                    color: '#f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                  }}><IconTrash /> Remove custom HDRI</button>
+                )}
+              </div>
+            )}
+
+            {/* ── Lighting tab ── */}
+            {tab === 'light' && (
+              <div>
+                <span style={stl.label}>Presets</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '10px' }}>
+                  {LIGHT_PRESETS.map(p => (
+                    <button key={p.n} onClick={() => { setLightI(p.i); setAmbI(p.a); setLightAng(p.ang); setLightH(p.h); showToast(p.n); }} title={`Apply ${p.n} lighting`} style={{
+                      padding: '5px 2px', borderRadius: '4px', fontSize: '8px', fontWeight: 600,
+                      background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)',
+                      color: 'rgba(255,255,255,0.35)', transition: 'all 0.15s',
+                    }}>{p.n}</button>
+                  ))}
+                </div>
+                <Slider label="Key Light" value={lightI} min={0} max={3} step={0.05} onChange={setLightI} defaultValue={1.2} tooltip="Strength of the main directional light hitting the model" />
+                <Slider label="Fill / Ambient" value={ambI} min={0} max={1} step={0.02} onChange={setAmbI} defaultValue={0.3} tooltip="Soft fill light — raises the minimum brightness across the whole scene" />
+                <Slider label="Light Angle" value={lightAng} min={0} max={360} step={1} onChange={setLightAng} unit="deg" defaultValue={45} tooltip="Horizontal rotation of the key light around the model" />
+                <Slider label="Light Height" value={lightH} min={1} max={15} step={0.5} onChange={setLightH} defaultValue={8} tooltip="Vertical elevation of the key light above the model" />
+
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <span style={stl.label}>Scene Lights</span>
                   <button onClick={() => {
                     const id = `light-${Date.now()}`;
                     setSceneLights(l => [...l, { id, color: '#ffffff', intensity: 1.5, x: 2, y: 3, z: 2 }]);
-                  }} style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF', background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>+ Add</button>
+                  }} title="Add a new point light to the scene" style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF', background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>+ Add</button>
                 </div>
                 {sceneLights.length === 0 && (
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '8px 0', marginBottom: '8px' }}>No scene lights added</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '8px 0 4px' }}>No scene lights — click Add to place one</div>
                 )}
                 {sceneLights.map((light, idx) => {
                   const isSel = selectedLightId === light.id;
@@ -508,79 +566,22 @@ export default function Page() {
                           {isSel && <span style={{ fontSize: '8px', color: '#6C63FF', fontWeight: 700 }}>SELECTED</span>}
                         </div>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <label onClick={e => e.stopPropagation()} style={{ width: '18px', height: '18px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
+                          <label onClick={e => e.stopPropagation()} title="Change light color" style={{ width: '18px', height: '18px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
                             <input type="color" value={light.color} onChange={e => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, color: e.target.value} : l))} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
                           </label>
-                          <button onClick={e => { e.stopPropagation(); setSceneLights(ls => ls.filter(l => l.id !== light.id)); if (isSel) setSelectedLightId(null); }} style={{ fontSize: '10px', color: '#f87171', opacity: 0.6, padding: '0 2px' }}>✕</button>
+                          <button onClick={e => { e.stopPropagation(); setSceneLights(ls => ls.filter(l => l.id !== light.id)); if (isSel) setSelectedLightId(null); }} title="Remove this light" style={{ fontSize: '10px', color: '#f87171', opacity: 0.6, padding: '0 2px' }}>✕</button>
                         </div>
                       </div>
                       {isSel && <>
-                        <div style={{ fontSize: '8px', color: 'rgba(108,99,255,0.7)', marginBottom: '6px' }}>Drag the gizmo in viewport to move</div>
-                        <Slider label="Intensity" value={light.intensity} min={0} max={5} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, intensity: v} : l))} defaultValue={1.5} />
-                        <Slider label="X" value={light.x} min={-10} max={10} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, x: v} : l))} />
-                        <Slider label="Y" value={light.y} min={0} max={12} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, y: v} : l))} />
-                        <Slider label="Z" value={light.z} min={-10} max={10} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, z: v} : l))} />
+                        <div style={{ fontSize: '8px', color: 'rgba(108,99,255,0.7)', marginBottom: '6px' }}>Drag the gizmo in viewport · or use sliders</div>
+                        <Slider label="Intensity" value={light.intensity} min={0} max={5} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, intensity: v} : l))} defaultValue={1.5} tooltip="Brightness of this point light" />
+                        <Slider label="X" value={light.x} min={-10} max={10} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, x: v} : l))} tooltip="Light X position in world space" />
+                        <Slider label="Y" value={light.y} min={0} max={12} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, y: v} : l))} tooltip="Light height (Y axis)" />
+                        <Slider label="Z" value={light.z} min={-10} max={10} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, z: v} : l))} tooltip="Light Z position in world space" />
                       </>}
                     </div>
                   );
                 })}
-
-                <span style={stl.label}>Environment</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '2px', marginBottom: '12px' }}>
-                  {ENVS.map(e => (
-                    <button key={e} onClick={() => setEnv(e)} style={{
-                      padding: '6px 2px', borderRadius: '4px', textAlign: 'center', fontSize: '8px', fontWeight: 600,
-                      background: env === e ? 'rgba(108,99,255,0.1)' : 'transparent',
-                      color: env === e ? '#6C63FF' : 'rgba(255,255,255,0.25)',
-                      border: env === e ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
-                      textTransform: 'capitalize', transition: 'all 0.15s',
-                    }}>{e}</button>
-                  ))}
-                </div>
-
-                {/* HDRI background toggle + custom upload */}
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
-                  <button onClick={() => setShowEnvBg(!showEnvBg)} style={{
-                    flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
-                    background: showEnvBg ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
-                    color: showEnvBg ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                    border: showEnvBg ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
-                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
-                  }}>
-                    <IconEye /> Background
-                  </button>
-                  <button onClick={() => hdriRef.current?.click()} style={{
-                    flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
-                    background: customHdri ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
-                    color: customHdri ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                    border: customHdri ? '1px solid rgba(108,99,255,0.2)' : '1px dashed rgba(255,255,255,0.06)',
-                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
-                  }}>
-                    <IconUpload /> {customHdri ? 'Custom' : 'Load HDR'}
-                  </button>
-                </div>
-                {customHdri && (
-                  <button onClick={() => { setCustomHdri(null); showToast('HDRI removed'); }} style={{
-                    width: '100%', padding: '4px 8px', borderRadius: '4px', fontSize: '8px', fontWeight: 600, marginBottom: '10px',
-                    background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)',
-                    color: '#f87171', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                  }}><IconTrash /> Remove custom HDRI</button>
-                )}
-
-                <span style={stl.label}>Lighting Presets</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '10px' }}>
-                  {LIGHT_PRESETS.map(p => (
-                    <button key={p.n} onClick={() => { setLightI(p.i); setAmbI(p.a); setLightAng(p.ang); setLightH(p.h); showToast(p.n); }} style={{
-                      padding: '5px 2px', borderRadius: '4px', fontSize: '8px', fontWeight: 600,
-                      background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)',
-                      color: 'rgba(255,255,255,0.35)', transition: 'all 0.15s',
-                    }}>{p.n}</button>
-                  ))}
-                </div>
-                <Slider label="Key Light" value={lightI} min={0} max={3} step={0.05} onChange={setLightI} defaultValue={1.2} />
-                <Slider label="Fill / Ambient" value={ambI} min={0} max={1} step={0.02} onChange={setAmbI} defaultValue={0.3} />
-                <Slider label="Light Angle" value={lightAng} min={0} max={360} step={1} onChange={setLightAng} unit="deg" defaultValue={45} />
-                <Slider label="Light Height" value={lightH} min={1} max={15} step={0.5} onChange={setLightH} defaultValue={8} />
               </div>
             )}
 
@@ -593,7 +594,7 @@ export default function Page() {
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Focal Length</span>
                     <span style={{ fontSize: '14px', fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, color: '#fff' }}>{focalLength}<span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>mm</span></span>
                   </div>
-                  <Slider label="Field of View" value={fov} min={15} max={120} step={1} onChange={setFov} unit="deg" defaultValue={40} />
+                  <Slider label="Field of View" value={fov} min={15} max={120} step={1} onChange={setFov} unit="deg" defaultValue={40} tooltip="Camera lens angle — lower = telephoto/compressed, higher = wide angle" />
                   <div style={{ display: 'flex', gap: '3px', marginTop: '6px' }}>
                     {[{l:'24mm',v:73},{l:'35mm',v:54},{l:'50mm',v:39},{l:'85mm',v:24},{l:'135mm',v:15}].map(p => (
                       <button key={p.l} onClick={() => setFov(p.v)} style={{
@@ -649,11 +650,11 @@ export default function Page() {
                     {/* Camera view toggle */}
                     <button onClick={() => setCameraViewMode(!cameraViewMode)} style={{
                       width: '100%', padding: '10px', borderRadius: '6px', marginBottom: '10px',
-                      background: cameraViewMode ? 'linear-gradient(135deg,#6C63FF,#5046e5)' : 'rgba(108,99,255,0.06)',
-                      border: '1px solid rgba(108,99,255,0.3)',
-                      color: '#fff', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em',
+                      background: cameraViewMode ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.08)',
+                      border: `1px solid ${cameraViewMode ? 'rgba(239,68,68,0.6)' : 'rgba(239,68,68,0.25)'}`,
+                      color: cameraViewMode ? '#fff' : '#ef4444', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em',
                     }}>
-                      {cameraViewMode ? 'Exit Camera View' : 'Enter Camera View'}
+                      {cameraViewMode ? '● Exit Camera View' : 'Enter Camera View'}
                     </button>
 
                     {/* Camera position */}
@@ -670,8 +671,8 @@ export default function Page() {
                       </div>
                     )}
                     {cameraViewMode && (
-                      <div style={{ fontSize: '9px', color: '#6C63FF', textAlign: 'center', padding: '4px 0', background: 'rgba(108,99,255,0.06)', borderRadius: '4px' }}>
-                        Viewing from scene camera · Orbit disabled
+                      <div style={{ fontSize: '9px', color: '#ef4444', textAlign: 'center', padding: '4px 0', background: 'rgba(239,68,68,0.06)', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.15)' }}>
+                        Live from scene camera · Red border active
                       </div>
                     )}
                   </>
@@ -694,9 +695,9 @@ export default function Page() {
                 </button>
                 {enablePP && (
                   <>
-                    <Slider label="Bloom Intensity" value={bloomI} min={0} max={1} step={0.01} onChange={setBloomI} defaultValue={0.15} />
-                    <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} defaultValue={0.9} />
-                    <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} defaultValue={0.3} />
+                    <Slider label="Bloom Intensity" value={bloomI} min={0} max={1} step={0.01} onChange={setBloomI} defaultValue={0.15} tooltip="Adds a soft glow around bright surfaces — raise for neon/cinematic looks" />
+                    <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} defaultValue={0.9} tooltip="Brightness cutoff before glow kicks in — lower = more glow everywhere" />
+                    <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} defaultValue={0.3} tooltip="Darkens the viewport edges for a cinematic / lens falloff look" />
                     <button onClick={() => setSsao(!ssao)} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '5px', width: '100%', marginBottom: '4px',
                       background: ssao ? 'rgba(108,99,255,0.06)' : 'transparent', border: ssao ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
@@ -707,16 +708,16 @@ export default function Page() {
                       </div>
                     </button>
                     {ssao && <>
-                      <Slider label="AO Radius" value={ssaoRadius} min={0.1} max={2} step={0.05} onChange={setSsaoRadius} defaultValue={0.5} />
-                      <Slider label="AO Intensity" value={ssaoIntensity} min={0} max={4} step={0.1} onChange={setSsaoIntensity} defaultValue={1.0} />
+                      <Slider label="AO Radius" value={ssaoRadius} min={0.1} max={2} step={0.05} onChange={setSsaoRadius} defaultValue={0.5} tooltip="How far ambient occlusion shadows spread from contact points" />
+                      <Slider label="AO Intensity" value={ssaoIntensity} min={0} max={4} step={0.1} onChange={setSsaoIntensity} defaultValue={1.0} tooltip="Strength of the ambient occlusion darkening effect" />
                     </>}
                     <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '8px 0' }} />
                     <span style={stl.label}>Color Grading</span>
-                    <Slider label="Brightness" value={brightness} min={-0.4} max={0.4} step={0.01} onChange={setBrightness} defaultValue={0} />
-                    <Slider label="Contrast" value={contrast} min={-0.4} max={0.4} step={0.01} onChange={setContrast} defaultValue={0} />
+                    <Slider label="Brightness" value={brightness} min={-0.4} max={0.4} step={0.01} onChange={setBrightness} defaultValue={0} tooltip="Post-process overall brightness adjustment" />
+                    <Slider label="Contrast" value={contrast} min={-0.4} max={0.4} step={0.01} onChange={setContrast} defaultValue={0} tooltip="Post-process contrast — raises darks and lowers highlights when negative" />
                     <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '8px 0' }} />
                     <span style={stl.label}>Lens Effects</span>
-                    <Slider label="Chromatic Aberration" value={chromaticAb} min={0} max={0.01} step={0.0005} onChange={setChromaticAb} defaultValue={0} />
+                    <Slider label="Chromatic Aberration" value={chromaticAb} min={0} max={0.01} step={0.0005} onChange={setChromaticAb} defaultValue={0} tooltip="Simulates lens color fringing at the edges — subtle realism effect" />
                   </>
                 )}
 
@@ -757,23 +758,6 @@ export default function Page() {
             {/* ── Display tab ── */}
             {tab === 'display' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                {/* Background color */}
-                <div style={{ marginBottom: '10px' }}>
-                  <span style={stl.label}>Background</span>
-                  <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                    {[
-                      { n: 'Dark', v: '#08080C' }, { n: 'Midnight', v: '#0a0a1a' },
-                      { n: 'Charcoal', v: '#1a1a1e' }, { n: 'Slate', v: '#2a2a32' },
-                      { n: 'Light', v: '#e0e0e4' }, { n: 'White', v: '#ffffff' },
-                    ].map(c => (
-                      <button key={c.v} onClick={() => { document.body.style.background = c.v; showToast(`BG: ${c.n}`); }} title={c.n} style={{
-                        width: '24px', height: '24px', borderRadius: '5px', background: c.v,
-                        border: '1.5px solid rgba(255,255,255,0.06)', transition: 'all 0.15s',
-                      }} />
-                    ))}
-                  </div>
-                </div>
-
                 {/* Model Color Override */}
                 <div style={{ marginBottom: '10px' }}>
                   <span style={stl.label}>Model Color</span>
@@ -1073,12 +1057,18 @@ export default function Page() {
       {/* Camera boundary overlay */}
       {(showCameraBoundary || rendering || cameraViewMode) && (
         <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 12, pointerEvents: 'none' }}>
+          {/* Camera view label badge */}
+          {cameraViewMode && !rendering && (
+            <div style={{ position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)', zIndex: 15, background: 'rgba(239,68,68,0.9)', border: '1px solid rgba(239,68,68,0.6)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
+              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#fff' }}>CAMERA VIEW</span>
+            </div>
+          )}
           {/* Dim corners */}
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
           {/* Camera aperture */}
           <div style={{
             position: 'absolute', top: '8%', bottom: '8%', left: '4%', right: '4%',
-            border: rendering ? '1.5px solid rgba(108,99,255,0.7)' : '1px dashed rgba(255,255,255,0.25)',
+            border: rendering ? '1.5px solid rgba(108,99,255,0.7)' : cameraViewMode ? '1.5px solid rgba(239,68,68,0.7)' : '1px dashed rgba(255,255,255,0.25)',
             background: 'transparent',
           }}>
             {/* Corner marks */}
@@ -1087,10 +1077,10 @@ export default function Page() {
                 position: 'absolute', width: '14px', height: '14px',
                 top: y ? 'auto' : '-1px', bottom: y ? '-1px' : 'auto',
                 left: x ? 'auto' : '-1px', right: x ? '-1px' : 'auto',
-                borderTop: y ? 'none' : `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}`,
-                borderBottom: y ? `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}` : 'none',
-                borderLeft: x ? 'none' : `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}`,
-                borderRight: x ? `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}` : 'none',
+                borderTop: y ? 'none' : `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}`,
+                borderBottom: y ? `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}` : 'none',
+                borderLeft: x ? 'none' : `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}`,
+                borderRight: x ? `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}` : 'none',
               }} />
             ))}
             {/* Rule of thirds */}
