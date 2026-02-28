@@ -91,6 +91,7 @@ input, select { font: inherit; }
 }
 
 @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes stripeIn { from { opacity: 0; transform: scaleX(0.7); } to { opacity: 1; transform: scaleX(1); } }
 
 /* Range input styling */
 input[type="range"] {

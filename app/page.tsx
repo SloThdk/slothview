@@ -159,28 +159,50 @@ export default function Page() {
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
-  const captureShadingPreviews = useCallback(async () => {
+  // Pre-cache shading previews in background (no visible flicker)
+  const previewsReady = useRef(false);
+  const refreshPreviews = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Hide the canvas briefly during capture to prevent visible flicker
+    const container = canvas.parentElement;
+    const origOpacity = container?.style.opacity || '';
+
     const originalMode = shadingMode;
     const previews: Record<string, string> = {};
     const modes: ShadingMode[] = ['pbr', 'matcap', 'normals', 'wireframe', 'unlit'];
+
+    // Create a temp overlay to mask the flicker
+    const mask = document.createElement('div');
+    mask.style.cssText = 'position:absolute;inset:0;background:#08080C;z-index:29;transition:opacity 0.15s;';
+    container?.appendChild(mask);
+
     for (const mode of modes) {
       setShadingMode(mode);
-      // Wait 3 frames for materials to apply + render
       await new Promise<void>(r => {
-        let count = 0;
-        const tick = () => { count++; if (count >= 3) r(); else requestAnimationFrame(tick); };
-        requestAnimationFrame(tick);
+        let c = 0;
+        const t = () => { c++; if (c >= 4) r(); else requestAnimationFrame(t); };
+        requestAnimationFrame(t);
       });
       previews[mode] = canvas.toDataURL('image/jpeg', 0.65);
     }
+
     setShadingMode(originalMode);
-    // Wait for original to restore
-    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    await new Promise<void>(r => { let c = 0; const t = () => { c++; if (c >= 3) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
+
+    // Fade out mask
+    mask.style.opacity = '0';
+    setTimeout(() => mask.remove(), 200);
+
     setShadingPreviews(previews);
-    setShadingOverlay(true);
+    previewsReady.current = true;
   }, [shadingMode]);
+
+  const openShadingOverlay = useCallback(async () => {
+    if (shadingOverlay) { setShadingOverlay(false); return; }
+    if (!previewsReady.current) await refreshPreviews();
+    setShadingOverlay(true);
+  }, [shadingOverlay, refreshPreviews]);
 
   const screenshot = useCallback(() => {
     if (!canvasRef.current) return;
@@ -336,7 +358,7 @@ export default function Page() {
                 <span style={stl.label}>Model</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
                   {PRESET_MODELS.map(m => (
-                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
+                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); previewsReady.current = false; showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
                       width: '100%', padding: '6px 8px', borderRadius: '5px', textAlign: 'left',
                       background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.01)',
                       border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
@@ -631,41 +653,43 @@ export default function Page() {
           <div style={{ position: 'absolute', inset: 0, zIndex: 30, top: '32px', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setShadingOverlay(false)}>
             {SHADING_MODES.map((m, i) => {
               const count = SHADING_MODES.length;
-              const w = 100 / count;
-              const skew = 8;
-              const left = w * i;
               const isActive = shadingMode === m.id;
               const imgSrc = shadingPreviews[m.id];
+              // Crossed diagonal clip paths — alternating lean direction
+              const w = 100 / count;
+              const l = w * i;
+              const lean = 12; // diagonal lean percentage
+              const evenStripe = i % 2 === 0;
+              // Create crossed/zigzag effect: even stripes lean right, odd lean left
+              const tl = evenStripe ? l - lean / 2 : l + lean / 2;
+              const tr = evenStripe ? l + w + lean / 2 : l + w - lean / 2;
+              const br = evenStripe ? l + w - lean / 2 : l + w + lean / 2;
+              const bl = evenStripe ? l + lean / 2 : l - lean / 2;
               return (
-                <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); setShadingOverlay(false); showToast(m.label); }} style={{
-                  position: 'absolute', top: 0, bottom: 0,
-                  left: `${left - 3}%`, width: `${w + 6}%`,
-                  clipPath: `polygon(${skew}% 0, ${100 + skew}% 0, ${100 - skew}% 100%, ${-skew}% 100%)`,
+                <button key={m.id} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); showToast(m.label); }} style={{
+                  position: 'absolute', top: 0, bottom: 0, left: 0, width: '100%',
+                  clipPath: `polygon(${tl}% 0%, ${tr}% 0%, ${br}% 100%, ${bl}% 100%)`,
                   background: '#000',
                   border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden',
+                  animation: 'stripeIn 0.3s ease both',
+                  animationDelay: `${i * 0.04}s`,
                 }}>
                   {/* Real rendered preview */}
-                  {imgSrc && <img src={imgSrc} alt={m.label} style={{
-                    position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                    opacity: isActive ? 1 : 0.75,
+                  {imgSrc && <img src={imgSrc} alt={m.label} draggable={false} style={{
+                    position: 'absolute', top: 0, left: 0, width: '100vw', height: '100%', objectFit: 'cover',
+                    opacity: isActive ? 1 : 0.7,
                     transition: 'opacity 0.2s',
                   }} />}
-                  {/* Divider line */}
-                  <div style={{
-                    position: 'absolute', top: 0, bottom: 0, right: 0, width: '2px',
-                    background: 'rgba(255,255,255,0.2)',
-                    zIndex: 2,
-                  }} />
                   {/* Label */}
                   <div style={{
                     position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
                     zIndex: 2,
-                    background: isActive ? 'rgba(108,99,255,0.1)' : 'rgba(0,0,0,0.15)',
+                    background: isActive ? 'rgba(108,99,255,0.12)' : 'rgba(0,0,0,0.2)',
                   }}>
                     <span className="shading-overlay-label" style={{
-                      fontSize: '16px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
+                      fontSize: '15px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
                       color: '#fff',
-                      textShadow: '0 2px 16px rgba(0,0,0,1), 0 1px 4px rgba(0,0,0,1)',
+                      textShadow: '0 2px 20px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,1)',
                       pointerEvents: 'none',
                     }}>{m.label}</span>
                     {isActive && (
@@ -692,7 +716,7 @@ export default function Page() {
         }}>
           {/* Shading button — opens stripe overlay */}
           <Tip text="Shading modes" pos="top">
-            <button onClick={() => { if (shadingOverlay) setShadingOverlay(false); else captureShadingPreviews(); }} style={{
+            <button onClick={openShadingOverlay} style={{
               padding: '8px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
               letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px',
               background: shadingOverlay ? 'rgba(108,99,255,0.18)' : 'transparent',
