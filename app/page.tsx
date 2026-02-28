@@ -138,8 +138,10 @@ export default function Page() {
 
   // Render
   const [rendering, setRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
   const [renderRes, setRenderRes] = useState<'2x' | '4x'>('2x');
   const [renderSamples, setRenderSamples] = useState(4);
+  const [showCameraBoundary, setShowCameraBoundary] = useState(false);
 
   // Model selection
   const [selectedModel, setSelectedModel] = useState('chair');
@@ -171,44 +173,46 @@ export default function Page() {
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
   const previewsReady = useRef(false);
+  const capturingRef = useRef(false);
 
   const refreshPreviews = useCallback(async () => {
+    if (capturingRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    capturingRef.current = true;
 
     const originalMode = shadingMode;
-    const previews: Record<string, string> = {};
     const modes: ShadingMode[] = ['pbr', 'matcap', 'normals', 'wireframe', 'unlit'];
 
-    // Dark mask to hide flicker during capture
+    // Dark mask behind overlay — hidden by z-index
     const container = canvas.parentElement;
     const mask = document.createElement('div');
-    mask.style.cssText = 'position:absolute;inset:0;background:#08080C;z-index:29;pointer-events:none;';
+    mask.style.cssText = 'position:absolute;inset:0;background:#08080C;z-index:29;pointer-events:none;opacity:1;transition:opacity 0.2s;';
     container?.appendChild(mask);
 
     for (const mode of modes) {
       setShadingMode(mode);
-      // Wait for model remount + render — needs more frames since key-based remount loads GLTF
-      await new Promise<void>(r => setTimeout(r, 400));
-      // Wait additional frames for render to stabilize
-      await new Promise<void>(r => { let c = 0; const t = () => { if (++c >= 8) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
-      previews[mode] = canvas.toDataURL('image/jpeg', 0.8);
+      await new Promise<void>(r => setTimeout(r, 380));
+      await new Promise<void>(r => { let c = 0; const t = () => { if (++c >= 6) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
+      const img = canvas.toDataURL('image/jpeg', 0.82);
+      // Update each preview as it's ready — overlay fills in live
+      setShadingPreviews(prev => ({ ...prev, [mode]: img }));
     }
 
     setShadingMode(originalMode);
-    await new Promise<void>(r => setTimeout(r, 300));
-    mask.style.transition = 'opacity 0.2s';
+    await new Promise<void>(r => setTimeout(r, 250));
     mask.style.opacity = '0';
     setTimeout(() => mask.remove(), 220);
 
-    setShadingPreviews(previews);
     previewsReady.current = true;
+    capturingRef.current = false;
   }, [shadingMode]);
 
   const openShadingOverlay = useCallback(async () => {
     if (shadingOverlay) { setShadingOverlay(false); return; }
-    if (!previewsReady.current) await refreshPreviews();
+    // Open overlay immediately — previews fill in live
     setShadingOverlay(true);
+    if (!previewsReady.current) refreshPreviews();
   }, [shadingOverlay, refreshPreviews]);
 
   const screenshot = useCallback(async () => {
@@ -235,10 +239,12 @@ export default function Page() {
     const rW = oW * mul, rH = oH * mul;
     gl.setSize(rW, rH, false);
     gl.setPixelRatio(1);
+    setRenderProgress(0);
     let frame = 0;
     const doFrame = () => {
       if (frame < renderSamples) {
         frame++;
+        setRenderProgress(Math.round((frame / renderSamples) * 100));
         requestAnimationFrame(doFrame);
       } else {
         const url = gl.domElement.toDataURL('image/png');
@@ -342,7 +348,12 @@ export default function Page() {
         transition: 'width 0.25s ease', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', paddingTop: '32px', zIndex: 10,
       }}>
-        <div className="sidebar-inner" style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        <div className="sidebar-inner" style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+          onPointerDown={e => e.stopPropagation()}
+          onPointerMove={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchMove={e => e.stopPropagation()}
+        >
           {/* Panel tabs + close */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
             {([
@@ -640,6 +651,7 @@ export default function Page() {
                 {/* Toggles */}
                 {[
                   { l: 'Grid', d: 'Reference plane', a: showGrid, fn: () => setShowGrid(!showGrid), i: <IconGrid /> },
+                  { l: 'Camera Boundary', d: 'Render region + rule of thirds', a: showCameraBoundary, fn: () => setShowCameraBoundary(!showCameraBoundary), i: <IconCamera /> },
                   ...(!userFile ? [
                     { l: 'Annotations', d: 'Feature hotspots', a: showHotspots, fn: () => setShowHotspots(!showHotspots), i: <IconHotspot /> },
                   ] : []),
@@ -722,11 +734,17 @@ export default function Page() {
                   borderRight: i < SHADING_MODES.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
                   transition: 'flex 0.2s ease',
                 }} onClick={(e) => { e.stopPropagation(); setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }}>
-                  {imgSrc && <img src={imgSrc} alt={m.label} draggable={false} style={{
-                    position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                    filter: isActive ? 'none' : 'brightness(0.7)',
-                    transition: 'filter 0.15s',
-                  }} />}
+                  {imgSrc ? (
+                    <img src={imgSrc} alt={m.label} draggable={false} style={{
+                      position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+                      filter: isActive ? 'none' : 'brightness(0.7)',
+                      transition: 'filter 0.15s, opacity 0.3s', opacity: 1,
+                    }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid rgba(108,99,255,0.3)', borderTopColor: '#6C63FF', animation: 'spin 0.8s linear infinite' }} />
+                    </div>
+                  )}
                   {isActive && <div style={{ position: 'absolute', inset: 0, border: '2px solid #6C63FF', zIndex: 2, pointerEvents: 'none' }} />}
                   <div style={{
                     position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 3,
@@ -858,6 +876,60 @@ export default function Page() {
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>VTX</span> {sceneStats.vertices.toLocaleString()}</div>
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>OBJ</span> {sceneStats.meshes}</div>
           <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TEX</span> {sceneStats.textures}</div>
+        </div>
+      )}
+
+      {/* Camera boundary overlay */}
+      {(showCameraBoundary || rendering) && (
+        <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 12, pointerEvents: 'none' }}>
+          {/* Dim corners */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
+          {/* Camera aperture */}
+          <div style={{
+            position: 'absolute', top: '8%', bottom: '8%', left: '4%', right: '4%',
+            border: rendering ? '1.5px solid rgba(108,99,255,0.7)' : '1px dashed rgba(255,255,255,0.25)',
+            background: 'transparent',
+          }}>
+            {/* Corner marks */}
+            {[[0,0],[0,1],[1,0],[1,1]].map(([x,y],i) => (
+              <div key={i} style={{
+                position: 'absolute', width: '14px', height: '14px',
+                top: y ? 'auto' : '-1px', bottom: y ? '-1px' : 'auto',
+                left: x ? 'auto' : '-1px', right: x ? '-1px' : 'auto',
+                borderTop: y ? 'none' : `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}`,
+                borderBottom: y ? `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}` : 'none',
+                borderLeft: x ? 'none' : `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}`,
+                borderRight: x ? `2px solid ${rendering ? '#6C63FF' : 'rgba(255,255,255,0.6)'}` : 'none',
+              }} />
+            ))}
+            {/* Rule of thirds */}
+            {showCameraBoundary && !rendering && (
+              <>
+                <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                <div style={{ position: 'absolute', left: '33.3%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                <div style={{ position: 'absolute', left: '66.6%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.06)' }} />
+              </>
+            )}
+            {/* Render active: scanline + badge */}
+            {rendering && (
+              <>
+                <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#6C63FF,transparent)', top: `${renderProgress}%`, transition: 'top 0.1s linear', boxShadow: '0 0 8px rgba(108,99,255,0.8)' }} />
+                <div style={{
+                  position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                  background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(108,99,255,0.4)',
+                  borderRadius: '8px', padding: '12px 24px', textAlign: 'center',
+                  backdropFilter: 'blur(12px)',
+                }}>
+                  <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF', marginBottom: '6px' }}>RENDERING</div>
+                  <div style={{ width: '140px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
+                  </div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px' }}>{renderProgress}% · {renderRes.toUpperCase()} · {renderSamples} SPP</div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

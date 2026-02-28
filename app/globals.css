@@ -110,6 +110,7 @@ input, select { font: inherit; }
 }
 
 @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 /* stripeIn removed — using grid overlay now */
 
 /* Range input styling */
