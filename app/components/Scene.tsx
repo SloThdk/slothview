@@ -43,7 +43,9 @@ function ClearBackground() {
 }
 
 /* ── Types ── */
-export type ShadingMode = 'pbr' | 'matcap' | 'normals' | 'wireframe' | 'unlit';
+export type ShadingMode = 'pbr' | 'matcap' | 'normals' | 'wireframe' | 'unlit' | 'toon';
+
+export type SceneLight = { id: string; color: string; intensity: number; x: number; y: number; z: number };
 
 interface Hotspot {
   position: [number, number, number];
@@ -106,6 +108,7 @@ export interface SceneProps {
   chromaticAb: number;
   brightness: number;
   contrast: number;
+  sceneLights: SceneLight[];
 }
 
 /* ── Hotspot marker ── */
@@ -194,7 +197,7 @@ export default function Scene(props: SceneProps) {
     lightIntensity, lightAngle, lightHeight, ambientIntensity, userFile, fov,
     bloomIntensity, bloomThreshold, vignetteIntensity, ssaoEnabled, enablePostProcessing,
     modelPath, showEnvBackground, customHdri, onStats, onLightDrag, overrideColor,
-    ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast,
+    ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast, sceneLights,
   } = props;
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
@@ -234,22 +237,28 @@ export default function Scene(props: SceneProps) {
 
       <Suspense fallback={null}>
         {/* Lighting */}
-        <ambientLight intensity={shadingMode === 'unlit' ? 1.5 : ambientIntensity} />
+        <ambientLight intensity={shadingMode === 'unlit' ? 1.5 : shadingMode === 'toon' ? ambientIntensity * 0.4 : ambientIntensity} />
         {shadingMode !== 'unlit' && shadingMode !== 'normals' && (
           <>
             <directionalLight
               position={[lightX, lightHeight, lightZ]}
-              intensity={lightIntensity}
+              intensity={shadingMode === 'toon' ? lightIntensity * 1.4 : lightIntensity}
               castShadow
               shadow-mapSize={2048}
               shadow-bias={-0.0005}
               shadow-normalBias={0.02}
             />
-            <directionalLight position={[-lightX, lightHeight * 0.5, -lightZ]} intensity={lightIntensity * 0.2} color="#8888ff" />
-            <pointLight position={[0, 3, 0]} intensity={0.3} color={accentColor} distance={8} decay={2} />
-            <hemisphereLight args={['#b1e1ff', '#b97a20', 0.15]} />
+            {shadingMode !== 'toon' && <>
+              <directionalLight position={[-lightX, lightHeight * 0.5, -lightZ]} intensity={lightIntensity * 0.2} color="#8888ff" />
+              <pointLight position={[0, 3, 0]} intensity={0.3} color={accentColor} distance={8} decay={2} />
+              <hemisphereLight args={['#b1e1ff', '#b97a20', 0.15]} />
+            </>}
           </>
         )}
+        {/* User-added scene lights */}
+        {sceneLights.map(l => (
+          <pointLight key={l.id} position={[l.x, l.y, l.z]} color={l.color} intensity={l.intensity} distance={12} decay={2} />
+        ))}
 
         {/* Model */}
         {userFile ? (
@@ -264,7 +273,7 @@ export default function Scene(props: SceneProps) {
         )}
 
         {/* Environment — only in PBR mode */}
-        {shadingMode === 'pbr' ? (
+        {(shadingMode === 'pbr') ? (
           <>
             {!customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
             {customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}

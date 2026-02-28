@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import type { ShadingMode, SceneStats } from './components/Scene';
+import type { ShadingMode, SceneStats, SceneLight } from './components/Scene';
 import {
   IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
@@ -53,6 +53,7 @@ const SHADING_MODES: { id: ShadingMode; label: string; bg: string }[] = [
   { id: 'normals', label: 'Normals', bg: 'linear-gradient(135deg, #4040ff 0%, #40ff40 25%, #ffff40 50%, #ff4040 75%, #8040ff 100%)' },
   { id: 'wireframe', label: 'Wire', bg: 'repeating-linear-gradient(45deg, #0a0a10 0px, #0a0a10 3px, #1a1a28 3px, #1a1a28 4px)' },
   { id: 'unlit', label: 'Unlit', bg: 'linear-gradient(135deg, #555 0%, #777 50%, #555 100%)' },
+  { id: 'toon', label: 'Toon', bg: 'linear-gradient(135deg, #ff6b9d 0%, #c84b77 30%, #9b5de5 70%, #f15bb5 100%)' },
 ];
 
 const PRESET_MODELS = [
@@ -147,7 +148,7 @@ export default function Page() {
   const [selectedModel, setSelectedModel] = useState('chair');
 
   // Environment
-  const [showEnvBg, setShowEnvBg] = useState(false);
+  const [showEnvBg, setShowEnvBg] = useState(true);
   const [customHdri, setCustomHdri] = useState<string | null>(null);
 
   // File
@@ -156,6 +157,9 @@ export default function Page() {
 
   // Scene stats
   const [sceneStats, setSceneStats] = useState<SceneStats | null>(null);
+
+  // User scene lights
+  const [sceneLights, setSceneLights] = useState<SceneLight[]>([]);
 
   // Override color (null = original materials)
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
@@ -426,6 +430,54 @@ export default function Page() {
                   {userFile && <button onClick={e => { e.stopPropagation(); setUserFile(null); showToast('Removed'); }} style={{ marginLeft: 'auto', color: '#f87171', opacity: 0.6 }}><IconTrash /></button>}
                 </button>
 
+                {/* Style Presets */}
+                <span style={stl.label}>Style Preset</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '4px', marginBottom: '12px' }}>
+                  {[
+                    { id: 'toon', label: 'Toon', desc: 'Cel-shaded', apply: () => { setShadingMode('toon'); setLightI(2.8); setAmbI(0.08); setLightAng(35); setLightH(10); setEnablePP(false); setEnv('studio'); setShowEnvBg(false); } },
+                    { id: 'games', label: 'Games', desc: 'Balanced PBR', apply: () => { setShadingMode('pbr'); setLightI(1.5); setAmbI(0.25); setBloomI(0.12); setBloomT(0.85); setSsao(true); setSsaoRadius(0.3); setSsaoIntensity(1.2); setChromaticAb(0); setEnablePP(true); setEnv('city'); setShowEnvBg(true); } },
+                    { id: 'cinematic', label: 'Cinematic', desc: 'Film look', apply: () => { setShadingMode('pbr'); setLightI(1.8); setAmbI(0.06); setBloomI(0.45); setBloomT(0.65); setVigI(0.55); setSsao(true); setSsaoRadius(0.6); setSsaoIntensity(1.8); setChromaticAb(0.002); setBrightness(0.05); setContrast(0.12); setEnablePP(true); setEnv('sunset'); setShowEnvBg(true); } },
+                  ].map(p => (
+                    <button key={p.id} onClick={() => { p.apply(); previewsReady.current = false; showToast(p.label); }} style={{
+                      padding: '8px 4px', borderRadius: '6px', textAlign: 'center',
+                      background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                      transition: 'all 0.15s', cursor: 'pointer',
+                    }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{p.label}</div>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '2px' }}>{p.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Scene Lights */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={stl.label}>Scene Lights</span>
+                  <button onClick={() => {
+                    const id = `light-${Date.now()}`;
+                    setSceneLights(l => [...l, { id, color: '#ffffff', intensity: 1.5, x: 2, y: 3, z: 2 }]);
+                  }} style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF', background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>+ Add</button>
+                </div>
+                {sceneLights.length === 0 && (
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '8px 0', marginBottom: '8px' }}>No scene lights added</div>
+                )}
+                {sceneLights.map((light, idx) => (
+                  <div key={light.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '8px', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Point Light {idx + 1}</span>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <label style={{ width: '18px', height: '18px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
+                          <input type="color" value={light.color} onChange={e => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, color: e.target.value} : l))} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                        </label>
+                        <button onClick={() => setSceneLights(ls => ls.filter(l => l.id !== light.id))} style={{ fontSize: '10px', color: '#f87171', opacity: 0.6, padding: '0 2px' }}>✕</button>
+                      </div>
+                    </div>
+                    <Slider label="Intensity" value={light.intensity} min={0} max={5} step={0.1} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, intensity: v} : l))} />
+                    <Slider label="X" value={light.x} min={-10} max={10} step={0.5} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, x: v} : l))} />
+                    <Slider label="Y" value={light.y} min={0} max={12} step={0.5} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, y: v} : l))} />
+                    <Slider label="Z" value={light.z} min={-10} max={10} step={0.5} onChange={v => setSceneLights(ls => ls.map(l => l.id === light.id ? {...l, z: v} : l))} />
+                  </div>
+                ))}
+
                 <span style={stl.label}>Environment</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '2px', marginBottom: '12px' }}>
                   {ENVS.map(e => (
@@ -685,6 +737,7 @@ export default function Page() {
               setChromaticAb(0); setBrightness(0); setContrast(0);
               setEnablePP(true); setAutoRotate(false); setShowGrid(true);
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
+              setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -733,6 +786,7 @@ export default function Page() {
           overrideColor={overrideColor}
           ssaoRadius={ssaoRadius} ssaoIntensity={ssaoIntensity}
           chromaticAb={chromaticAb} brightness={brightness} contrast={contrast}
+          sceneLights={sceneLights}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -784,7 +838,7 @@ export default function Page() {
             pointerEvents: 'none',
           }}>
             {[
-              ['L', 'Orbit'], ['R', 'Pan'], ['Scroll', 'Zoom'], ['Alt+R', 'Light'],
+              ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>

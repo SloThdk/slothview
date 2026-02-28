@@ -73,6 +73,9 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
         mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', map: origMat?.map || null });
       } else if (shadingMode === 'wireframe') {
         mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
+      } else if (shadingMode === 'toon') {
+        const origMat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+        mesh.material = new THREE.MeshToonMaterial({ color: origMat?.color || '#cccccc', map: origMat?.map || null });
       }
     });
 
