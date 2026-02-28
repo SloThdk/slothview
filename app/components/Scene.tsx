@@ -134,7 +134,7 @@ export default function Scene(props: SceneProps) {
 
   const lightX = Math.cos(MathUtils.degToRad(lightAngle)) * 6;
   const lightZ = Math.sin(MathUtils.degToRad(lightAngle)) * 6;
-  const showWireframe = wireframe || shadingMode === 'wireframe';
+  const showWireframe = false; // Each shading mode handles its own wireframe internally
 
   return (
     <Canvas

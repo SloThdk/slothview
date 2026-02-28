@@ -623,15 +623,15 @@ export default function Page() {
                   border: 'none', cursor: 'pointer',
                   transition: 'background 0.2s',
                 }}>
-                  <span style={{
-                    fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
-                    color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.7)',
-                    textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+                  <span className="shading-overlay-label" style={{
+                    fontSize: '15px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: shadingMode === m.id ? '#6C63FF' : 'rgba(255,255,255,0.8)',
+                    textShadow: '0 2px 12px rgba(0,0,0,0.9)',
                     transform: 'rotate(-12deg)',
                     pointerEvents: 'none',
                   }}>{m.label}</span>
                   {shadingMode === m.id && (
-                    <span style={{ fontSize: '8px', color: '#6C63FF', fontWeight: 700, marginTop: '4px', letterSpacing: '0.1em', transform: 'rotate(-12deg)', pointerEvents: 'none' }}>ACTIVE</span>
+                    <span style={{ fontSize: '8px', color: '#6C63FF', fontWeight: 700, marginTop: '6px', letterSpacing: '0.12em', transform: 'rotate(-12deg)', pointerEvents: 'none', textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>ACTIVE</span>
                   )}
                 </button>
               );

@@ -82,24 +82,21 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
         mesh.material = Array.isArray(orig) ? orig.map(m => m.clone()) : orig.clone();
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         mats.forEach(m => {
-          if ('wireframe' in m) (m as any).wireframe = wireframe;
+          if ('wireframe' in m) (m as any).wireframe = false;
           if ((m as THREE.MeshStandardMaterial).envMapIntensity !== undefined) {
             (m as THREE.MeshStandardMaterial).envMapIntensity = 1.5;
           }
           m.needsUpdate = true;
         });
       } else if (shadingMode === 'normals') {
-        mesh.material = new THREE.MeshNormalMaterial({ wireframe, flatShading: false });
+        mesh.material = new THREE.MeshNormalMaterial({ flatShading: false });
       } else if (shadingMode === 'matcap') {
-        const mcMat = new THREE.MeshMatcapMaterial({ matcap: matcapTex });
-        (mcMat as any).wireframe = wireframe;
-        mesh.material = mcMat;
+        mesh.material = new THREE.MeshMatcapMaterial({ matcap: matcapTex });
       } else if (shadingMode === 'unlit') {
         const origMat = orig ? (Array.isArray(orig) ? orig[0] : orig) as THREE.MeshStandardMaterial : null;
-        mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', wireframe, map: origMat?.map || null });
+        mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', map: origMat?.map || null });
       } else if (shadingMode === 'wireframe') {
-        const origMat = orig ? (Array.isArray(orig) ? orig[0] : orig) as THREE.MeshStandardMaterial : null;
-        mesh.material = new THREE.MeshBasicMaterial({ color: origMat?.color || '#888', wireframe: true });
+        mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
       }
     });
   }, [scene, shadingMode, wireframe, matcapTex]);
