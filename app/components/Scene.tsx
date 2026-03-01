@@ -3,7 +3,7 @@
 import React, { Suspense, useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera, TransformControls, Line } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast, Outline } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast, Outline, Select } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
 import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3 } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -139,7 +139,7 @@ export interface SceneProps {
   modelTransformMode: 'translate' | 'rotate' | 'scale';
   onModelClick: (shiftKey: boolean, ctrlKey: boolean) => void;
   onModelDeselect: () => void;
-  onCameraSelect?: () => void;
+  onCameraSelect?: (shift: boolean) => void;
   rendering?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -188,7 +188,7 @@ function SceneCameraGizmo({ position, onMove, orbitRef, mode, selected, onSelect
   orbitRef: React.RefObject<any>;
   mode: 'translate' | 'rotate';
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (shift: boolean) => void;
   dragRef?: React.RefObject<boolean>;
 }) {
   const groupRef = useRef<any>(null);
@@ -206,7 +206,7 @@ function SceneCameraGizmo({ position, onMove, orbitRef, mode, selected, onSelect
   const selCol = selected ? '#00D4A8' : col;
   return (
     <>
-      <group ref={groupRef} position={position} onClick={(e) => { e.stopPropagation(); onSelect(); }}>
+      <group ref={groupRef} position={position} onClick={(e) => { e.stopPropagation(); onSelect(e.shiftKey); }}>
         {/* Camera body */}
         <mesh>
           <boxGeometry args={[0.22, 0.16, 0.14]} />
@@ -229,7 +229,7 @@ function SceneCameraGizmo({ position, onMove, orbitRef, mode, selected, onSelect
           size={0.7}
           onMouseDown={() => { if (dragRef) dragRef.current = true; if (orbitRef.current) orbitRef.current.enabled = false; }}
           onMouseUp={() => {
-            if (dragRef) dragRef.current = false;
+            if (dragRef) setTimeout(() => { dragRef.current = false; }, 50);
             if (orbitRef.current) orbitRef.current.enabled = true;
             if (mode === 'translate' && groupRef.current) {
               const p = groupRef.current.position;
@@ -297,7 +297,7 @@ function SceneLightObject({ light, selected, onSelect, onMove, orbitRef, dragRef
           size={0.65}
           onMouseDown={() => { if (dragRef) dragRef.current = true; if (orbitRef.current) orbitRef.current.enabled = false; }}
           onMouseUp={() => {
-            if (dragRef) dragRef.current = false;
+            if (dragRef) setTimeout(() => { dragRef.current = false; }, 50);
             if (orbitRef.current) orbitRef.current.enabled = true;
             if (groupRef.current) {
               const p = groupRef.current.position;
@@ -474,32 +474,7 @@ function ProjectorSetup({ projectorRef }: {
   return null;
 }
 
-/* ── Collects mesh refs from model group each frame when selected, for Outline effect ── */
-function OutlineSync({ modelGroupRef, modelSelected, onUpdate }: {
-  modelGroupRef: React.RefObject<any>;
-  modelSelected: boolean;
-  onUpdate: (meshes: any[]) => void;
-}) {
-  const prevSelected = useRef(false);
-  const prevCount = useRef(0);
-  useFrame(() => {
-    const changed = modelSelected !== prevSelected.current;
-    prevSelected.current = modelSelected;
-    if (!modelSelected) {
-      if (prevCount.current > 0 || changed) { prevCount.current = 0; onUpdate([]); }
-      return;
-    }
-    const group = modelGroupRef.current;
-    if (!group) return;
-    const meshes: any[] = [];
-    group.traverse((c: any) => { if (c.isMesh) meshes.push(c); });
-    if (meshes.length !== prevCount.current || changed) {
-      prevCount.current = meshes.length;
-      onUpdate(meshes);
-    }
-  });
-  return null;
-}
+/* OutlineSync removed — using Select component instead */
 
 /* Ensure autoClear=true whenever PP is off or changes */
 function AutoClearFix({ enablePP }: { enablePP: boolean }) {
@@ -538,7 +513,6 @@ export default function Scene(props: SceneProps) {
   const modelGroupRef = useRef<any>(null);
   const isModelSelectedRef = useRef<boolean>(false);
   const isDraggingTransformRef = useRef<boolean>(false);
-  const [outlineMeshes, setOutlineMeshes] = useState<any[]>([]);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
 
   // Populate rotationStepRef so page.tsx can step-rotate orbit camera from outside Canvas
@@ -605,24 +579,26 @@ export default function Scene(props: SceneProps) {
       }
 
       {/* Model group is OUTSIDE Suspense so ref is immediately available for HierarchyReporter */}
-      <group
-        ref={modelGroupRef}
-        scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
-        onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
-      >
-        <Suspense fallback={null}>
-          {userFile ? (
-            <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
-          ) : (
-            <>
-              <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} />
-              {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
-                <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
-              ))}
-            </>
-          )}
-        </Suspense>
-      </group>
+      <Select enabled={modelSelected}>
+        <group
+          ref={modelGroupRef}
+          scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
+          onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
+        >
+          <Suspense fallback={null}>
+            {userFile ? (
+              <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
+            ) : (
+              <>
+                <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} />
+                {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
+                  <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
+                ))}
+              </>
+            )}
+          </Suspense>
+        </group>
+      </Select>
 
       <Suspense fallback={null}>
         {/* Lighting */}
@@ -670,7 +646,7 @@ export default function Scene(props: SceneProps) {
             translationSnap={null}
             rotationSnap={null}
             onMouseDown={() => { isDraggingTransformRef.current = true; if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
-            onMouseUp={() => { isDraggingTransformRef.current = false; if (orbitRef.current) orbitRef.current.enabled = true; }}
+            onMouseUp={() => { setTimeout(() => { isDraggingTransformRef.current = false; }, 50); if (orbitRef.current) orbitRef.current.enabled = true; }}
           />
         )}
 
@@ -694,7 +670,7 @@ export default function Scene(props: SceneProps) {
         )}
         {showGrid && shadingMode === 'pbr' && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="#1a1833" sectionColor="#2a2555" fadeDistance={15} infiniteGrid />}
 
-        {/* Post-processing — PBR mode with optional outline */}
+        {/* Post-processing — PBR mode with outline */}
         {enablePostProcessing && shadingMode === 'pbr' ? (
           <EffectComposer multisampling={4}>
             <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.4} mipmapBlur />
@@ -703,16 +679,14 @@ export default function Scene(props: SceneProps) {
             {chromaticAb > 0 ? <ChromaticAberration offset={new Vector2(chromaticAb, chromaticAb)} /> : <></>}
             {(brightness !== 0 || contrast !== 0) ? <BrightnessContrast brightness={brightness} contrast={contrast} /> : <></>}
             <ToneMapping mode={ToneMappingMode.AGX} />
-            {outlineMeshes.length > 0 ? (
-              <Outline selection={outlineMeshes} edgeStrength={4} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} />
-            ) : <></>}
+            <Outline edgeStrength={3} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} xRay={false} />
           </EffectComposer>
-        ) : outlineMeshes.length > 0 ? (
+        ) : (
           /* Outline-only composer for non-PBR modes */
           <EffectComposer multisampling={0}>
-            <Outline selection={outlineMeshes} edgeStrength={4} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} />
+            <Outline edgeStrength={3} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} xRay={false} />
           </EffectComposer>
-        ) : null}
+        )}
 
         {/* Scene Camera Gizmo — only visible when not in camera view */}
         {showSceneCamera && !cameraViewMode && (
@@ -722,7 +696,7 @@ export default function Scene(props: SceneProps) {
             orbitRef={orbitRef}
             mode={cameraGizmoMode}
             selected={selectedObjectIds.includes('camera')}
-            onSelect={() => props.onCameraSelect?.()}
+            onSelect={(shift: boolean) => props.onCameraSelect?.(shift)}
             dragRef={isDraggingTransformRef}
           />
         )}
@@ -757,7 +731,6 @@ export default function Scene(props: SceneProps) {
           <ApplyTransformSetup modelGroupRef={modelGroupRef} applyTransformRef={props.applyTransformRef} />
         )}
         {onStats && <StatsCollector onStats={onStats} />}
-        <OutlineSync modelGroupRef={modelGroupRef} modelSelected={modelSelected} onUpdate={setOutlineMeshes} />
         <AutoClearFix enablePP={enablePostProcessing} />
       </Suspense>
     </Canvas>

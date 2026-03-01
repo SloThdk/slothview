@@ -69,7 +69,6 @@ const PRESET_MODELS = [
   { id: 'boombox', name: 'Boom Box', path: '/models/BoomBox.glb', cat: 'Electronics', desc: 'Retro 80s boombox with scratches and decals' },
   { id: 'corset', name: 'Victorian Corset', path: '/models/Corset.glb', cat: 'Fashion', desc: 'Ornate corset with intricate fabric detail' },
   { id: 'duck', name: 'Rubber Duck', path: '/models/Duck.glb', cat: 'Classic', desc: 'The original glTF rubber duck' },
-  { id: 'fox', name: 'Animated Fox', path: '/models/Fox.glb', cat: 'Character', desc: 'Rigged fox character with walk animations' },
   { id: 'waterbottle', name: 'Water Bottle', path: '/models/WaterBottle.glb', cat: 'Product', desc: 'Insulated steel bottle, product-viz ready' },
   { id: 'milktruck', name: 'Milk Truck', path: '/models/CesiumMilkTruck.glb', cat: 'Vehicle', desc: 'Cute vintage milk delivery truck' },
   { id: 'iridescent-dish', name: 'Iridescent Dish', path: '/models/IridescentDishWithOlives.glb', cat: 'Materials', desc: 'Shows iridescence and thin-film interference' },
@@ -314,6 +313,8 @@ export default function Page() {
   const [showSceneCamera, setShowSceneCamera] = useState(false);
   const [cameraPos, setCameraPos] = useState<[number,number,number]>([3, 2, 5]);
   const [cameraViewMode, setCameraViewMode] = useState(false);
+  const cameraViewModeRef = useRef(false);
+  useEffect(() => { cameraViewModeRef.current = cameraViewMode; }, [cameraViewMode]);
   const [lockCameraToView, setLockCameraToView] = useState(true);
 
   // (rotationMode removed — E now controls camera gizmo rotate in scene)
@@ -370,12 +371,14 @@ export default function Page() {
       // F4 = enter / exit camera view
       if (e.key === 'F4') {
         e.preventDefault();
-        setCameraViewMode(prev => {
-          const entering = !prev;
-          if (!entering) setLockCameraToView(false);
-          if (entering) setShowSceneCamera(true); // auto-enable camera object if not already shown
-          return entering;
-        });
+        const entering = !cameraViewModeRef.current;
+        if (entering) {
+          setShowSceneCamera(true);
+          setCameraViewMode(true);
+        } else {
+          setLockCameraToView(false);
+          setCameraViewMode(false);
+        }
       }
       // Escape = cancel render OR deselect all
       if (e.key === 'Escape') {
@@ -1192,24 +1195,6 @@ export default function Page() {
           {ibtn(<IconShare />, 'Share config', false, share)}
         </div>
 
-        {/* Camera gizmo mode badge */}
-        {showSceneCamera && !cameraViewMode && (
-          <div style={{
-            position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
-            background: cameraGizmoMode === 'rotate' ? 'rgba(108,99,255,0.88)' : 'rgba(30,30,50,0.88)',
-            border: `1px solid ${cameraGizmoMode === 'rotate' ? 'rgba(108,99,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
-            borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', gap: '8px',
-          }}>
-            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: '#fff' }}>
-              CAMERA · {cameraGizmoMode === 'rotate' ? 'ROTATE [E]' : 'MOVE [G]'}
-            </span>
-            <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>
-              {cameraGizmoMode === 'rotate' ? 'E=Rotate · G=Move' : 'G=Move · E=Rotate'}
-            </span>
-          </div>
-        )}
-
         {/* Model selected — transform mode badge */}
         {modelSelected && (
           <div style={{
@@ -1277,9 +1262,15 @@ export default function Page() {
               setModelTransformMode('translate');
             }
           }}
-          onModelDeselect={() => setSelectedObjectIds([])}
+          onModelDeselect={() => { setSelectedObjectIds([]); setSelectedLightId(null); }}
           rendering={rendering}
-          onCameraSelect={() => setSelectedObjectIds(['camera'])}
+          onCameraSelect={(shift: boolean) => {
+            if (shift) {
+              setSelectedObjectIds(prev => prev.includes('camera') ? prev : [...prev, 'camera']);
+            } else {
+              setSelectedObjectIds(['camera']);
+            }
+          }}
           onLMBDownNoAlt={(sx, sy, shift) => { marqueeStartRef.current = { x: sx, y: sy, shift }; }}
           projectorRef={sceneProjectorRef}
           onTransformChange={(t) => startTransition(() => setDisplayTransform(t))}
