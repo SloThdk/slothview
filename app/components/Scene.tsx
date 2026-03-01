@@ -5,7 +5,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera, TransformControls, Line } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
-import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2 } from 'three';
+import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3 } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import Product from './Product';
 import DefaultModel from './DefaultModel';
@@ -148,6 +148,8 @@ export interface SceneProps {
   onModelDeselect: () => void;
   onSceneHierarchy?: (nodes: OutlinerNode[]) => void;
   modelName: string;
+  onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
+  projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -358,6 +360,59 @@ function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
       onStats({ triangles: Math.round(triangles), vertices, meshes, drawCalls, textures });
     }
   });
+  return null;
+}
+
+/* ── Alt+LMB orbit interceptor — LMB alone = marquee, Alt+LMB = orbit ── */
+function AltOrbitController({ orbitRef, onLMBDownNoAlt }: {
+  orbitRef: React.RefObject<any>;
+  onLMBDownNoAlt: (screenX: number, screenY: number, shiftKey: boolean) => void;
+}) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let capturedNoAlt = false;
+    const onDown = (e: PointerEvent) => {
+      if (e.button === 0 && !e.altKey) {
+        if (orbitRef.current) orbitRef.current.enabled = false;
+        capturedNoAlt = true;
+        onLMBDownNoAlt(e.clientX, e.clientY, e.shiftKey);
+      }
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.button === 0 && capturedNoAlt) {
+        capturedNoAlt = false;
+        if (orbitRef.current) orbitRef.current.enabled = true;
+      }
+    };
+    // Capture phase — fires BEFORE OrbitControls' own listener
+    canvas.addEventListener('pointerdown', onDown, { capture: true });
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      canvas.removeEventListener('pointerdown', onDown, { capture: true });
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [gl]);
+  return null;
+}
+
+/* ── World → screen projector exposed via ref for marquee selection ── */
+function ProjectorSetup({ projectorRef }: {
+  projectorRef: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
+}) {
+  const { camera, gl } = useThree();
+  useEffect(() => {
+    const v = new Vector3();
+    projectorRef.current = ([wx, wy, wz]) => {
+      v.set(wx, wy, wz).project(camera);
+      if (v.z > 1) return null; // behind camera
+      const rect = gl.domElement.getBoundingClientRect();
+      return {
+        x: (v.x * 0.5 + 0.5) * rect.width + rect.left,
+        y: (-v.y * 0.5 + 0.5) * rect.height + rect.top,
+      };
+    };
+  }, [camera, gl]);
   return null;
 }
 
@@ -614,6 +669,8 @@ export default function Scene(props: SceneProps) {
           maxDistance={20}
           maxPolarAngle={Math.PI * 0.88}
         />
+        {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} />}
+        {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {onStats && <StatsCollector onStats={onStats} />}
         {onSceneHierarchy && (
           <HierarchyReporter

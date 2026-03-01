@@ -149,8 +149,19 @@ export default function Page() {
   // Render
   const [rendering, setRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
-  const [renderRes, setRenderRes] = useState<'2x' | '4x'>('2x');
+  // Custom render dimensions (directly set, not a multiplier)
+  const [renderWidth, setRenderWidth] = useState(1920);
+  const [renderHeight, setRenderHeight] = useState(1080);
   const [renderSamples, setRenderSamples] = useState(4);
+
+  // Marquee select
+  const marqueeStartRef = useRef<{ x: number; y: number; shift: boolean } | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const sceneProjectorRef = useRef<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>(null);
+
+  // Camera boundary drag handles
+  const boundaryRef = useRef<HTMLDivElement>(null);
+  const boundaryDragRef = useRef<{ handle: string; startX: number; startY: number; startW: number; startH: number; screenW: number; screenH: number } | null>(null);
   const [showCameraBoundary, setShowCameraBoundary] = useState(false);
 
   // Model selection
@@ -175,6 +186,47 @@ export default function Page() {
   const [outlinerNodes, setOutlinerNodes] = useState<OutlinerNode[]>([]);
   const [outlinerExpanded, setOutlinerExpanded] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['model']));
+
+  // Marquee select + boundary drag — window-level pointer tracking
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const ms = marqueeStartRef.current;
+      if (ms) {
+        setMarqueeRect({ x: Math.min(e.clientX, ms.x), y: Math.min(e.clientY, ms.y), w: Math.abs(e.clientX - ms.x), h: Math.abs(e.clientY - ms.y) });
+      }
+      const bd = boundaryDragRef.current;
+      if (bd) {
+        const dx = e.clientX - bd.startX, dy = e.clientY - bd.startY;
+        const sx = bd.startW / (bd.screenW || 1), sy = bd.startH / (bd.screenH || 1);
+        let nW = bd.startW, nH = bd.startH;
+        if (bd.handle.includes('e')) nW = Math.max(100, Math.round(bd.startW + dx * sx));
+        if (bd.handle.includes('w')) nW = Math.max(100, Math.round(bd.startW - dx * sx));
+        if (bd.handle.includes('s')) nH = Math.max(100, Math.round(bd.startH + dy * sy));
+        if (bd.handle.includes('n')) nH = Math.max(100, Math.round(bd.startH - dy * sy));
+        setRenderWidth(nW); setRenderHeight(nH);
+      }
+    };
+    const onUp = (e: PointerEvent) => {
+      const ms = marqueeStartRef.current;
+      if (ms) {
+        const dx = Math.abs(e.clientX - ms.x), dy = Math.abs(e.clientY - ms.y);
+        if (dx > 8 || dy > 8) {
+          const rect = { x: Math.min(e.clientX, ms.x), y: Math.min(e.clientY, ms.y), w: Math.abs(e.clientX - ms.x), h: Math.abs(e.clientY - ms.y) };
+          const proj = sceneProjectorRef.current;
+          const inside = (pos: { x: number; y: number } | null) => pos && pos.x >= rect.x && pos.x <= rect.x + rect.w && pos.y >= rect.y && pos.y <= rect.y + rect.h;
+          const hits: string[] = [];
+          if (proj && inside(proj([0, 0, 0]))) hits.push('model');
+          if (hits.length > 0) setSelectedObjectIds(prev => ms.shift ? [...new Set([...prev, ...hits])] : hits);
+          else if (!ms.shift) setSelectedObjectIds([]);
+        }
+        marqueeStartRef.current = null; setMarqueeRect(null);
+      }
+      if (boundaryDragRef.current) boundaryDragRef.current = null;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+  }, []);
 
   // Stale-closure refs for keyboard handler
   const modelSelectedRef = useRef(false);
@@ -332,9 +384,8 @@ export default function Page() {
     const hadGrid = showGrid;
     if (hadGrid) setShowGrid(false);
     setRendering(true);
-    const mul = renderRes === '4x' ? 4 : 2;
     const oW = c.width, oH = c.height;
-    const rW = oW * mul, rH = oH * mul;
+    const rW = renderWidth, rH = renderHeight;
     gl.setSize(rW, rH, false);
     gl.setPixelRatio(1);
     setRenderProgress(0);
@@ -359,7 +410,7 @@ export default function Page() {
     };
     // Small delay to let grid hide before capturing
     setTimeout(() => requestAnimationFrame(doFrame), 100);
-  }, [renderRes, renderSamples, showGrid]);
+  }, [renderWidth, renderHeight, renderSamples, showGrid]);
 
   const fullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -793,7 +844,7 @@ export default function Page() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ color: showSceneCamera ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}><IconCamera /></span>
-                    <span style={{ fontSize: '10px', fontWeight: 600, color: showSceneCamera ? '#fff' : 'rgba(255,255,255,0.4)' }}>Show Camera Object</span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: showSceneCamera ? '#fff' : 'rgba(255,255,255,0.4)' }}>Show Camera</span>
                   </div>
                   <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: showSceneCamera ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: showSceneCamera ? '16px' : '2px', transition: 'left 0.2s' }} />
@@ -880,15 +931,35 @@ export default function Page() {
 
                 <span style={stl.label}>Export</span>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '3px', marginBottom: '8px' }}>
-                    {(['2x', '4x'] as const).map(r => (
-                      <button key={r} onClick={() => setRenderRes(r)} style={{
-                        flex: 1, padding: '5px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
-                        background: renderRes === r ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
-                        color: renderRes === r ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                        border: renderRes === r ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
-                      }}>{r} Resolution</button>
-                    ))}
+                  {/* Resolution presets */}
+                  <div style={{ display: 'flex', gap: '2px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      { label: '1080p', w: 1920, h: 1080 },
+                      { label: '4K', w: 3840, h: 2160 },
+                      { label: '1:1', w: 2048, h: 2048 },
+                      { label: 'Portrait', w: 1080, h: 1350 },
+                    ].map(p => {
+                      const active = renderWidth === p.w && renderHeight === p.h;
+                      return (
+                        <button key={p.label} onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); }} style={{
+                          flex: 1, minWidth: '40px', padding: '4px 3px', borderRadius: '3px', fontSize: '8px', fontWeight: 700,
+                          background: active ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
+                          color: active ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                          border: active ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                        }}>{p.label}</button>
+                      );
+                    })}
+                  </div>
+                  {/* Custom W × H inputs */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
+                    <input type="number" value={renderWidth} min={100} max={8192} step={1}
+                      onChange={e => setRenderWidth(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
+                    <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
+                    <input type="number" value={renderHeight} min={100} max={8192} step={1}
+                      onChange={e => setRenderHeight(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
+                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span>
                   </div>
                   <Slider label="Samples" value={renderSamples} min={1} max={16384} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" tooltip={renderSamples > 512 ? 'WARNING: Very high sample count — this may slow or freeze your machine. Use 4–64 for previews, 128–512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production. Very high counts will lag your machine.'} />
                   {renderSamples > 512 && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>High SPP can slow or freeze your browser</div>}
@@ -1122,6 +1193,8 @@ export default function Page() {
           onModelDeselect={() => setSelectedObjectIds([])}
           onSceneHierarchy={setOutlinerNodes}
           modelName={userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
+          onLMBDownNoAlt={(sx, sy, shift) => { marqueeStartRef.current = { x: sx, y: sy, shift }; }}
+          projectorRef={sceneProjectorRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -1288,7 +1361,7 @@ export default function Page() {
 
         {/* Camera boundary overlay — INSIDE viewport div so it never bleeds over sidebar */}
         {(showCameraBoundary || rendering || cameraViewMode) && (
-        <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
             <>
@@ -1306,57 +1379,119 @@ export default function Page() {
               </div>
             </>
           )}
-          {/* Dim corners */}
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
-          {/* Camera aperture */}
-          <div style={{
-            position: 'absolute', top: '8%', bottom: '8%', left: '4%', right: '4%',
-            border: rendering ? '1.5px solid rgba(108,99,255,0.7)' : cameraViewMode ? '1.5px solid rgba(239,68,68,0.7)' : '1px dashed rgba(255,255,255,0.25)',
-            background: 'transparent',
-          }}>
-            {/* Corner marks */}
-            {[[0,0],[0,1],[1,0],[1,1]].map(([x,y],i) => (
-              <div key={i} style={{
-                position: 'absolute', width: '14px', height: '14px',
-                top: y ? 'auto' : '-1px', bottom: y ? '-1px' : 'auto',
-                left: x ? 'auto' : '-1px', right: x ? '-1px' : 'auto',
-                borderTop: y ? 'none' : `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}`,
-                borderBottom: y ? `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}` : 'none',
-                borderLeft: x ? 'none' : `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}`,
-                borderRight: x ? `2px solid ${rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.6)'}` : 'none',
-              }} />
-            ))}
-            {/* Rule of thirds */}
-            {showCameraBoundary && !rendering && (
-              <>
-                <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-                <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-                <div style={{ position: 'absolute', left: '33.3%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.06)' }} />
-                <div style={{ position: 'absolute', left: '66.6%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.06)' }} />
-              </>
-            )}
-            {/* Render active: scanline + badge */}
-            {rendering && (
-              <>
-                <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#6C63FF,transparent)', top: `${renderProgress}%`, transition: 'top 0.1s linear', boxShadow: '0 0 8px rgba(108,99,255,0.8)' }} />
-                <div style={{
-                  position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-                  background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(108,99,255,0.4)',
-                  borderRadius: '8px', padding: '12px 24px', textAlign: 'center',
-                  backdropFilter: 'blur(12px)',
-                }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF', marginBottom: '6px' }}>RENDERING</div>
-                  <div style={{ width: '140px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
+          {/* Camera aperture — CSS aspect-ratio, centered, correct render dimensions */}
+          {(() => {
+            const bColor = rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.5)';
+            const handles = [
+              { id: 'nw', t: '-5px', l: '-5px', r: 'auto', b: 'auto', cursor: 'nwse-resize' },
+              { id: 'ne', t: '-5px', l: 'auto', r: '-5px', b: 'auto', cursor: 'nesw-resize' },
+              { id: 'sw', t: 'auto', l: '-5px', r: 'auto', b: '-5px', cursor: 'nesw-resize' },
+              { id: 'se', t: 'auto', l: 'auto', r: '-5px', b: '-5px', cursor: 'nwse-resize' },
+              { id: 'n',  t: '-5px', l: '50%',  r: 'auto', b: 'auto', cursor: 'ns-resize'   },
+              { id: 's',  t: 'auto', l: '50%',  r: 'auto', b: '-5px', cursor: 'ns-resize'   },
+              { id: 'w',  t: '50%',  l: '-5px', r: 'auto', b: 'auto', cursor: 'ew-resize'   },
+              { id: 'e',  t: '50%',  l: 'auto', r: '-5px', b: 'auto', cursor: 'ew-resize'   },
+            ];
+            return (
+              <div
+                ref={boundaryRef}
+                style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  // CSS aspect-ratio + max constraints → fits inside viewport with correct ratio
+                  aspectRatio: `${renderWidth} / ${renderHeight}`,
+                  maxWidth: '92%', maxHeight: '84%', width: '92%',
+                  border: `1.5px ${rendering || cameraViewMode ? 'solid' : 'dashed'} ${bColor}`,
+                  // box-shadow dims everything outside the aperture
+                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(showCameraBoundary || rendering || cameraViewMode) ? '0.35' : '0'})`,
+                  pointerEvents: 'none',
+                  zIndex: 13,
+                }}
+              >
+                {/* Corner L-marks */}
+                {[[0,0],[0,1],[1,0],[1,1]].map(([x,y],i) => (
+                  <div key={i} style={{
+                    position: 'absolute', width: '14px', height: '14px',
+                    top: y ? 'auto' : '-1px', bottom: y ? '-1px' : 'auto',
+                    left: x ? 'auto' : '-1px', right: x ? '-1px' : 'auto',
+                    borderTop: y ? 'none' : `2px solid ${bColor}`,
+                    borderBottom: y ? `2px solid ${bColor}` : 'none',
+                    borderLeft: x ? 'none' : `2px solid ${bColor}`,
+                    borderRight: x ? `2px solid ${bColor}` : 'none',
+                  }} />
+                ))}
+                {/* Rule of thirds */}
+                {showCameraBoundary && !rendering && (
+                  <>
+                    <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                    <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                    <div style={{ position: 'absolute', left: '33.3%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                    <div style={{ position: 'absolute', left: '66.6%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                  </>
+                )}
+                {/* Dimension badge */}
+                {showCameraBoundary && !rendering && (
+                  <div style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: '8px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.35)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '3px' }}>
+                    {renderWidth} × {renderHeight}
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px' }}>{renderProgress}% · {renderRes.toUpperCase()} · {renderSamples} SPP</div>
-                </div>
-              </>
-            )}
-          </div>
+                )}
+                {/* Draggable resize handles (only in boundary mode, not while rendering) */}
+                {showCameraBoundary && !rendering && handles.map(h => (
+                  <div
+                    key={h.id}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      const bounds = boundaryRef.current?.getBoundingClientRect();
+                      if (!bounds) return;
+                      boundaryDragRef.current = { handle: h.id, startX: e.clientX, startY: e.clientY, startW: renderWidth, startH: renderHeight, screenW: bounds.width, screenH: bounds.height };
+                      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                    }}
+                    style={{
+                      position: 'absolute', width: '10px', height: '10px',
+                      top: h.t, left: h.l, right: h.r, bottom: h.b,
+                      transform: (h.id === 'n' || h.id === 's') ? 'translateX(-50%)' : (h.id === 'e' || h.id === 'w') ? 'translateY(-50%)' : undefined,
+                      background: 'rgba(108,99,255,0.8)', border: '1px solid rgba(255,255,255,0.4)',
+                      borderRadius: '2px', cursor: h.cursor,
+                      pointerEvents: 'auto', zIndex: 20,
+                    }}
+                  />
+                ))}
+                {/* Render scanline + badge */}
+                {rendering && (
+                  <>
+                    <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#6C63FF,transparent)', top: `${renderProgress}%`, transition: 'top 0.1s linear', boxShadow: '0 0 8px rgba(108,99,255,0.8)' }} />
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(108,99,255,0.4)', borderRadius: '8px', padding: '12px 24px', textAlign: 'center', backdropFilter: 'blur(12px)' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF', marginBottom: '6px' }}>RENDERING</div>
+                      <div style={{ width: '140px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px' }}>{renderProgress}% · {renderWidth}×{renderHeight} · {renderSamples} SPP</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
+      {/* Marquee selection rectangle */}
+      {marqueeRect && marqueeRect.w > 4 && marqueeRect.h > 4 && (
+        <div style={{
+          position: 'fixed', zIndex: 999,
+          left: marqueeRect.x, top: marqueeRect.y,
+          width: marqueeRect.w, height: marqueeRect.h,
+          border: '1px dashed rgba(108,99,255,0.9)',
+          background: 'rgba(108,99,255,0.06)',
+          pointerEvents: 'none',
+          boxShadow: 'inset 0 0 0 1px rgba(108,99,255,0.2)',
+        }}>
+          {/* Corner dots */}
+          {['tl','tr','bl','br'].map(c => (
+            <div key={c} style={{ position: 'absolute', width: '4px', height: '4px', background: '#6C63FF', borderRadius: '50%', top: c.startsWith('t') ? '-2px' : 'auto', bottom: c.startsWith('b') ? '-2px' : 'auto', left: c.endsWith('l') ? '-2px' : 'auto', right: c.endsWith('r') ? '-2px' : 'auto' }} />
+          ))}
+        </div>
+      )}
       </div>{/* end viewport div */}
 
       {/* Built by link removed — demo info kept in top bar only */}
