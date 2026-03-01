@@ -11,9 +11,10 @@ interface DefaultModelProps {
   shadingMode: ShadingMode;
   modelPath?: string;
   overrideColor: string | null;
+  disableFloat?: boolean;
 }
 
-export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb', overrideColor }: DefaultModelProps) {
+export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb', overrideColor, disableFloat }: DefaultModelProps) {
   const { scene: originalScene } = useGLTF(modelPath);
   const groupRef = useRef<THREE.Group>(null);
 
@@ -102,8 +103,10 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
 
   useFrame((state) => {
     if (groupRef.current) {
-      // Add gentle float ON TOP of the centered position — never override it
-      groupRef.current.position.y = baseY.current + Math.sin(state.clock.elapsedTime * 0.3) * 0.015;
+      // Float animation — disabled in camera view to prevent visual bounce
+      groupRef.current.position.y = disableFloat
+        ? baseY.current
+        : baseY.current + Math.sin(state.clock.elapsedTime * 0.3) * 0.015;
     }
   });
 

@@ -14,9 +14,10 @@ interface UserModelProps {
   wireframe: boolean;
   shadingMode: ShadingMode;
   overrideColor: string | null;
+  disableFloat?: boolean;
 }
 
-export default function UserModel({ file, wireframe, shadingMode, overrideColor }: UserModelProps) {
+export default function UserModel({ file, wireframe, shadingMode, overrideColor, disableFloat }: UserModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [model, setModel] = useState<THREE.Group | null>(null);
 
@@ -99,7 +100,9 @@ export default function UserModel({ file, wireframe, shadingMode, overrideColor 
   }, [file, shadingMode, matcapTex]);
 
   useFrame((state) => {
-    if (groupRef.current) groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.35) * 0.02;
+    if (groupRef.current) {
+      groupRef.current.position.y = disableFloat ? 0 : Math.sin(state.clock.elapsedTime * 0.35) * 0.02;
+    }
   });
 
   if (!model) return null;

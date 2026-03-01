@@ -189,10 +189,57 @@ export default function Page() {
   const [modelUniformScale, setModelUniformScale] = useState(1.0);
   const modelScaleActive = modelSelected && modelTransformMode === 'scale';
 
+  // Viewport ref + scale mode refs (non-passive wheel + MMB drag) — must be after modelScaleActive
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const modelScaleActiveRef = useRef(false);
+  const modelUniformScaleRef = useRef(1.0);
+  const mmbScaleRef = useRef<{ y: number; startScale: number } | null>(null);
+  useEffect(() => { modelScaleActiveRef.current = modelScaleActive; }, [modelScaleActive]);
+  useEffect(() => { modelUniformScaleRef.current = modelUniformScale; }, [modelUniformScale]);
+
   // Outliner
   const [outlinerNodes, setOutlinerNodes] = useState<OutlinerNode[]>([]);
   const [outlinerExpanded, setOutlinerExpanded] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['model']));
+
+  // Non-passive scroll scale + MMB drag scale on the viewport element
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    // Non-passive wheel — prevents OrbitControls from zooming when in scale mode
+    const onWheel = (e: WheelEvent) => {
+      if (!modelScaleActiveRef.current) return;
+      e.preventDefault(); e.stopPropagation();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      setModelUniformScale(s => Math.max(0.05, Math.min(10, parseFloat((s + delta).toFixed(2)))));
+    };
+    // MMB hold + drag up/down to scale (industry standard scroll-wheel button drag)
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 1 || !modelScaleActiveRef.current) return;
+      e.preventDefault(); e.stopPropagation();
+      mmbScaleRef.current = { y: e.clientY, startScale: modelUniformScaleRef.current };
+      el.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!mmbScaleRef.current) return;
+      const dy = mmbScaleRef.current.y - e.clientY; // up = positive = bigger
+      const newScale = Math.max(0.05, Math.min(10, parseFloat((mmbScaleRef.current.startScale + dy * 0.008).toFixed(3))));
+      setModelUniformScale(newScale);
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.button === 1) mmbScaleRef.current = null;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    el.addEventListener('pointerdown', onPointerDown, { capture: true });
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    return () => {
+      el.removeEventListener('wheel', onWheel, { capture: true } as any);
+      el.removeEventListener('pointerdown', onPointerDown, { capture: true } as any);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+    };
+  }, []);
 
   // Marquee select + boundary drag — window-level pointer tracking
   useEffect(() => {
@@ -1104,19 +1151,7 @@ export default function Page() {
       </div>
 
       {/* ── Viewport ── */}
-      <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}
-        onWheel={(e) => {
-          if (modelScaleActive) {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -0.05 : 0.05;
-            setModelUniformScale(s => Math.max(0.05, Math.min(10, +(s + delta).toFixed(2))));
-          } else if (rotationMode) {
-            e.preventDefault();
-            const deg = e.deltaY > 0 ? 15 : -15;
-            rotationStepRef.current?.(deg);
-          }
-        }}
-      >
+      <div ref={viewportRef} style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
         {/* Mobile burger — mobile only */}
         {!shadingOverlay && !sidebarOpen && (
           <button className="burger-btn" onClick={() => setSidebarOpen(true)} style={{
@@ -1524,21 +1559,32 @@ export default function Page() {
           userSelect: 'none',
         }}>
           {/* Header */}
-          <button onClick={() => setTransformPanelOpen(!transformPanelOpen)} style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px',
-            borderBottom: transformPanelOpen ? '1px solid rgba(255,255,255,0.06)' : 'none',
-          }}>
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ transform: transformPanelOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
-              <path d="M2 1l4 3-4 3" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" strokeLinecap="round"/>
-            </svg>
-            <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>
-              {modelTransformMode === 'scale' ? 'Resize' : modelTransformMode === 'rotate' ? 'Rotate' : 'Move'}
-            </span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: transformPanelOpen ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <button onClick={() => setTransformPanelOpen(!transformPanelOpen)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px' }}>
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ transform: transformPanelOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+                <path d="M2 1l4 3-4 3" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>
+                {modelTransformMode === 'scale' ? 'Resize' : modelTransformMode === 'rotate' ? 'Rotate' : 'Move'}
+              </span>
+            </button>
+            {/* Reset all transforms to zero */}
+            <Tip text="Reset position, rotation & scale to default" pos="top">
+              <button
+                onClick={() => {
+                  applyTransformRef.current?.([0, 0, 0], [0, 0, 0]);
+                  setModelUniformScale(1.0);
+                }}
+                style={{ padding: '4px 8px', fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', borderLeft: '1px solid rgba(255,255,255,0.06)', borderRadius: '0 6px 0 0', letterSpacing: '0.04em' }}
+              >
+                RESET
+              </button>
+            </Tip>
+          </div>
           {/* Fields */}
           {transformPanelOpen && (() => {
             const axisColor = (a: string) => a === 'X' ? '#ef4444' : a === 'Y' ? '#22c55e' : '#3b82f6';
-            const fieldStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', padding: '3px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, width: '85px', textAlign: 'right' as const };
+            const fieldStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', padding: '3px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, width: '85px', textAlign: 'right' as const, MozAppearance: 'textfield' as any, WebkitAppearance: 'none' as any, appearance: 'textfield' as any };
             const labelStyle = { fontSize: '9px', color: 'rgba(255,255,255,0.4)', width: '28px', textAlign: 'right' as const };
             const row = (axis: string, val: number, onChange: (v: number) => void) => (
               <div key={axis} style={{ display: 'flex', alignItems: 'center', padding: '3px 10px', gap: '8px' }}>

@@ -415,9 +415,10 @@ function ApplyTransformSetup({ modelGroupRef, applyTransformRef }: {
 }
 
 /* ── Alt+LMB orbit interceptor — LMB alone = marquee, Alt+LMB = orbit ── */
-function AltOrbitController({ orbitRef, onLMBDownNoAlt }: {
+function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
   orbitRef: React.RefObject<any>;
   onLMBDownNoAlt: (screenX: number, screenY: number, shiftKey: boolean) => void;
+  isModelSelectedRef: React.RefObject<boolean>;
 }) {
   const { gl } = useThree();
   useEffect(() => {
@@ -425,6 +426,8 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt }: {
     let capturedNoAlt = false;
     const onDown = (e: PointerEvent) => {
       if (e.button === 0 && !e.altKey) {
+        // If model is selected, DON'T intercept — let TC and R3F handle the interaction
+        if (isModelSelectedRef.current) return;
         if (orbitRef.current) orbitRef.current.enabled = false;
         capturedNoAlt = true;
         onLMBDownNoAlt(e.clientX, e.clientY, e.shiftKey);
@@ -535,6 +538,8 @@ export default function Scene(props: SceneProps) {
 
   const orbitRef = useRef<any>(null);
   const modelGroupRef = useRef<any>(null);
+  const isModelSelectedRef = useRef<boolean>(false);
+  useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
 
   // Populate rotationStepRef so page.tsx can step-rotate orbit camera from outside Canvas
   useEffect(() => {
@@ -640,10 +645,10 @@ export default function Scene(props: SceneProps) {
           onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey); }}
         >
           {userFile ? (
-            <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} />
+            <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
           ) : (
             <>
-              <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} />
+              <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} />
               {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
                 <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
               ))}
@@ -720,7 +725,7 @@ export default function Scene(props: SceneProps) {
           maxDistance={20}
           maxPolarAngle={Math.PI * 0.88}
         />
-        {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} />}
+        {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} isModelSelectedRef={isModelSelectedRef} />}
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {props.onTransformChange && modelSelected && (
           <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />
