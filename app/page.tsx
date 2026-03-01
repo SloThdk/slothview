@@ -315,6 +315,7 @@ export default function Page() {
   // UI
   const [shadingOverlay, setShadingOverlay] = useState(false);
   const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
+  const [hoveredShading, setHoveredShading] = useState<ShadingMode | null>(null);
   const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display'>('model');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1277,38 +1278,61 @@ export default function Page() {
         {/* ── Marmoset-style vertical split panes ── */}
         {shadingOverlay && (
           <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 30, display: 'flex', overflow: 'hidden', cursor: 'pointer', animation: 'fadeInOverlay 0.25s ease' }}
-            onClick={() => setShadingOverlay(false)}>
+            onClick={() => { setShadingOverlay(false); setHoveredShading(null); }}>
             {SHADING_MODES.map((m, i) => {
               const isActive = shadingMode === m.id;
+              const isHovered = hoveredShading === m.id;
+              const anyHovered = hoveredShading !== null;
               const imgSrc = shadingPreviews[m.id];
+              // Expand hovered strip, shrink others when something is hovered
+              const flexVal = isHovered ? 1.6 : (anyHovered && !isActive) ? 0.82 : 1;
+              // Brightness: active = full, hovered = full, others = 0.6 (slightly darker when something else is hovered)
+              const brightness = isActive || isHovered ? 1 : anyHovered ? 0.55 : 0.7;
               return (
                 <div key={m.id} style={{
-                  flex: 1, position: 'relative',
+                  flex: flexVal, position: 'relative',
                   borderRight: i < SHADING_MODES.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                  transition: 'flex 0.2s ease',
+                  transition: 'flex 0.18s cubic-bezier(0.4,0,0.2,1)',
                   animation: `fadeInStrip 0.3s ease ${i * 0.04}s both`,
                   transformOrigin: 'top',
-                }} onClick={(e) => { e.stopPropagation(); captureGenRef.current++; capturingRef.current = false; setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); }}>
+                  cursor: 'pointer',
+                }}
+                  onMouseEnter={() => setHoveredShading(m.id)}
+                  onMouseLeave={() => setHoveredShading(null)}
+                  onClick={(e) => { e.stopPropagation(); captureGenRef.current++; capturingRef.current = false; setShadingMode(m.id); previewsReady.current = false; setShadingOverlay(false); setHoveredShading(null); }}>
                   {imgSrc ? (
                     <img src={imgSrc} alt={m.label} draggable={false} style={{
                       position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                      filter: isActive ? 'none' : 'brightness(0.7)',
-                      transition: 'filter 0.15s, opacity 0.3s', opacity: 1,
+                      filter: `brightness(${brightness})`,
+                      transition: 'filter 0.15s ease',
                     }} />
                   ) : (
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: isHovered ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}>
                       <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid rgba(108,99,255,0.3)', borderTopColor: '#6C63FF', animation: 'spin 0.8s linear infinite' }} />
                     </div>
                   )}
+                  {/* Active border — blue */}
                   {isActive && <div style={{ position: 'absolute', inset: 0, border: '2px solid #6C63FF', zIndex: 2, pointerEvents: 'none' }} />}
+                  {/* Hover border — white glow, only when not already active */}
+                  {isHovered && !isActive && (
+                    <div style={{ position: 'absolute', inset: 0, border: '2px solid rgba(255,255,255,0.6)', zIndex: 2, pointerEvents: 'none', boxShadow: 'inset 0 0 24px rgba(255,255,255,0.06)' }} />
+                  )}
+                  {/* Bottom "you are here" arrow indicator on hover */}
+                  {isHovered && !isActive && (
+                    <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 4, width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '6px solid rgba(255,255,255,0.7)', pointerEvents: 'none' }} />
+                  )}
+                  {/* Label badge */}
                   <div style={{
-                    position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 3,
-                    background: isActive ? 'rgba(108,99,255,0.92)' : 'rgba(0,0,0,0.65)',
+                    position: 'absolute', top: '10px', left: '50%', transform: `translateX(-50%) scale(${isHovered ? 1.1 : 1})`, zIndex: 3,
+                    background: isActive ? 'rgba(108,99,255,0.92)' : isHovered ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.65)',
                     padding: '4px 10px', borderRadius: '4px', pointerEvents: 'none',
                     backdropFilter: 'blur(8px)',
+                    transition: 'transform 0.15s ease, background 0.15s ease',
+                    boxShadow: isHovered && !isActive ? '0 2px 12px rgba(0,0,0,0.5)' : 'none',
                   }}>
                     <span className="shading-overlay-label" style={{
-                      fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff',
+                      fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: isHovered && !isActive ? '#08080C' : '#fff',
                     }}>{m.label}</span>
                   </div>
                 </div>
