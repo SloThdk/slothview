@@ -134,6 +134,15 @@ export default function Page() {
   const [showGrid, setShowGrid] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
+  // Auto-restore sidebar when exiting responsive/DevTools mode back to desktop width
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth > 768) setSidebarOpen(true);
+      else setSidebarOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // Camera
   const [fov, setFov] = useState(40);
@@ -1187,18 +1196,19 @@ export default function Page() {
 
         {/* Model selected — transform mode badge */}
         {modelSelected && (
-          <div style={{
+          <div className="model-badge" style={{
             position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
             display: 'flex', alignItems: 'center', gap: '6px',
             background: modelTransformMode === 'rotate' ? 'rgba(108,99,255,0.88)' : modelTransformMode === 'scale' ? 'rgba(0,212,168,0.88)' : 'rgba(255,176,32,0.88)',
             border: `1px solid ${modelTransformMode === 'rotate' ? 'rgba(108,99,255,0.5)' : modelTransformMode === 'scale' ? 'rgba(0,212,168,0.5)' : 'rgba(255,176,32,0.5)'}`,
             borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
+            whiteSpace: 'nowrap', maxWidth: 'calc(100vw - 80px)', overflow: 'hidden',
           }}>
             <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: modelTransformMode === 'scale' ? '#001a14' : '#fff' }}>
               MODEL · {modelTransformMode === 'translate' ? 'MOVE [G]' : modelTransformMode === 'rotate' ? 'ROTATE [E]' : 'SCALE [R]'}
             </span>
             {modelTransformMode === 'scale' && <span style={{ fontSize: '9px', fontWeight: 700, fontFamily: 'monospace', color: '#001a14' }}>{modelUniformScale.toFixed(2)}x</span>}
-            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: modelTransformMode === 'scale' ? 'rgba(0,26,20,0.7)' : 'rgba(255,255,255,0.6)' }}>
+            <span className="badge-hint" style={{ fontSize: '8px', fontFamily: 'monospace', color: modelTransformMode === 'scale' ? 'rgba(0,26,20,0.7)' : 'rgba(255,255,255,0.6)' }}>
               {modelTransformMode === 'scale' ? 'Scroll · Esc to deselect' : 'G=Move · E=Rotate · R=Scale · Esc=Done'}
             </span>
           </div>
@@ -1474,16 +1484,7 @@ export default function Page() {
           {/* Camera aperture — CSS aspect-ratio, centered, correct render dimensions */}
           {(() => {
             const bColor = rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.5)';
-            const handles = [
-              { id: 'nw', t: '-5px', l: '-5px', r: 'auto', b: 'auto', cursor: 'nwse-resize' },
-              { id: 'ne', t: '-5px', l: 'auto', r: '-5px', b: 'auto', cursor: 'nesw-resize' },
-              { id: 'sw', t: 'auto', l: '-5px', r: 'auto', b: '-5px', cursor: 'nesw-resize' },
-              { id: 'se', t: 'auto', l: 'auto', r: '-5px', b: '-5px', cursor: 'nwse-resize' },
-              { id: 'n',  t: '-5px', l: '50%',  r: 'auto', b: 'auto', cursor: 'ns-resize'   },
-              { id: 's',  t: 'auto', l: '50%',  r: 'auto', b: '-5px', cursor: 'ns-resize'   },
-              { id: 'w',  t: '50%',  l: '-5px', r: 'auto', b: 'auto', cursor: 'ew-resize'   },
-              { id: 'e',  t: '50%',  l: 'auto', r: '-5px', b: 'auto', cursor: 'ew-resize'   },
-            ];
+            // handles removed — use sidebar sliders instead
             return (
               <div
                 ref={boundaryRef}
@@ -1527,27 +1528,7 @@ export default function Page() {
                     {renderWidth} x {renderHeight}
                   </div>
                 )}
-                {/* Draggable resize handles (only in camera view, not while rendering) */}
-                {cameraViewMode && !rendering && handles.map(h => (
-                  <div
-                    key={h.id}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      const bounds = boundaryRef.current?.getBoundingClientRect();
-                      if (!bounds) return;
-                      boundaryDragRef.current = { handle: h.id, startX: e.clientX, startY: e.clientY, startW: renderWidth, startH: renderHeight, screenW: bounds.width, screenH: bounds.height };
-                      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-                    }}
-                    style={{
-                      position: 'absolute', width: '10px', height: '10px',
-                      top: h.t, left: h.l, right: h.r, bottom: h.b,
-                      transform: (h.id === 'n' || h.id === 's') ? 'translateX(-50%)' : (h.id === 'e' || h.id === 'w') ? 'translateY(-50%)' : undefined,
-                      background: 'rgba(108,99,255,0.8)', border: '1px solid rgba(255,255,255,0.4)',
-                      borderRadius: '2px', cursor: h.cursor,
-                      pointerEvents: 'auto', zIndex: 20,
-                    }}
-                  />
-                ))}
+                {/* resize handles removed — sliders in sidebar control dimensions */}
                 {/* Render scanline + badge */}
                 {rendering && (
                   <>
@@ -1572,7 +1553,7 @@ export default function Page() {
 
       {/* ── Transform Properties Panel — Blender-style Last Operator, bottom-left ── */}
       {modelSelected && displayTransform && (
-        <div style={{
+        <div className="transform-panel" style={{
           position: 'absolute', bottom: '54px', left: '10px', zIndex: 28,
           background: 'rgba(30,28,40,0.97)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '6px', minWidth: '200px', pointerEvents: 'auto',
