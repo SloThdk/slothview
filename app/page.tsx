@@ -628,12 +628,12 @@ export default function Page() {
       {/* ── Top bar ── */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60, height: '32px', background: 'rgba(8,8,12,0.98)', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', fontSize: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#6C63FF' }}>Sloth</span> Studio Viewer</span>
+          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#fff' }}>Sloth</span><span style={{ color: '#4F8EF7' }}>Studio</span> Viewer</span>
           <span style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
-          <span style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#6C63FF', fontSize: '7px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.1em' }}>DEMO</span>
+          <span style={{ background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.2)', color: '#4F8EF7', fontSize: '7px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.1em' }}>DEMO</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <a href="https://sloth-studio.pages.dev" target="_blank" rel="noopener" style={{ color: '#6C63FF', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
+          <a href="https://slothstudioco.com" target="_blank" rel="noopener" style={{ color: '#00D4A8', fontWeight: 600, textDecoration: 'none', fontSize: '9px' }}>Get a quote &rarr;</a>
         </div>
       </div>
 
