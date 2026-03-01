@@ -925,14 +925,16 @@ export default function Page() {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Exact Width (px)</div>
                         <input type="number" value={renderWidth} min={100} max={16384} step={1}
-                          onChange={e => setRenderWidth(Math.max(100, Math.min(16384, Number(e.target.value))))}
+                          onChange={e => { const n = parseInt(e.target.value, 10); if (!isNaN(n) && n > 0) setRenderWidth(n); }}
+                          onBlur={() => setRenderWidth(w => Math.max(100, Math.min(16384, w)))}
                           style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
                       </div>
                       <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, marginTop: '14px' }}>x</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Exact Height (px)</div>
                         <input type="number" value={renderHeight} min={100} max={16384} step={1}
-                          onChange={e => setRenderHeight(Math.max(100, Math.min(16384, Number(e.target.value))))}
+                          onChange={e => { const n = parseInt(e.target.value, 10); if (!isNaN(n) && n > 0) setRenderHeight(n); }}
+                          onBlur={() => setRenderHeight(h => Math.max(100, Math.min(16384, h)))}
                           style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
                       </div>
                     </div>
@@ -1139,6 +1141,8 @@ export default function Page() {
                 setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
                 setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
                 setCameraGizmoMode('translate'); setSelectedObjectIds([]); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
+                setRenderWidth(1920); setRenderHeight(1080); setRenderSamples(4); setRenderFormat('png'); setRenderQuality(0.92);
+                setShowCameraBoundary(false); setExploded(false); setWireframe(false); setCustomHdri(null);
                 showToast('Reset to defaults');
               }} style={{
                 width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -1452,8 +1456,8 @@ export default function Page() {
           </div>
         )}
 
-        {/* Camera boundary overlay — shows whenever camera is enabled or rendering */}
-        {(showSceneCamera || rendering || cameraViewMode) && (
+        {/* Camera boundary overlay — only visible when actively in camera view or rendering */}
+        {(cameraViewMode || rendering) && (
         <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
@@ -1494,7 +1498,7 @@ export default function Page() {
                   maxWidth: '92%', maxHeight: '84%', width: '92%',
                   border: `1.5px ${rendering || cameraViewMode ? 'solid' : 'dashed'} ${bColor}`,
                   // box-shadow dims everything outside the aperture
-                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(showSceneCamera || rendering || cameraViewMode) ? '0.35' : '0'})`,
+                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(cameraViewMode || rendering) ? '0.35' : '0'})`,
                   pointerEvents: 'none',
                   zIndex: 13,
                 }}
@@ -1512,7 +1516,7 @@ export default function Page() {
                   }} />
                 ))}
                 {/* Rule of thirds */}
-                {showSceneCamera && !rendering && (
+                {cameraViewMode && !rendering && (
                   <>
                     <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
                     <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
@@ -1521,13 +1525,13 @@ export default function Page() {
                   </>
                 )}
                 {/* Dimension badge */}
-                {showSceneCamera && !rendering && (
+                {cameraViewMode && !rendering && (
                   <div style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: '8px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.35)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '3px' }}>
                     {renderWidth} x {renderHeight}
                   </div>
                 )}
-                {/* Draggable resize handles (only in boundary mode, not while rendering) */}
-                {showSceneCamera && !rendering && handles.map(h => (
+                {/* Draggable resize handles (only in camera view, not while rendering) */}
+                {cameraViewMode && !rendering && handles.map(h => (
                   <div
                     key={h.id}
                     onPointerDown={(e) => {
