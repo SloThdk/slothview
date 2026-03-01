@@ -21,6 +21,20 @@ export default function UserModel({ file, wireframe, shadingMode, overrideColor,
   const groupRef = useRef<THREE.Group>(null);
   const [model, setModel] = useState<THREE.Group | null>(null);
 
+  // 3-step cel-shading gradient ramp: shadow → midtone → highlight (NearestFilter = hard steps)
+  const toonGradient = useMemo(() => {
+    const data = new Uint8Array([
+      30,  30,  30,  255,
+      140, 140, 140, 255,
+      255, 255, 255, 255,
+    ]);
+    const tex = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
   // Procedural matcap
   const matcapTex = useMemo(() => {
     const size = 256;
@@ -77,7 +91,12 @@ export default function UserModel({ file, wireframe, shadingMode, overrideColor,
           mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
         } else if (shadingMode === 'toon') {
           const origMat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-          mesh.material = new THREE.MeshToonMaterial({ color: origMat?.color || '#cccccc', map: origMat?.map || null });
+          mesh.material = new THREE.MeshToonMaterial({
+            color: overrideColor ? new THREE.Color(overrideColor) : (origMat?.color ?? new THREE.Color('#cccccc')),
+            map: origMat?.map ?? null,
+            normalMap: origMat?.normalMap ?? null,
+            gradientMap: toonGradient,
+          });
         }
       });
 
@@ -97,7 +116,7 @@ export default function UserModel({ file, wireframe, shadingMode, overrideColor,
     }
 
     return () => URL.revokeObjectURL(url);
-  }, [file, shadingMode, matcapTex]);
+  }, [file, shadingMode, matcapTex, toonGradient, overrideColor]);
 
   useFrame((state) => {
     if (groupRef.current) {

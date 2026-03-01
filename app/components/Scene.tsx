@@ -5,7 +5,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera, TransformControls, Line } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast, Outline, Select } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
-import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3 } from 'three';
+import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3, Box3 } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import Product from './Product';
 import DefaultModel from './DefaultModel';
@@ -149,6 +149,7 @@ export interface SceneProps {
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
   onTransformChange?: (t: TransformSnapshot) => void;
   applyTransformRef?: React.MutableRefObject<ApplyTransformFn | null>;
+  focusOnModelRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -252,14 +253,51 @@ function SceneCameraGizmo({ position, onMove, orbitRef, mode, selected, onSelect
   );
 }
 
+/* ── Focus controller: F key → zoom orbit camera to fit selected model ── */
+function FocusController({ modelGroupRef, focusRef }: {
+  modelGroupRef: React.RefObject<any>;
+  focusRef: React.MutableRefObject<(() => void) | null>;
+}) {
+  const { camera, controls } = useThree();
+  useEffect(() => {
+    focusRef.current = () => {
+      const group = modelGroupRef.current;
+      if (!group) return;
+      const box = new Box3().setFromObject(group);
+      const center = new Vector3();
+      const size = new Vector3();
+      box.getCenter(center);
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      // Find a nice framing distance (1.8× max dimension)
+      const distance = Math.max(maxDim * 1.8, 1.2);
+      // Keep current elevation angle, just pull camera to the right distance
+      const camPos = camera.position.clone();
+      const dir = camPos.clone().sub(center);
+      if (dir.length() < 0.001) dir.set(0, 0.4, 1);
+      dir.normalize().multiplyScalar(distance);
+      camera.position.copy(center.clone().add(dir));
+      camera.lookAt(center);
+      // Update OrbitControls target
+      const orbit = controls as any;
+      if (orbit?.target) {
+        orbit.target.copy(center);
+        orbit.update?.();
+      }
+    };
+  }, [camera, controls]); // modelGroupRef and focusRef are stable refs
+  return null;
+}
+
 /* ── Scene Light Object ── */
-function SceneLightObject({ light, selected, onSelect, onMove, orbitRef, dragRef }: {
+function SceneLightObject({ light, selected, onSelect, onMove, orbitRef, dragRef, rendering }: {
   light: SceneLight;
   selected: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, pos: [number, number, number]) => void;
   orbitRef: React.RefObject<any>;
   dragRef?: React.RefObject<boolean>;
+  rendering?: boolean;
 }) {
   const groupRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
@@ -272,29 +310,32 @@ function SceneLightObject({ light, selected, onSelect, onMove, orbitRef, dragRef
         position={[light.x, light.y, light.z]}
         onClick={(e) => { e.stopPropagation(); onSelect(light.id); }}
       >
-        {/* Core emissive sphere */}
-        <mesh>
-          <sphereGeometry args={[0.07, 12, 12]} />
-          <meshBasicMaterial color={light.color} />
-        </mesh>
-        {/* Inner glow */}
-        <mesh>
-          <sphereGeometry args={[0.14, 12, 12]} />
-          <meshBasicMaterial color={light.color} transparent opacity={0.18} />
-        </mesh>
-        {/* Outer wireframe radius indicator */}
-        <mesh>
-          <sphereGeometry args={selected ? [0.28, 8, 8] : [0.22, 8, 8]} />
-          <meshBasicMaterial color={selected ? '#6C63FF' : light.color} wireframe transparent opacity={selected ? 0.8 : 0.35} />
-        </mesh>
-        {/* Cross-hair lines through center */}
-        {selected && <>
-          <Line points={[[-0.28,0,0],[0.28,0,0]]} color="#6C63FF" lineWidth={0.6} />
-          <Line points={[[0,-0.28,0],[0,0.28,0]]} color="#6C63FF" lineWidth={0.6} />
-          <Line points={[[0,0,-0.28],[0,0,0.28]]} color="#6C63FF" lineWidth={0.6} />
+        {/* Hide ALL visual gizmo geometry during final render — only the pointLight contributes */}
+        {!rendering && <>
+          {/* Core emissive sphere */}
+          <mesh>
+            <sphereGeometry args={[0.07, 12, 12]} />
+            <meshBasicMaterial color={light.color} />
+          </mesh>
+          {/* Inner glow */}
+          <mesh>
+            <sphereGeometry args={[0.14, 12, 12]} />
+            <meshBasicMaterial color={light.color} transparent opacity={0.18} />
+          </mesh>
+          {/* Outer wireframe radius indicator */}
+          <mesh>
+            <sphereGeometry args={selected ? [0.28, 8, 8] : [0.22, 8, 8]} />
+            <meshBasicMaterial color={selected ? '#6C63FF' : light.color} wireframe transparent opacity={selected ? 0.8 : 0.35} />
+          </mesh>
+          {/* Cross-hair lines through center */}
+          {selected && <>
+            <Line points={[[-0.28,0,0],[0.28,0,0]]} color="#6C63FF" lineWidth={0.6} />
+            <Line points={[[0,-0.28,0],[0,0.28,0]]} color="#6C63FF" lineWidth={0.6} />
+            <Line points={[[0,0,-0.28],[0,0,0.28]]} color="#6C63FF" lineWidth={0.6} />
+          </>}
         </>}
       </group>
-      {selected && ready && groupRef.current && (
+      {selected && ready && groupRef.current && !rendering && (
         <TransformControls
           object={groupRef.current}
           mode="translate"
@@ -639,6 +680,16 @@ export default function Scene(props: SceneProps) {
           ref={modelGroupRef}
           onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
         >
+          {/* Transparent hit-target box — guarantees reliable click selection across all model types,
+              including skinned meshes, characters, and geometry with transparent/missing surfaces.
+              Invisible (depthWrite:false, opacity:0) but fully raycasted. */}
+          <mesh
+            onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
+            renderOrder={-1}
+          >
+            <boxGeometry args={[4.5, 4.5, 4.5]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
           <Suspense fallback={null}>
             {userFile ? (
               <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
@@ -685,6 +736,7 @@ export default function Scene(props: SceneProps) {
               onMove={onMoveLight}
               orbitRef={orbitRef}
               dragRef={isDraggingTransformRef}
+              rendering={rendering}
             />
           </React.Fragment>
         ))}
@@ -792,6 +844,9 @@ export default function Scene(props: SceneProps) {
         )}
         {props.applyTransformRef && (
           <ApplyTransformSetup modelGroupRef={modelGroupRef} applyTransformRef={props.applyTransformRef} />
+        )}
+        {props.focusOnModelRef && (
+          <FocusController modelGroupRef={modelGroupRef} focusRef={props.focusOnModelRef} />
         )}
         {onStats && <StatsCollector onStats={onStats} />}
         <AutoClearFix enablePP={enablePostProcessing} />

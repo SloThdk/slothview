@@ -30,6 +30,22 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
     return new THREE.CanvasTexture(canvas);
   }, []);
 
+  // 3-step cel-shading gradient ramp: shadow → midtone → highlight
+  // NearestFilter = hard step transitions — the signature toon/cel-shaded look
+  // This is what separates MeshToonMaterial from MeshBasicMaterial (unlit)
+  const toonGradient = useMemo(() => {
+    const data = new Uint8Array([
+      30,  30,  30,  255,  // shadow  — dark areas (~12% brightness)
+      140, 140, 140, 255,  // midtone — mid-lit areas (~55% brightness)
+      255, 255, 255, 255,  // highlight — fully lit areas (100% material color)
+    ]);
+    const tex = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+    tex.magFilter = THREE.NearestFilter; // CRITICAL: NearestFilter = hard step, not smooth gradient
+    tex.minFilter = THREE.NearestFilter;
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
   // Clone scene and apply shading mode immediately
   const scene = useMemo(() => {
     const cloned = originalScene.clone(true);
@@ -76,12 +92,17 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
         mesh.material = new THREE.MeshBasicMaterial({ color: '#e0e0e0', wireframe: true, opacity: 0.9, transparent: true });
       } else if (shadingMode === 'toon') {
         const origMat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-        mesh.material = new THREE.MeshToonMaterial({ color: origMat?.color || '#cccccc', map: origMat?.map || null });
+        mesh.material = new THREE.MeshToonMaterial({
+          color: overrideColor ? new THREE.Color(overrideColor) : (origMat?.color ?? new THREE.Color('#cccccc')),
+          map: origMat?.map ?? null,
+          normalMap: origMat?.normalMap ?? null, // Preserve normal map for surface detail
+          gradientMap: toonGradient,             // 3-step ramp — THIS is what makes it cel-shaded
+        });
       }
     });
 
     return cloned;
-  }, [originalScene, shadingMode, matcapTex, overrideColor]);
+  }, [originalScene, shadingMode, matcapTex, overrideColor, toonGradient]);
 
   // Store the centered base Y so floating animation adds ON TOP of centering (not replaces it)
   const baseY = useRef(0);

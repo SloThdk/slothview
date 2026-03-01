@@ -141,10 +141,19 @@ export default function Page() {
   const [activeHotspot, setActiveHotspot] = useState<number | null>(null);
   // SSR-safe: always start open (matches server), correct after hydration
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Viewport dimensions — needed for JS-computed camera boundary box (CSS aspect-ratio breaks for portrait/square)
+  const [vpW, setVpW] = useState(1920);
+  const [vpH, setVpH] = useState(1080);
   useEffect(() => {
     // Set correct initial value post-hydration + auto-restore on responsive exit
     setSidebarOpen(window.innerWidth > 768);
-    const onResize = () => setSidebarOpen(window.innerWidth > 768);
+    setVpW(window.innerWidth);
+    setVpH(window.innerHeight);
+    const onResize = () => {
+      setSidebarOpen(window.innerWidth > 768);
+      setVpW(window.innerWidth);
+      setVpH(window.innerHeight);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -181,6 +190,9 @@ export default function Page() {
   const [renderSamples, setRenderSamples] = useState(4);
   const [renderFormat, setRenderFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [renderQuality, setRenderQuality] = useState(0.92);
+
+  // F key focus-on-selection — ref set by FocusController inside Canvas
+  const focusOnModelRef = useRef<(() => void) | null>(null);
 
   // Transform properties panel (Blender-style)
   const [displayTransform, setDisplayTransform] = useState<TransformSnapshot | null>(null);
@@ -408,6 +420,12 @@ export default function Page() {
         } else {
           setLockCameraToView(false);
           setCameraViewMode(false);
+        }
+      }
+      // F = Focus on selected object (Blender-style: frame/zoom camera to fit selection)
+      if (e.key === 'f' || e.key === 'F') {
+        if (modelSelectedRef.current) {
+          focusOnModelRef.current?.();
         }
       }
       // Escape = cancel render OR deselect all
@@ -804,7 +822,11 @@ export default function Page() {
                   <span style={stl.label}>Scene Lights</span>
                   <button onClick={() => {
                     const id = `light-${Date.now()}`;
-                    setSceneLights(l => [...l, { id, color: '#ffffff', intensity: 1.5, x: 2, y: 3, z: 2 }]);
+                    // Randomize spawn position so multiple lights don't stack at the same spot
+                    const rx = parseFloat(((Math.random() - 0.5) * 6).toFixed(1));
+                    const ry = parseFloat((1.5 + Math.random() * 3).toFixed(1));
+                    const rz = parseFloat(((Math.random() - 0.5) * 6).toFixed(1));
+                    setSceneLights(l => [...l, { id, color: '#ffffff', intensity: 1.5, x: rx, y: ry, z: rz }]);
                   }} title="Add a new point light to the scene" style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF', background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>+ Add</button>
                 </div>
                 {sceneLights.length === 0 && (
@@ -1305,6 +1327,7 @@ export default function Page() {
           projectorRef={sceneProjectorRef}
           onTransformChange={(t) => startTransition(() => setDisplayTransform(t))}
           applyTransformRef={applyTransformRef}
+          focusOnModelRef={focusOnModelRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -1382,7 +1405,7 @@ export default function Page() {
           }}>
             {[
               ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
-              ['Click', 'Select obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
+              ['Click', 'Select obj'], ['F', 'Focus obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
               ['F4', 'Camera view'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -1492,8 +1515,9 @@ export default function Page() {
           </div>
         )}
 
-        {/* Camera boundary overlay — visible when camera is in scene, in camera view, or rendering */}
-        {(showSceneCamera || cameraViewMode || rendering) && (
+        {/* Camera boundary overlay — visible ONLY in camera view mode or during rendering.
+            showSceneCamera alone (camera in scene but not in view mode) does NOT show the boundary. */}
+        {(cameraViewMode || rendering) && (
         <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
@@ -1513,19 +1537,25 @@ export default function Page() {
           {/* Camera aperture — CSS aspect-ratio, centered, correct render dimensions */}
           {(() => {
             const bColor = rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.5)';
-            // handles removed — use sidebar sliders instead
+            // JS-computed boundary dimensions — CSS aspect-ratio + max constraints breaks for portrait/square presets
+            const sideW = sidebarOpen ? 250 : 0;
+            const avW = (vpW - sideW) * 0.92;
+            const avH = (vpH - 32) * 0.84; // 32px = top bar
+            const bScale = Math.min(avW / renderWidth, avH / renderHeight);
+            const bW = Math.round(renderWidth * bScale);
+            const bH = Math.round(renderHeight * bScale);
             return (
               <div
                 ref={boundaryRef}
                 style={{
                   position: 'absolute', top: '50%', left: '50%',
                   transform: 'translate(-50%, -50%)',
-                  // CSS aspect-ratio + max constraints → fits inside viewport with correct ratio
-                  aspectRatio: `${renderWidth} / ${renderHeight}`,
-                  maxWidth: '92%', maxHeight: '84%', width: '92%',
+                  // Explicit pixel dimensions — always correct for any aspect ratio (portrait, square, ultra-wide)
+                  width: bW + 'px',
+                  height: bH + 'px',
                   border: `1.5px ${rendering || cameraViewMode ? 'solid' : 'dashed'} ${bColor}`,
                   // box-shadow dims everything outside the aperture
-                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(cameraViewMode || rendering) ? '0.35' : '0.15'})`,
+                  boxShadow: `0 0 0 9999px rgba(0,0,0,0.35)`,
                   pointerEvents: 'none',
                   zIndex: 13,
                 }}
@@ -1543,7 +1573,7 @@ export default function Page() {
                   }} />
                 ))}
                 {/* Rule of thirds */}
-                {(showSceneCamera || cameraViewMode) && !rendering && (
+                {cameraViewMode && !rendering && (
                   <>
                     <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
                     <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
@@ -1552,7 +1582,7 @@ export default function Page() {
                   </>
                 )}
                 {/* Dimension badge */}
-                {(showSceneCamera || cameraViewMode) && !rendering && (
+                {cameraViewMode && !rendering && (
                   <div style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: '8px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.35)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '3px' }}>
                     {renderWidth} x {renderHeight}
                   </div>
