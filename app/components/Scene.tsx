@@ -30,7 +30,7 @@ function CustomHDRI({ url, background }: { url: string; background: boolean }) {
   return null;
 }
 
-/* Strip environment from scene.environment every frame — keeps bg but kills IBL */
+/* Strip environment from scene.environment every frame - keeps bg but kills IBL */
 function EnvLightingOverride({ enable }: { enable: boolean }) {
   const { scene } = useThree();
   useFrame(() => {
@@ -144,6 +144,7 @@ export interface SceneProps {
   onTransformActioned?: () => void;
   onGroupMount?: (ref: React.RefObject<any>) => void;
   rendering?: boolean;
+  shadingOverlay?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
   onTransformChange?: (t: TransformSnapshot) => void;
@@ -375,7 +376,7 @@ export interface TransformSnapshot {
 }
 export type ApplyTransformFn = (pos?: [number, number, number], rot?: [number, number, number]) => void;
 
-/* ── Live transform reporter — throttled to actual changes ── */
+/* ── Live transform reporter - throttled to actual changes ── */
 function TransformReporter({ modelGroupRef, modelUniformScale, onTransformChange }: {
   modelGroupRef: React.RefObject<any>;
   modelUniformScale: number;
@@ -384,7 +385,7 @@ function TransformReporter({ modelGroupRef, modelUniformScale, onTransformChange
   const lastKey = useRef('');
   const lastUpdate = useRef(0);
   const RAD2DEG = 180 / Math.PI;
-  // Throttle to ~12fps max — prevents React re-renders from blocking 3D canvas at 60fps
+  // Throttle to ~12fps max - prevents React re-renders from blocking 3D canvas at 60fps
   useFrame((state) => {
     const obj = modelGroupRef.current;
     if (!obj) return;
@@ -421,7 +422,7 @@ function ApplyTransformSetup({ modelGroupRef, applyTransformRef }: {
   return null;
 }
 
-/* ── Alt+LMB orbit interceptor — LMB alone = marquee, Alt+LMB = orbit ── */
+/* ── Alt+LMB orbit interceptor - LMB alone = marquee, Alt+LMB = orbit ── */
 function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
   orbitRef: React.RefObject<any>;
   onLMBDownNoAlt: (screenX: number, screenY: number, shiftKey: boolean) => void;
@@ -433,7 +434,7 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
     let capturedNoAlt = false;
     const onDown = (e: PointerEvent) => {
       if (e.button === 0 && !e.altKey) {
-        // If model is selected, DON'T intercept — let TC and R3F handle the interaction
+        // If model is selected, DON'T intercept - let TC and R3F handle the interaction
         if (isModelSelectedRef.current) return;
         if (orbitRef.current) orbitRef.current.enabled = false;
         capturedNoAlt = true;
@@ -446,7 +447,7 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
         if (orbitRef.current) orbitRef.current.enabled = true;
       }
     };
-    // Capture phase — fires BEFORE OrbitControls' own listener
+    // Capture phase - fires BEFORE OrbitControls' own listener
     canvas.addEventListener('pointerdown', onDown, { capture: true });
     window.addEventListener('pointerup', onUp);
     return () => {
@@ -477,7 +478,7 @@ function ProjectorSetup({ projectorRef }: {
   return null;
 }
 
-/* OutlineSync removed — using Select component instead */
+/* OutlineSync removed - using Select component instead */
 
 /* Ensure autoClear=true whenever PP is off or changes */
 function AutoClearFix({ enablePP }: { enablePP: boolean }) {
@@ -526,7 +527,7 @@ export default function Scene(props: SceneProps) {
   }, []);
   // Saved orbit position for restoring after exiting camera view
   const savedOrbitState = useRef<{ camPos: [number,number,number]; target: [number,number,number] } | null>(null);
-  // Pointer drag detection — prevent onPointerMissed deselecting during pan/orbit
+  // Pointer drag detection - prevent onPointerMissed deselecting during pan/orbit
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const pointerDidDrag = useRef(false);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
@@ -673,7 +674,7 @@ export default function Scene(props: SceneProps) {
             </>}
           </>
         )}
-        {/* User-added scene lights — actual point light + visible 3D object */}
+        {/* User-added scene lights - actual point light + visible 3D object */}
         {sceneLights.map(l => (
           <React.Fragment key={l.id}>
             <pointLight position={[l.x, l.y, l.z]} color={l.color} intensity={l.intensity} distance={12} decay={2} />
@@ -688,10 +689,10 @@ export default function Scene(props: SceneProps) {
           </React.Fragment>
         ))}
 
-        {/* Model group hoisted above Suspense — see group at top of Canvas */}
+        {/* Model group hoisted above Suspense - see group at top of Canvas */}
 
-        {/* Model TransformControls — G=translate, E=rotate, R=scale; hidden during render */}
-        {modelSelected && modelGroupRef.current && !rendering && (
+        {/* Model TransformControls - hidden during render and shading overlay (clean preview) */}
+        {modelSelected && modelGroupRef.current && !rendering && !props.shadingOverlay && (
           <TransformControls
             object={modelGroupRef.current}
             mode={modelTransformMode}
@@ -712,12 +713,12 @@ export default function Scene(props: SceneProps) {
           />
         )}
 
-        {/* Environment — PBR gets full lighting + optional bg; other modes get bg only if enabled */}
+        {/* Environment - PBR gets full lighting + optional bg; other modes get bg only if enabled */}
         {shadingMode === 'pbr' ? (
           <>
             {!customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
             {customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}
-            {/* Kill IBL when hdriLighting is off — keeps background, strips env lighting contribution */}
+            {/* Kill IBL when hdriLighting is off - keeps background, strips env lighting contribution */}
             <EnvLightingOverride enable={hdriLighting} />
             <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2.5} far={4} />
           </>
@@ -732,7 +733,7 @@ export default function Scene(props: SceneProps) {
         )}
         {showGrid && shadingMode === 'pbr' && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="#1a1833" sectionColor="#2a2555" fadeDistance={15} infiniteGrid />}
 
-        {/* Post-processing — PBR mode with outline */}
+        {/* Post-processing - PBR mode with outline */}
         {enablePostProcessing && shadingMode === 'pbr' ? (
           <EffectComposer multisampling={4}>
             <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.4} mipmapBlur />
@@ -750,7 +751,7 @@ export default function Scene(props: SceneProps) {
           </EffectComposer>
         )}
 
-        {/* Scene Camera Gizmo — only visible when not in camera view */}
+        {/* Scene Camera Gizmo - only visible when not in camera view */}
         {showSceneCamera && !cameraViewMode && (
           <SceneCameraGizmo
             position={cameraPos}
