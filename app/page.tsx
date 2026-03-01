@@ -686,19 +686,21 @@ export default function Page() {
                 <span style={stl.label}>Preset Models</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
                   {PRESET_MODELS.map(m => (
-                    <button key={m.id} onClick={() => { setSelectedModel(m.id); setUserFile(null); previewsReady.current = false; showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
-                      width: '100%', padding: '6px 8px', borderRadius: '5px', textAlign: 'left',
-                      background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.01)',
-                      border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
-                      display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s',
-                    }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '4px', background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconBox /></div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '10px', fontWeight: 600, color: !userFile && selectedModel === m.id ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{m.cat}</div>
-                      </div>
-                      {!userFile && selectedModel === m.id && <div style={{ marginLeft: 'auto', color: '#6C63FF', flexShrink: 0 }}><IconCheck /></div>}
-                    </button>
+                    <Tip key={m.id} text={m.desc} pos="right" fullWidth>
+                      <button onClick={() => { setSelectedModel(m.id); setUserFile(null); previewsReady.current = false; showToast(m.name); if (window.innerWidth <= 768) setSidebarOpen(false); }} style={{
+                        width: '100%', padding: '6px 8px', borderRadius: '5px', textAlign: 'left',
+                        background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.01)',
+                        border: !userFile && selectedModel === m.id ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.02)',
+                        display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s',
+                      }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '4px', background: !userFile && selectedModel === m.id ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconBox /></div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '10px', fontWeight: 600, color: !userFile && selectedModel === m.id ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                          <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{m.cat}</div>
+                        </div>
+                        {!userFile && selectedModel === m.id && <div style={{ marginLeft: 'auto', color: '#6C63FF', flexShrink: 0 }}><IconCheck /></div>}
+                      </button>
+                    </Tip>
                   ))}
                 </div>
 
@@ -912,9 +914,9 @@ export default function Page() {
                     {/* Camera view toggle */}
                     <button onClick={() => { if (cameraViewMode) setLockCameraToView(false); setCameraViewMode(!cameraViewMode); }} style={{
                       width: '100%', padding: '10px', borderRadius: '6px', marginBottom: '10px',
-                      background: cameraViewMode ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.08)',
-                      border: `1px solid ${cameraViewMode ? 'rgba(239,68,68,0.6)' : 'rgba(239,68,68,0.25)'}`,
-                      color: cameraViewMode ? '#fff' : '#ef4444', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em',
+                      background: cameraViewMode ? 'rgba(239,68,68,0.85)' : 'rgba(34,197,94,0.1)',
+                      border: `1px solid ${cameraViewMode ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.35)'}`,
+                      color: cameraViewMode ? '#fff' : '#22c55e', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em',
                     }}>
                       {cameraViewMode ? '● Exit Camera View' : 'Enter Camera View'}
                     </button>
