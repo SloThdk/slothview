@@ -694,6 +694,7 @@ export default function Scene(props: SceneProps) {
   } = props;
   const rendering = props.rendering ?? false;
 
+  const { gl: threeGl, scene: threeScene } = useThree();
   const modelSelected = selectedObjectIds.includes('model');
 
   // Dynamic hitbox — sized to match the loaded model's actual world-space bounds
@@ -728,6 +729,11 @@ export default function Scene(props: SceneProps) {
         if (!orbitRef.current) return;
         (orbitRef.current as any).setAzimuthalAngle(angle);
         (orbitRef.current as any).update();
+        // Force immediate render so captureStream / toBlob captures the new frame
+        const cam = (orbitRef.current as any).object;
+        if (threeGl && threeScene && cam) {
+          threeGl.render(threeScene, cam);
+        }
       };
     }
     if (props.getAzimuthRef) {

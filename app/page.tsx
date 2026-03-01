@@ -247,6 +247,7 @@ export default function Page() {
   const [ttFormat, setTtFormat] = useState<'webm' | 'png-zip' | 'jpg-zip' | 'webp-zip'>('webm');
   const [ttActive, setTtActive] = useState(false);
   const [ttProgress, setTtProgress] = useState(0);
+  const [ttCurrentFrame, setTtCurrentFrame] = useState(0);
   const cancelTtRef = useRef(false);
   const [ttDirection, setTtDirection] = useState<'cw' | 'ccw'>('cw');
   const [ttEasing, setTtEasing] = useState<'linear' | 'smooth'>('linear');
@@ -592,6 +593,7 @@ export default function Page() {
 
     cancelTtRef.current = false;
     setTtActive(true);
+    setRendering(true);
     setTtProgress(0);
 
     const oW = (gl.domElement as HTMLCanvasElement).width;
@@ -640,6 +642,7 @@ export default function Page() {
           if (cancelTtRef.current) { recorder.stop(); break; }
           setAzimuthRef.current!(frameAngle(i));
           setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
+          setTtCurrentFrame(i + 1);
           await new Promise(r => setTimeout(r, frameMs));
         }
         if (!cancelTtRef.current) recorder.stop();
@@ -657,6 +660,7 @@ export default function Page() {
           if (cancelTtRef.current) break;
           setAzimuthRef.current!(frameAngle(i));
           setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
+          setTtCurrentFrame(i + 1);
           await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
           const blob = await new Promise<Blob>((res) =>
             (gl.domElement as HTMLCanvasElement).toBlob((b) => res(b!), mime, 0.92)
@@ -683,7 +687,9 @@ export default function Page() {
       // Return to start angle, not 0
       if (setAzimuthRef.current) setAzimuthRef.current(startAngle);
       setTtActive(false);
+      setRendering(false);
       setTtProgress(0);
+      setTtCurrentFrame(0);
       if (cancelTtRef.current) {
         // Toast already shown for partial zip; video partial downloads via recorder.onstop
       } else {
@@ -1310,22 +1316,43 @@ export default function Page() {
                 <span style={stl.label}>Turntable Render</span>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
 
-                  {/* Output format */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', marginBottom: '8px' }}>
+                  {/* Video formats */}
+                  <div style={{ marginBottom: '6px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px', paddingLeft: '2px' }}>Video</div>
                     {([
-                      { id: 'webm', label: 'WebM', desc: 'Video file', tip: 'Single video file \u2014 best for presentations and social media' },
-                      { id: 'png-zip', label: 'PNG Seq', desc: 'ZIP archive', tip: 'Lossless image sequence as ZIP \u2014 best for compositing and post-production' },
-                      { id: 'jpg-zip', label: 'JPG Seq', desc: 'ZIP archive', tip: 'Compressed image sequence as ZIP \u2014 smaller files, slight quality loss' },
-                      { id: 'webp-zip', label: 'WebP Seq', desc: 'ZIP archive', tip: 'Modern format sequence as ZIP \u2014 small files, near-lossless quality' },
+                      { id: 'webm', label: 'WebM', desc: 'VP9 video \u00b7 single file' },
                     ] as const).map(f => (
-                      <Tip key={f.id} text={f.tip} pos="top"><button onClick={() => setTtFormat(f.id)} style={{
-                        padding: '5px 4px', borderRadius: '4px', textAlign: 'left' as const, width: '100%',
-                        background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
-                        border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
-                      }}>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: ttFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</div>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</div>
-                      </button></Tip>
+                      <Tip key={f.id} text="Single WebM video file -- best for presentations and social media" pos="top">
+                        <button onClick={() => setTtFormat(f.id)} style={{
+                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px',
+                          background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
+                          border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                        }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: ttFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</span>
+                          <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</span>
+                        </button>
+                      </Tip>
+                    ))}
+                  </div>
+
+                  {/* Image sequence formats */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px', paddingLeft: '2px' }}>Image Sequence</div>
+                    {([
+                      { id: 'png-zip', label: 'PNG', desc: 'Lossless \u00b7 ZIP archive', tip: 'Lossless PNG sequence as ZIP -- best for compositing and post-production' },
+                      { id: 'jpg-zip', label: 'JPEG', desc: 'Compressed \u00b7 ZIP archive', tip: 'Compressed JPEG sequence as ZIP -- smaller files, slight quality loss' },
+                      { id: 'webp-zip', label: 'WebP', desc: 'Modern \u00b7 ZIP archive', tip: 'Modern WebP sequence as ZIP -- small files, near-lossless quality' },
+                    ] as const).map(f => (
+                      <Tip key={f.id} text={f.tip} pos="top">
+                        <button onClick={() => setTtFormat(f.id)} style={{
+                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px',
+                          background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
+                          border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                        }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: ttFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</span>
+                          <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</span>
+                        </button>
+                      </Tip>
                     ))}
                   </div>
 
@@ -1376,12 +1403,17 @@ export default function Page() {
                   {/* Progress bar (shown during render) */}
                   {ttActive && (
                     <div style={{ marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>Rendering...</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>
+                          Frame {ttCurrentFrame} / {ttFrames}
+                        </span>
                         <span style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF' }}>{ttProgress}%</span>
                       </div>
                       <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #6C63FF, #8B7FFF)', borderRadius: '2px', width: `${ttProgress}%`, transition: 'width 0.3s' }} />
+                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #6C63FF, #8B7FFF)', borderRadius: '2px', width: `${ttProgress}%`, transition: 'width 0.15s' }} />
+                      </div>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '4px', textAlign: 'center' as const }}>
+                        {ttFormat === 'webm' ? 'Recording video...' : 'Capturing frames...'}
                       </div>
                     </div>
                   )}
@@ -1418,13 +1450,13 @@ export default function Page() {
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '4px' }}>
-                    <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering} style={{
+                    <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering && !ttActive} style={{
                       flex: 1, padding: '9px', borderRadius: '6px',
                       background: ttActive ? 'rgba(239,68,68,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
                       color: ttActive ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
                       border: ttActive ? '1px solid rgba(239,68,68,0.2)' : 'none',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                      opacity: rendering ? 0.4 : 1,
+                      opacity: (rendering && !ttActive) ? 0.4 : 1,
                     }}>
                       <IconRotate />
                       {ttActive ? `Cancel (${ttProgress}%)` : 'Render Turntable'}
