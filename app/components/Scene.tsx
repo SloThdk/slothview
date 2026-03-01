@@ -514,6 +514,10 @@ export default function Scene(props: SceneProps) {
   const modelGroupRef = useRef<any>(null);
   const isModelSelectedRef = useRef<boolean>(false);
   const isDraggingTransformRef = useRef<boolean>(false);
+  // Apply scale imperatively so TC can modify it freely during drag without React fighting back
+  useEffect(() => {
+    if (modelGroupRef.current) modelGroupRef.current.scale.setScalar(props.modelUniformScale);
+  }, [props.modelUniformScale]);
   // Saved orbit position for restoring after exiting camera view
   const savedOrbitState = useRef<{ camPos: [number,number,number]; target: [number,number,number] } | null>(null);
   // Pointer drag detection — prevent onPointerMissed deselecting during pan/orbit
@@ -626,7 +630,6 @@ export default function Scene(props: SceneProps) {
       <Select enabled={modelSelected}>
         <group
           ref={modelGroupRef}
-          scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
           onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
         >
           <Suspense fallback={null}>
