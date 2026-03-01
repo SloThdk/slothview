@@ -3,7 +3,7 @@
 import React, { Suspense, useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera, TransformControls, Line } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast, Outline } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
 import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3 } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -139,6 +139,7 @@ export interface SceneProps {
   modelTransformMode: 'translate' | 'rotate' | 'scale';
   onModelClick: (shiftKey: boolean, ctrlKey: boolean) => void;
   onModelDeselect: () => void;
+  onCameraSelect?: () => void;
   rendering?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -181,11 +182,14 @@ function HotspotMarker({ hotspot, index, active, onClick }: { hotspot: Hotspot; 
 }
 
 /* ── Scene Camera Gizmo ── */
-function SceneCameraGizmo({ position, onMove, orbitRef, mode }: {
+function SceneCameraGizmo({ position, onMove, orbitRef, mode, selected, onSelect, dragRef }: {
   position: [number, number, number];
   onMove: (p: [number, number, number]) => void;
   orbitRef: React.RefObject<any>;
   mode: 'translate' | 'rotate';
+  selected: boolean;
+  onSelect: () => void;
+  dragRef?: React.RefObject<boolean>;
 }) {
   const groupRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
@@ -199,33 +203,34 @@ function SceneCameraGizmo({ position, onMove, orbitRef, mode }: {
     [-0.2,-0.14,-0.35], [0.2,-0.14,-0.35], [0.2,-0.14,-0.35], [0.2,0.14,-0.35],
   ];
 
+  const selCol = selected ? '#00D4A8' : col;
   return (
     <>
-      <group ref={groupRef} position={position}>
+      <group ref={groupRef} position={position} onClick={(e) => { e.stopPropagation(); onSelect(); }}>
         {/* Camera body */}
         <mesh>
           <boxGeometry args={[0.22, 0.16, 0.14]} />
-          <meshBasicMaterial color={col} wireframe />
+          <meshBasicMaterial color={selCol} wireframe />
         </mesh>
         {/* Lens */}
         <mesh position={[0, 0, -0.1]} rotation={[Math.PI/2, 0, 0]}>
           <cylinderGeometry args={[0.05, 0.04, 0.08, 6]} />
-          <meshBasicMaterial color={col} wireframe />
+          <meshBasicMaterial color={selCol} wireframe />
         </mesh>
         {/* Frustum lines */}
         {frustumPts.filter((_,i)=>i%2===0).map((pt,i) => (
-          <Line key={i} points={[pt, frustumPts[i*2+1]]} color={col} lineWidth={0.8} transparent opacity={0.5} />
+          <Line key={i} points={[pt, frustumPts[i*2+1]]} color={selCol} lineWidth={selected ? 1.2 : 0.8} transparent opacity={selected ? 0.8 : 0.5} />
         ))}
       </group>
-      {ready && groupRef.current && (
+      {selected && ready && groupRef.current && (
         <TransformControls
           object={groupRef.current}
           mode={mode}
           size={0.7}
-          onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+          onMouseDown={() => { if (dragRef) dragRef.current = true; if (orbitRef.current) orbitRef.current.enabled = false; }}
           onMouseUp={() => {
+            if (dragRef) dragRef.current = false;
             if (orbitRef.current) orbitRef.current.enabled = true;
-            // Only sync position back when in translate mode
             if (mode === 'translate' && groupRef.current) {
               const p = groupRef.current.position;
               onMove([Math.round(p.x*10)/10, Math.round(p.y*10)/10, Math.round(p.z*10)/10]);
@@ -244,12 +249,13 @@ function SceneCameraGizmo({ position, onMove, orbitRef, mode }: {
 }
 
 /* ── Scene Light Object ── */
-function SceneLightObject({ light, selected, onSelect, onMove, orbitRef }: {
+function SceneLightObject({ light, selected, onSelect, onMove, orbitRef, dragRef }: {
   light: SceneLight;
   selected: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, pos: [number, number, number]) => void;
   orbitRef: React.RefObject<any>;
+  dragRef?: React.RefObject<boolean>;
 }) {
   const groupRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
@@ -289,8 +295,9 @@ function SceneLightObject({ light, selected, onSelect, onMove, orbitRef }: {
           object={groupRef.current}
           mode="translate"
           size={0.65}
-          onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+          onMouseDown={() => { if (dragRef) dragRef.current = true; if (orbitRef.current) orbitRef.current.enabled = false; }}
           onMouseUp={() => {
+            if (dragRef) dragRef.current = false;
             if (orbitRef.current) orbitRef.current.enabled = true;
             if (groupRef.current) {
               const p = groupRef.current.position;
@@ -467,6 +474,33 @@ function ProjectorSetup({ projectorRef }: {
   return null;
 }
 
+/* ── Collects mesh refs from model group each frame when selected, for Outline effect ── */
+function OutlineSync({ modelGroupRef, modelSelected, onUpdate }: {
+  modelGroupRef: React.RefObject<any>;
+  modelSelected: boolean;
+  onUpdate: (meshes: any[]) => void;
+}) {
+  const prevSelected = useRef(false);
+  const prevCount = useRef(0);
+  useFrame(() => {
+    const changed = modelSelected !== prevSelected.current;
+    prevSelected.current = modelSelected;
+    if (!modelSelected) {
+      if (prevCount.current > 0 || changed) { prevCount.current = 0; onUpdate([]); }
+      return;
+    }
+    const group = modelGroupRef.current;
+    if (!group) return;
+    const meshes: any[] = [];
+    group.traverse((c: any) => { if (c.isMesh) meshes.push(c); });
+    if (meshes.length !== prevCount.current || changed) {
+      prevCount.current = meshes.length;
+      onUpdate(meshes);
+    }
+  });
+  return null;
+}
+
 /* Ensure autoClear=true whenever PP is off or changes */
 function AutoClearFix({ enablePP }: { enablePP: boolean }) {
   const { gl } = useThree();
@@ -503,6 +537,8 @@ export default function Scene(props: SceneProps) {
   const orbitRef = useRef<any>(null);
   const modelGroupRef = useRef<any>(null);
   const isModelSelectedRef = useRef<boolean>(false);
+  const isDraggingTransformRef = useRef<boolean>(false);
+  const [outlineMeshes, setOutlineMeshes] = useState<any[]>([]);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
 
   // Populate rotationStepRef so page.tsx can step-rotate orbit camera from outside Canvas
@@ -561,7 +597,7 @@ export default function Scene(props: SceneProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onContextMenu={(e) => { if (e.altKey) e.preventDefault(); }}
-      onPointerMissed={() => onModelDeselect()}
+      onPointerMissed={() => { if (!isDraggingTransformRef.current) onModelDeselect(); }}
     >
       {cameraViewMode
         ? <PerspectiveCamera makeDefault position={cameraPos} fov={fov} near={0.1} far={100} />
@@ -618,6 +654,7 @@ export default function Scene(props: SceneProps) {
               onSelect={onSelectLight}
               onMove={onMoveLight}
               orbitRef={orbitRef}
+              dragRef={isDraggingTransformRef}
             />
           </React.Fragment>
         ))}
@@ -632,8 +669,8 @@ export default function Scene(props: SceneProps) {
             size={1.2}
             translationSnap={null}
             rotationSnap={null}
-            onMouseDown={() => { if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
-            onMouseUp={() => { if (orbitRef.current) orbitRef.current.enabled = true; }}
+            onMouseDown={() => { isDraggingTransformRef.current = true; if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
+            onMouseUp={() => { isDraggingTransformRef.current = false; if (orbitRef.current) orbitRef.current.enabled = true; }}
           />
         )}
 
@@ -657,8 +694,8 @@ export default function Scene(props: SceneProps) {
         )}
         {showGrid && shadingMode === 'pbr' && <Grid position={[0, -1.5, 0]} args={[20, 20]} cellColor="#1a1833" sectionColor="#2a2555" fadeDistance={15} infiniteGrid />}
 
-        {/* Post-processing */}
-        {enablePostProcessing && shadingMode === 'pbr' && (
+        {/* Post-processing — PBR mode with optional outline */}
+        {enablePostProcessing && shadingMode === 'pbr' ? (
           <EffectComposer multisampling={4}>
             <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.4} mipmapBlur />
             {vignetteIntensity > 0 ? <Vignette offset={0.3} darkness={vignetteIntensity} /> : <></>}
@@ -666,12 +703,28 @@ export default function Scene(props: SceneProps) {
             {chromaticAb > 0 ? <ChromaticAberration offset={new Vector2(chromaticAb, chromaticAb)} /> : <></>}
             {(brightness !== 0 || contrast !== 0) ? <BrightnessContrast brightness={brightness} contrast={contrast} /> : <></>}
             <ToneMapping mode={ToneMappingMode.AGX} />
+            {outlineMeshes.length > 0 ? (
+              <Outline selection={outlineMeshes} edgeStrength={4} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} />
+            ) : <></>}
           </EffectComposer>
-        )}
+        ) : outlineMeshes.length > 0 ? (
+          /* Outline-only composer for non-PBR modes */
+          <EffectComposer multisampling={0}>
+            <Outline selection={outlineMeshes} edgeStrength={4} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} />
+          </EffectComposer>
+        ) : null}
 
         {/* Scene Camera Gizmo — only visible when not in camera view */}
         {showSceneCamera && !cameraViewMode && (
-          <SceneCameraGizmo position={cameraPos} onMove={onCameraMove} orbitRef={orbitRef} mode={cameraGizmoMode} />
+          <SceneCameraGizmo
+            position={cameraPos}
+            onMove={onCameraMove}
+            orbitRef={orbitRef}
+            mode={cameraGizmoMode}
+            selected={selectedObjectIds.includes('camera')}
+            onSelect={() => props.onCameraSelect?.()}
+            dragRef={isDraggingTransformRef}
+          />
         )}
 
         {/* Controls */}
@@ -704,6 +757,7 @@ export default function Scene(props: SceneProps) {
           <ApplyTransformSetup modelGroupRef={modelGroupRef} applyTransformRef={props.applyTransformRef} />
         )}
         {onStats && <StatsCollector onStats={onStats} />}
+        <OutlineSync modelGroupRef={modelGroupRef} modelSelected={modelSelected} onUpdate={setOutlineMeshes} />
         <AutoClearFix enablePP={enablePostProcessing} />
       </Suspense>
     </Canvas>

@@ -280,8 +280,10 @@ export default function Page() {
   // Stale-closure refs for keyboard handler
   const modelSelectedRef = useRef(false);
   const modelTransformModeRef = useRef<'translate' | 'rotate' | 'scale'>('translate');
+  const renderingRef = useRef(false);
   useEffect(() => { modelSelectedRef.current = modelSelected; }, [modelSelected]);
   useEffect(() => { modelTransformModeRef.current = modelTransformMode; }, [modelTransformMode]);
+  useEffect(() => { renderingRef.current = rendering; }, [rendering]);
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
@@ -319,6 +321,7 @@ export default function Page() {
   const glRef = useRef<WebGLRenderer | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const hdriRef = useRef<HTMLInputElement | null>(null);
+  const cancelRenderRef = useRef(false);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
@@ -362,8 +365,9 @@ export default function Page() {
           return entering;
         });
       }
-      // Escape = deselect all
+      // Escape = cancel render OR deselect all
       if (e.key === 'Escape') {
+        if (renderingRef.current) { cancelRenderRef.current = true; return; }
         setSelectedObjectIds([]);
       }
     };
@@ -437,9 +441,14 @@ export default function Page() {
     showToast('Screenshot saved');
   }, [showGrid]);
 
+  const cancelRender = useCallback(() => {
+    cancelRenderRef.current = true;
+  }, []);
+
   const render = useCallback(() => {
     const gl = glRef.current, c = canvasRef.current;
     if (!gl || !c) return;
+    cancelRenderRef.current = false;
     const hadGrid = showGrid;
     if (hadGrid) setShowGrid(false);
     setRendering(true);
@@ -449,7 +458,16 @@ export default function Page() {
     gl.setPixelRatio(1);
     setRenderProgress(0);
     let frame = 0;
+    const abort = () => {
+      gl.setSize(oW, oH, false);
+      gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      if (hadGrid) setShowGrid(true);
+      setRendering(false);
+      setRenderProgress(0);
+      showToast('Render cancelled');
+    };
     const doFrame = () => {
+      if (cancelRenderRef.current) { abort(); return; }
       if (frame < renderSamples) {
         frame++;
         setRenderProgress(Math.round((frame / renderSamples) * 100));
@@ -468,7 +486,6 @@ export default function Page() {
         showToast(`Rendered ${rW}x${rH} @ ${renderSamples} samples`);
       }
     };
-    // Small delay to let grid hide before capturing
     setTimeout(() => requestAnimationFrame(doFrame), 100);
   }, [renderWidth, renderHeight, renderSamples, renderFormat, renderQuality, showGrid]);
 
@@ -557,12 +574,26 @@ export default function Page() {
         transition: 'width 0.25s ease', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', paddingTop: '32px', zIndex: 10,
       }}>
-        <div className="sidebar-inner" style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+        <div className="sidebar-inner" style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', position: 'relative' }}
           onPointerDown={e => e.stopPropagation()}
           onPointerMove={e => e.stopPropagation()}
           onTouchStart={e => e.stopPropagation()}
           onTouchMove={e => e.stopPropagation()}
         >
+          {/* Render-in-progress overlay — grays out all sidebar controls */}
+          {rendering && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(8,8,12,0.8)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF' }}>RENDERING</div>
+              <div style={{ width: '130px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
+              </div>
+              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{renderProgress}% · {renderWidth}×{renderHeight}</div>
+              <button onClick={cancelRender} style={{ padding: '6px 18px', borderRadius: '5px', fontSize: '10px', fontWeight: 700, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171', cursor: 'pointer', transition: 'all 0.15s' }}>
+                Cancel Render
+              </button>
+              <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>or press Esc</div>
+            </div>
+          )}
           {/* Panel tabs + close */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)', flexWrap: 'nowrap', overflowX: 'auto' }}>
             {([
@@ -865,6 +896,43 @@ export default function Page() {
                         Orbit/pan/scroll moves the camera
                       </div>
                     )}
+
+                    {/* ── Render Region ── */}
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Render Region</span>
+                      <button onClick={() => setShowCameraBoundary(!showCameraBoundary)} style={{
+                        padding: '2px 10px', borderRadius: '4px', fontSize: '8px', fontWeight: 700,
+                        background: showCameraBoundary ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
+                        color: showCameraBoundary ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                        border: showCameraBoundary ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.05)',
+                      }}>{showCameraBoundary ? 'ON' : 'OFF'}</button>
+                    </div>
+                    {/* Resolution presets */}
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '5px', flexWrap: 'wrap' }}>
+                      {[{ label: '1080p', w: 1920, h: 1080 }, { label: '4K', w: 3840, h: 2160 }, { label: '1:1', w: 2048, h: 2048 }, { label: 'Portrait', w: 1080, h: 1350 }].map(p => {
+                        const active = renderWidth === p.w && renderHeight === p.h;
+                        return (
+                          <button key={p.label} onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); setShowCameraBoundary(true); }} style={{
+                            flex: 1, minWidth: '40px', padding: '4px 3px', borderRadius: '3px', fontSize: '8px', fontWeight: 700,
+                            background: active ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
+                            color: active ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                            border: active ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                          }}>{p.label}</button>
+                        );
+                      })}
+                    </div>
+                    {/* Custom W × H */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" value={renderWidth} min={100} max={8192} step={1}
+                        onChange={e => { setRenderWidth(Math.max(100, Math.min(8192, Number(e.target.value)))); setShowCameraBoundary(true); }}
+                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
+                      <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
+                      <input type="number" value={renderHeight} min={100} max={8192} step={1}
+                        onChange={e => { setRenderHeight(Math.max(100, Math.min(8192, Number(e.target.value)))); setShowCameraBoundary(true); }}
+                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
+                      <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>px</span>
+                    </div>
                   </>
                 )}
               </div>
@@ -1030,7 +1098,6 @@ export default function Page() {
                 {/* Toggles */}
                 {[
                   { l: 'Grid', d: 'Reference plane', a: showGrid, fn: () => setShowGrid(!showGrid), i: <IconGrid /> },
-                  { l: 'Camera Boundary', d: 'Render region + rule of thirds', a: showCameraBoundary, fn: () => setShowCameraBoundary(!showCameraBoundary), i: <IconCamera /> },
                   ...(!userFile ? [
                     { l: 'Annotations', d: 'Feature hotspots', a: showHotspots, fn: () => setShowHotspots(!showHotspots), i: <IconHotspot /> },
                   ] : []),
@@ -1057,23 +1124,25 @@ export default function Page() {
 
           {/* Reset + Footer */}
           <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
-            <button onClick={() => {
-              setLightI(1.2); setLightAng(45); setLightH(8); setAmbI(0.3);
-              setFov(40); setBloomI(0.15); setBloomT(0.9); setVigI(0.3);
-              setSsao(true); setSsaoRadius(0.5); setSsaoIntensity(1.0);
-              setChromaticAb(0); setBrightness(0); setContrast(0);
-              setEnablePP(true); setAutoRotate(false); setShowGrid(true);
-              setShowHotspots(true); setOverrideColor(null); setEnv('studio');
-              setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
-              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
-              setCameraGizmoMode('translate'); setSelectedObjectIds([]); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
-              showToast('Reset to defaults');
-            }} style={{
-              width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-              color: 'rgba(255,255,255,0.3)', fontSize: '9px', fontWeight: 600, letterSpacing: '0.04em',
-              cursor: 'pointer', transition: 'all 0.15s',
-            }}>Reset All to Defaults</button>
+            <Tip text="Resets all lights, camera, post-processing, shading, environment, model color, and transforms back to their original values" pos="top">
+              <button onClick={() => {
+                setLightI(1.2); setLightAng(45); setLightH(8); setAmbI(0.3);
+                setFov(40); setBloomI(0.15); setBloomT(0.9); setVigI(0.3);
+                setSsao(true); setSsaoRadius(0.5); setSsaoIntensity(1.0);
+                setChromaticAb(0); setBrightness(0); setContrast(0);
+                setEnablePP(true); setAutoRotate(false); setShowGrid(true);
+                setShowHotspots(true); setOverrideColor(null); setEnv('studio');
+                setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
+                setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
+                setCameraGizmoMode('translate'); setSelectedObjectIds([]); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
+                showToast('Reset to defaults');
+              }} style={{
+                width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
+                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.3)', fontSize: '9px', fontWeight: 600, letterSpacing: '0.04em',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}>Reset All to Defaults</button>
+            </Tip>
             <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>SlothView 3D Viewer - Demo</div>
           </div>
         </div>
@@ -1198,6 +1267,7 @@ export default function Page() {
           }}
           onModelDeselect={() => setSelectedObjectIds([])}
           rendering={rendering}
+          onCameraSelect={() => setSelectedObjectIds(['camera'])}
           onLMBDownNoAlt={(sx, sy, shift) => { marqueeStartRef.current = { x: sx, y: sy, shift }; }}
           projectorRef={sceneProjectorRef}
           onTransformChange={(t) => startTransition(() => setDisplayTransform(t))}
@@ -1473,7 +1543,10 @@ export default function Page() {
                       <div style={{ width: '140px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
                       </div>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px' }}>{renderProgress}% · {renderWidth}×{renderHeight} · {renderSamples} SPP</div>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px', marginBottom: '8px' }}>{renderProgress}% · {renderWidth}×{renderHeight} · {renderSamples} SPP</div>
+                      <button onClick={cancelRender} style={{ padding: '5px 16px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171', cursor: 'pointer' }}>
+                        Cancel (Esc)
+                      </button>
                     </div>
                   </>
                 )}
