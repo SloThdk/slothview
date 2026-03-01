@@ -82,6 +82,9 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
     return cloned;
   }, [originalScene, shadingMode, matcapTex, overrideColor]);
 
+  // Store the centered base Y so floating animation adds ON TOP of centering (not replaces it)
+  const baseY = useRef(0);
+
   // Auto-center/scale
   useEffect(() => {
     const box = new THREE.Box3().setFromObject(scene);
@@ -90,14 +93,17 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
     const maxDim = Math.max(size.x, size.y, size.z);
     const scale = 3 / maxDim;
     if (groupRef.current) {
+      const centeredY = -center.y * scale;
+      baseY.current = centeredY;
       groupRef.current.scale.setScalar(scale);
-      groupRef.current.position.set(-center.x * scale, -center.y * scale + 0.1, -center.z * scale);
+      groupRef.current.position.set(-center.x * scale, centeredY, -center.z * scale);
     }
   }, [scene]);
 
   useFrame((state) => {
     if (groupRef.current) {
-      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.3) * 0.015;
+      // Add gentle float ON TOP of the centered position — never override it
+      groupRef.current.position.y = baseY.current + Math.sin(state.clock.elapsedTime * 0.3) * 0.015;
     }
   });
 

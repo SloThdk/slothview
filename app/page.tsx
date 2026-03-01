@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import type { ShadingMode, SceneStats, SceneLight } from './components/Scene';
+import type { ShadingMode, SceneStats, SceneLight, OutlinerNode } from './components/Scene';
 import {
   IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
@@ -164,11 +164,23 @@ export default function Page() {
   // Camera gizmo mode (G=translate, E=rotate — only when camera is in scene)
   const [cameraGizmoMode, setCameraGizmoMode] = useState<'translate' | 'rotate'>('translate');
 
-  // Model selection + transform (Blender-style)
-  const [modelSelected, setModelSelected] = useState(false);
+  // Multi-select model system (Blender-style Shift+click add, Ctrl+click remove)
+  const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
+  const modelSelected = selectedObjectIds.includes('model');
   const [modelTransformMode, setModelTransformMode] = useState<'translate' | 'rotate' | 'scale'>('translate');
   const [modelUniformScale, setModelUniformScale] = useState(1.0);
   const modelScaleActive = modelSelected && modelTransformMode === 'scale';
+
+  // Outliner
+  const [outlinerNodes, setOutlinerNodes] = useState<OutlinerNode[]>([]);
+  const [outlinerExpanded, setOutlinerExpanded] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['model']));
+
+  // Stale-closure refs for keyboard handler
+  const modelSelectedRef = useRef(false);
+  const modelTransformModeRef = useRef<'translate' | 'rotate' | 'scale'>('translate');
+  useEffect(() => { modelSelectedRef.current = modelSelected; }, [modelSelected]);
+  useEffect(() => { modelTransformModeRef.current = modelTransformMode; }, [modelTransformMode]);
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
@@ -225,23 +237,23 @@ export default function Page() {
         e.preventDefault();
         if (window.innerWidth > 768) setSidebarOpen(prev => !prev);
       }
-      // G = Move (translate gizmo) — applies to selected model AND camera gizmo
+      // G = Move (translate gizmo)
       if (e.key === 'g' || e.key === 'G') {
         setCameraGizmoMode('translate');
-        setModelTransformMode('translate');
+        if (modelSelectedRef.current) setModelTransformMode('translate');
       }
-      // E = Rotate gizmo — applies to selected model AND camera gizmo
+      // E = Rotate gizmo
       if (e.key === 'e' || e.key === 'E') {
         setCameraGizmoMode('rotate');
-        if (modelSelected) setModelTransformMode('rotate');
+        if (modelSelectedRef.current) setModelTransformMode('rotate');
       }
-      // R = Scale mode — applies to selected model (scroll to scale)
+      // R = Scale mode (scroll to scale)
       if (e.key === 'r' || e.key === 'R') {
-        if (modelSelected) setModelTransformMode('scale');
+        if (modelSelectedRef.current) setModelTransformMode('scale');
       }
       // Escape = deselect all
       if (e.key === 'Escape') {
-        setModelSelected(false);
+        setSelectedObjectIds([]);
       }
     };
     window.addEventListener('keydown', handler);
@@ -371,8 +383,8 @@ export default function Page() {
   const focalLength = Math.round(36 / (2 * Math.tan((fov * Math.PI / 180) / 2)));
 
   /* ── Shared UI ── */
-  const ibtn = (icon: React.ReactNode, tip: string, active: boolean, fn: () => void) => (
-    <Tip text={tip} pos="bottom" key={tip}>
+  const ibtn = (icon: React.ReactNode, tip: string, active: boolean, fn: () => void, pos: 'top' | 'bottom' = 'bottom') => (
+    <Tip text={tip} pos={pos} key={tip}>
       <button onClick={fn} style={{
         width: '30px', height: '30px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: active ? 'rgba(108,99,255,0.12)' : 'transparent',
@@ -467,6 +479,82 @@ export default function Page() {
             }}><IconX /></button>
           </div>
 
+          {/* ── Outliner — always-visible scene hierarchy ── */}
+          <div style={{ flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.05)', maxHeight: outlinerExpanded ? '220px' : '28px', transition: 'max-height 0.2s ease', overflow: 'hidden' }}>
+            {/* Header */}
+            <button onClick={() => setOutlinerExpanded(!outlinerExpanded)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 10px', background: 'transparent', borderBottom: outlinerExpanded ? '1px solid rgba(255,255,255,0.04)' : 'none', textAlign: 'left' }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transition: 'transform 0.15s', transform: outlinerExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Outliner</span>
+              <span style={{ marginLeft: 'auto', fontSize: '8px', color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace' }}>{selectedObjectIds.length > 0 ? `${selectedObjectIds.length} selected` : ''}</span>
+            </button>
+            {/* Nodes */}
+            {outlinerExpanded && (
+              <div style={{ overflowY: 'auto', maxHeight: '192px', padding: '4px 0' }}>
+                {(() => {
+                  const typeIcon = (type: OutlinerNode['type']) => {
+                    if (type === 'camera') return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="0.5" y="2.5" width="7" height="6" rx="1" stroke="currentColor" strokeWidth="0.8"/><circle cx="4" cy="5.5" r="1.2" stroke="currentColor" strokeWidth="0.8"/><path d="M2.5 2.5V1.5h3v1" stroke="currentColor" strokeWidth="0.8"/><path d="M8 4l1.5-1v4L8 6" stroke="currentColor" strokeWidth="0.8" strokeLinejoin="round"/></svg>;
+                    if (type === 'light') return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="0.8"/><path d="M5 7v2M3 7.5h4M5 0.5v1M1 4H0M10 4H9M2 1.5l.7.7M7.3 1.5l-.7.7" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/></svg>;
+                    if (type === 'mesh') return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 3.5v4L5 9 1 7.5V3.5L5 1Z" stroke="currentColor" strokeWidth="0.8"/></svg>;
+                    return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="0.8"/><path d="M1 4h8M4 1v8" stroke="currentColor" strokeWidth="0.8"/></svg>;
+                  };
+
+                  const renderNode = (node: OutlinerNode, depth: number): React.ReactNode => {
+                    const isSelected = selectedObjectIds.includes(node.id);
+                    const isExpanded = expandedIds.has(node.id);
+                    const hasChildren = node.children.length > 0;
+                    return (
+                      <div key={node.id}>
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (e.ctrlKey) {
+                              setSelectedObjectIds(prev => prev.filter(id => id !== node.id));
+                            } else if (e.shiftKey) {
+                              setSelectedObjectIds(prev => [...new Set([...prev, node.id])]);
+                            } else {
+                              setSelectedObjectIds([node.id]);
+                              if (node.id === 'model' || node.type === 'model') setModelTransformMode('translate');
+                            }
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px',
+                            paddingLeft: `${8 + depth * 14}px`, cursor: 'pointer',
+                            background: isSelected ? 'rgba(108,99,255,0.18)' : 'transparent',
+                            borderLeft: isSelected ? '2px solid #6C63FF' : '2px solid transparent',
+                            userSelect: 'none',
+                          }}
+                        >
+                          {/* Expand toggle */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setExpandedIds(prev => { const n = new Set(prev); n.has(node.id) ? n.delete(node.id) : n.add(node.id); return n; }); }}
+                            style={{ width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: hasChildren ? 1 : 0, pointerEvents: hasChildren ? 'auto' : 'none' }}
+                          >
+                            <svg width="6" height="6" viewBox="0 0 6 6" fill="none" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.1s' }}><path d="M1 1l4 2-4 2" stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeLinecap="round"/></svg>
+                          </button>
+                          {/* Icon */}
+                          <span style={{ color: isSelected ? '#6C63FF' : node.type === 'light' ? '#FFB020' : node.type === 'camera' ? '#00D4A8' : 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
+                            {typeIcon(node.type)}
+                          </span>
+                          {/* Name */}
+                          <span style={{ fontSize: '9px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#fff' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                            {node.name}
+                          </span>
+                          {/* Type badge */}
+                          <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace', flexShrink: 0, textTransform: 'uppercase' }}>{node.type}</span>
+                        </div>
+                        {isExpanded && hasChildren && node.children.map(child => renderNode(child, depth + 1))}
+                      </div>
+                    );
+                  };
+
+                  return outlinerNodes.length > 0
+                    ? outlinerNodes.map(n => renderNode(n, 0))
+                    : <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', padding: '8px 12px' }}>Loading scene...</div>;
+                })()}
+              </div>
+            )}
+          </div>
+
           {/* Panel content */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
 
@@ -559,7 +647,7 @@ export default function Page() {
                   }}><IconUpload /> {customHdri ? 'Custom' : 'Load HDR'}</button>
                 </div>
                 {/* HDRI Lighting toggle */}
-                <button onClick={() => setHdriLighting(!hdriLighting)} title="When ON, the HDRI contributes image-based lighting (reflections, ambient). When OFF, only used as background — lighting is manual only." style={{
+                <button onClick={() => setHdriLighting(!hdriLighting)} title="ON: HDRI acts as both background AND image-based lighting (reflections, ambient GI). Manual lights stack on top — you can use both together. OFF: HDRI background still shows but contributes NO lighting. Only your manual key/fill lights are used." style={{
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '7px 10px', borderRadius: '5px', marginBottom: '12px',
                   background: hdriLighting ? 'rgba(108,99,255,0.06)' : 'rgba(255,255,255,0.015)',
@@ -572,7 +660,7 @@ export default function Page() {
                     </span>
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontSize: '10px', fontWeight: 600, color: hdriLighting ? '#fff' : 'rgba(255,255,255,0.4)' }}>HDRI Lighting</div>
-                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{hdriLighting ? 'IBL active — reflections + ambient' : 'Background only — manual lights'}</div>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{hdriLighting ? 'HDRI bg + IBL + manual lights combined' : 'HDRI bg only — manual lights control all'}</div>
                     </div>
                   </div>
                   <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: hdriLighting ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
@@ -894,7 +982,7 @@ export default function Page() {
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
               setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
               setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
-              setCameraGizmoMode('translate'); setModelSelected(false); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
+              setCameraGizmoMode('translate'); setSelectedObjectIds([]); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -1019,10 +1107,21 @@ export default function Page() {
           hdriLighting={hdriLighting}
           cameraGizmoMode={cameraGizmoMode}
           modelUniformScale={modelUniformScale}
-          modelSelected={modelSelected}
+          selectedObjectIds={selectedObjectIds}
           modelTransformMode={modelTransformMode}
-          onModelSelect={() => { setModelSelected(true); }}
-          onModelDeselect={() => setModelSelected(false)}
+          onModelClick={(shiftKey, ctrlKey) => {
+            if (ctrlKey) {
+              setSelectedObjectIds(prev => prev.filter(id => id !== 'model'));
+            } else if (shiftKey) {
+              setSelectedObjectIds(prev => prev.includes('model') ? prev : [...prev, 'model']);
+            } else {
+              setSelectedObjectIds(['model']);
+              setModelTransformMode('translate');
+            }
+          }}
+          onModelDeselect={() => setSelectedObjectIds([])}
+          onSceneHierarchy={setOutlinerNodes}
+          modelName={userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -1077,7 +1176,7 @@ export default function Page() {
           }}>
             {[
               ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
-              ['Click', 'Select'], ['G', 'Move'], ['E', 'Rotate'], ['R', 'Scale'],
+              ['Click', 'Select obj'], ['G', 'Move obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>
@@ -1125,9 +1224,9 @@ export default function Page() {
 
           {/* Quick actions */}
           <div style={{ display: 'flex', gap: '2px' }}>
-            {ibtn(<IconGrid />, 'Grid', showGrid, () => setShowGrid(!showGrid))}
-            {ibtn(<IconRotate />, 'Auto-rotate', autoRotate, () => setAutoRotate(!autoRotate))}
-            {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen)}
+            {ibtn(<IconGrid />, 'Toggle grid', showGrid, () => setShowGrid(!showGrid), 'top')}
+            {ibtn(<IconRotate />, 'Auto-rotate', autoRotate, () => setAutoRotate(!autoRotate), 'top')}
+            {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen, 'top')}
           </div>
         </div>
 
@@ -1192,9 +1291,20 @@ export default function Page() {
         <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
-            <div style={{ position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)', zIndex: 15, background: 'rgba(239,68,68,0.9)', border: '1px solid rgba(239,68,68,0.6)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
-              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#fff' }}>CAMERA VIEW</span>
-            </div>
+            <>
+              <div style={{ position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)', zIndex: 15, background: 'rgba(239,68,68,0.9)', border: '1px solid rgba(239,68,68,0.6)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
+                <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#fff' }}>CAMERA VIEW</span>
+              </div>
+              {/* Camera-specific controls HUD */}
+              <div style={{ position: 'absolute', bottom: 'calc(8% + 10px)', left: '50%', transform: 'translateX(-50%)', zIndex: 15, display: 'flex', gap: '6px', pointerEvents: 'none' }}>
+                {[['G', 'Move'], ['E', 'Rotate'], ['Orbit/Pan', 'Move Camera'], ['Esc', 'Exit View']].map(([k, a]) => (
+                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(8,8,12,0.7)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '4px', padding: '3px 7px', backdropFilter: 'blur(8px)' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '8px', fontWeight: 700, color: '#ef4444' }}>{k}</span>
+                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>{a}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           {/* Dim corners */}
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />

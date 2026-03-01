@@ -60,6 +60,13 @@ export type ShadingMode = 'pbr' | 'matcap' | 'normals' | 'wireframe' | 'unlit' |
 
 export type SceneLight = { id: string; color: string; intensity: number; x: number; y: number; z: number };
 
+export interface OutlinerNode {
+  id: string;
+  name: string;
+  type: 'model' | 'mesh' | 'group' | 'light' | 'camera';
+  children: OutlinerNode[];
+}
+
 interface Hotspot {
   position: [number, number, number];
   label: string;
@@ -135,10 +142,12 @@ export interface SceneProps {
   hdriLighting: boolean;
   cameraGizmoMode: 'translate' | 'rotate';
   modelUniformScale: number;
-  modelSelected: boolean;
+  selectedObjectIds: string[];
   modelTransformMode: 'translate' | 'rotate' | 'scale';
-  onModelSelect: () => void;
+  onModelClick: (shiftKey: boolean, ctrlKey: boolean) => void;
   onModelDeselect: () => void;
+  onSceneHierarchy?: (nodes: OutlinerNode[]) => void;
+  modelName: string;
 }
 
 /* ── Hotspot marker ── */
@@ -352,6 +361,40 @@ function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
   return null;
 }
 
+/* ── Scene hierarchy reporter for outliner panel ── */
+function HierarchyReporter({ modelGroupRef, sceneLights, showSceneCamera, modelName, onSceneHierarchy }: {
+  modelGroupRef: React.RefObject<any>;
+  sceneLights: SceneLight[];
+  showSceneCamera: boolean;
+  modelName: string;
+  onSceneHierarchy: (nodes: OutlinerNode[]) => void;
+}) {
+  const lastKey = useRef('');
+
+  function traverseChildren(obj: any): OutlinerNode[] {
+    return (obj.children || [])
+      .filter((c: any) => c.isMesh || c.isGroup)
+      .map((c: any): OutlinerNode => ({
+        id: c.uuid,
+        name: c.name || (c.isMesh ? 'Mesh' : 'Group'),
+        type: c.isMesh ? 'mesh' : 'group',
+        children: traverseChildren(c),
+      }));
+  }
+
+  useFrame(() => {
+    if (!modelGroupRef.current) return;
+    const nodes: OutlinerNode[] = [
+      { id: 'model', name: modelName, type: 'model', children: traverseChildren(modelGroupRef.current) },
+      ...(showSceneCamera ? [{ id: 'camera', name: 'Scene Camera', type: 'camera' as const, children: [] }] : []),
+      ...sceneLights.map((l, i) => ({ id: l.id, name: `Point Light ${i + 1}`, type: 'light' as const, children: [] })),
+    ];
+    const key = nodes.map(n => `${n.id}:${n.children.length}`).join(',');
+    if (key !== lastKey.current) { lastKey.current = key; onSceneHierarchy(nodes); }
+  });
+  return null;
+}
+
 /* Ensure autoClear=true whenever PP is off or changes */
 function AutoClearFix({ enablePP }: { enablePP: boolean }) {
   const { gl } = useThree();
@@ -379,8 +422,10 @@ export default function Scene(props: SceneProps) {
     showSceneCamera, cameraPos, cameraViewMode, lockCameraToView, onCameraMove,
     rotationMode, rotationStepRef,
     hdriLighting, cameraGizmoMode, modelUniformScale,
-    modelSelected, modelTransformMode, onModelSelect, onModelDeselect,
+    selectedObjectIds, modelTransformMode, onModelClick, onModelDeselect, onSceneHierarchy, modelName,
   } = props;
+
+  const modelSelected = selectedObjectIds.includes('model');
 
   const orbitRef = useRef<any>(null);
   const modelGroupRef = useRef<any>(null);
@@ -486,7 +531,7 @@ export default function Scene(props: SceneProps) {
         <group
           ref={modelGroupRef}
           scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
-          onClick={(e) => { e.stopPropagation(); onModelSelect(); }}
+          onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey); }}
         >
           {userFile ? (
             <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} />
@@ -570,6 +615,15 @@ export default function Scene(props: SceneProps) {
           maxPolarAngle={Math.PI * 0.88}
         />
         {onStats && <StatsCollector onStats={onStats} />}
+        {onSceneHierarchy && (
+          <HierarchyReporter
+            modelGroupRef={modelGroupRef}
+            sceneLights={sceneLights}
+            showSceneCamera={showSceneCamera}
+            modelName={modelName}
+            onSceneHierarchy={onSceneHierarchy}
+          />
+        )}
         <AutoClearFix enablePP={enablePostProcessing} />
       </Suspense>
     </Canvas>
