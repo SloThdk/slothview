@@ -178,7 +178,11 @@ export default function Page() {
   const [showSceneCamera, setShowSceneCamera] = useState(false);
   const [cameraPos, setCameraPos] = useState<[number,number,number]>([3, 2, 5]);
   const [cameraViewMode, setCameraViewMode] = useState(false);
-  const [lockCameraToView, setLockCameraToView] = useState(false);
+  const [lockCameraToView, setLockCameraToView] = useState(true);
+
+  // Rotation Mode (E key — scroll = orbit ±15° steps)
+  const [rotationMode, setRotationMode] = useState(false);
+  const rotationStepRef = useRef<((deg: number) => void) | null>(null);
 
   // Override color (null = original materials)
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
@@ -203,13 +207,17 @@ export default function Page() {
   // Keep shadingModeRef in sync so refreshPreviews can read current mode without stale closure
   useEffect(() => { shadingModeRef.current = shadingMode; }, [shadingMode]);
 
-  // Tab key toggles sidebar on desktop
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Only trigger on desktop, not when typing in an input/textarea
-      if (e.key === 'Tab' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'Tab') {
         e.preventDefault();
         if (window.innerWidth > 768) setSidebarOpen(prev => !prev);
+      }
+      // E = toggle Rotation Mode (scroll-step orbit like Blender numpad)
+      if (e.key === 'e' || e.key === 'E') {
+        setRotationMode(prev => !prev);
       }
     };
     window.addEventListener('keydown', handler);
@@ -479,7 +487,7 @@ export default function Page() {
                   {[
                     { id: 'toon', label: 'Toon', desc: 'Cel-shaded', apply: () => { setShadingMode('toon'); setLightI(2.8); setAmbI(0.08); setLightAng(35); setLightH(10); setEnablePP(false); } },
                     { id: 'games', label: 'Games', desc: 'Balanced PBR', apply: () => { setShadingMode('pbr'); setLightI(1.5); setAmbI(0.25); setBloomI(0.12); setBloomT(0.85); setSsao(true); setSsaoRadius(0.3); setSsaoIntensity(1.2); setChromaticAb(0); setEnablePP(true); setEnv('city'); setShowEnvBg(true); } },
-                    { id: 'cinematic', label: 'Cinematic', desc: 'Film look', apply: () => { setShadingMode('pbr'); setLightI(1.8); setAmbI(0.06); setBloomI(0.45); setBloomT(0.65); setVigI(0.55); setSsao(true); setSsaoRadius(0.6); setSsaoIntensity(1.8); setChromaticAb(0.002); setBrightness(0.05); setContrast(0.12); setEnablePP(true); setEnv('sunset'); setShowEnvBg(true); } },
+                    { id: 'cinematic', label: 'Cinematic', desc: 'Film look', apply: () => { setShadingMode('pbr'); setLightI(1.8); setAmbI(0.06); setBloomI(0.45); setBloomT(0.65); setVigI(0.55); setSsao(true); setSsaoRadius(0.6); setSsaoIntensity(1.8); setChromaticAb(0.0005); setBrightness(0.05); setContrast(0.12); setEnablePP(true); setEnv('sunset'); setShowEnvBg(true); } },
                   ].map(p => (
                     <button key={p.id} onClick={() => { p.apply(); previewsReady.current = false; showToast(p.label); }} title={p.desc} style={{
                       padding: '8px 4px', borderRadius: '6px', textAlign: 'center',
@@ -685,26 +693,9 @@ export default function Page() {
                       </div>
                     )}
                     {cameraViewMode && (
-                      <>
-                        {/* Lock Camera to View — Blender-style camera follows orbit */}
-                        <button onClick={() => setLockCameraToView(!lockCameraToView)} title="When enabled, orbiting/panning the viewport moves the scene camera — just like Blender's 'Camera to View'" style={{
-                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '7px 10px', borderRadius: '5px', marginBottom: '6px',
-                          background: lockCameraToView ? 'rgba(239,68,68,0.08)' : 'transparent',
-                          border: lockCameraToView ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.04)',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '9px' }}>🎥</span>
-                            <span style={{ fontSize: '10px', fontWeight: 600, color: lockCameraToView ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>Camera to View</span>
-                          </div>
-                          <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: lockCameraToView ? '#ef4444' : 'rgba(255,255,255,0.08)', position: 'relative' }}>
-                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: lockCameraToView ? '16px' : '2px', transition: 'left 0.2s' }} />
-                          </div>
-                        </button>
-                        <div style={{ fontSize: '9px', color: lockCameraToView ? '#ef4444' : 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 0', background: lockCameraToView ? 'rgba(239,68,68,0.06)' : 'transparent', borderRadius: '4px', border: lockCameraToView ? '1px solid rgba(239,68,68,0.15)' : 'none' }}>
-                          {lockCameraToView ? 'Orbit/pan now moves the camera' : 'Red border active · orbit is free'}
-                        </div>
-                      </>
+                      <div style={{ fontSize: '9px', color: '#ef4444', textAlign: 'center', padding: '5px 8px', background: 'rgba(239,68,68,0.06)', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.15)' }}>
+                        Orbit/pan/scroll moves the camera
+                      </div>
                     )}
                   </>
                 )}
@@ -857,7 +848,7 @@ export default function Page() {
               setEnablePP(true); setAutoRotate(false); setShowGrid(true);
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
               setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
-              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(false);
+              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true); setRotationMode(false);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -871,7 +862,15 @@ export default function Page() {
       </div>
 
       {/* ── Viewport ── */}
-      <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
+      <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}
+        onWheel={(e) => {
+          if (rotationMode) {
+            e.preventDefault();
+            const deg = e.deltaY > 0 ? 15 : -15;
+            rotationStepRef.current?.(deg);
+          }
+        }}
+      >
         {/* Mobile burger — mobile only */}
         {!shadingOverlay && !sidebarOpen && (
           <button className="burger-btn" onClick={() => setSidebarOpen(true)} style={{
@@ -902,6 +901,19 @@ export default function Page() {
           {ibtn(<IconShare />, 'Share config', false, share)}
         </div>
 
+        {/* Rotation mode badge */}
+        {rotationMode && (
+          <div style={{
+            position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
+            background: 'rgba(255,176,32,0.88)', border: '1px solid rgba(255,176,32,0.5)',
+            borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', gap: '6px',
+          }}>
+            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: '#1a1000' }}>ROTATION MODE</span>
+            <span style={{ fontSize: '8px', color: 'rgba(26,16,0,0.6)', fontFamily: 'monospace' }}>Drag · Scroll ±15° · E to exit</span>
+          </div>
+        )}
+
         <Scene
           bodyColor={bodyColor} accentColor={accentColor} baseColor={baseColor}
           material={mat} environment={env} exploded={exploded} wireframe={wireframe}
@@ -928,6 +940,8 @@ export default function Page() {
           cameraViewMode={cameraViewMode}
           lockCameraToView={lockCameraToView}
           onCameraMove={setCameraPos}
+          rotationMode={rotationMode}
+          rotationStepRef={rotationStepRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -981,7 +995,7 @@ export default function Page() {
             pointerEvents: 'none',
           }}>
             {[
-              ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
+              ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'], ['E', rotationMode ? 'Exit Rotate' : 'Rotate Mode'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>

@@ -119,6 +119,8 @@ export interface SceneProps {
   cameraViewMode: boolean;
   lockCameraToView: boolean;
   onCameraMove: (p: [number, number, number]) => void;
+  rotationMode?: boolean;
+  rotationStepRef?: React.RefObject<((deg: number) => void) | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -355,9 +357,34 @@ export default function Scene(props: SceneProps) {
     ssaoRadius, ssaoIntensity, chromaticAb, brightness, contrast, sceneLights,
     selectedLightId, onSelectLight, onMoveLight,
     showSceneCamera, cameraPos, cameraViewMode, lockCameraToView, onCameraMove,
+    rotationMode, rotationStepRef,
   } = props;
 
   const orbitRef = useRef<any>(null);
+
+  // Populate rotationStepRef so page.tsx can step-rotate orbit camera from outside Canvas
+  useEffect(() => {
+    if (!rotationStepRef) return;
+    rotationStepRef.current = (deg: number) => {
+      const orbit = orbitRef.current;
+      if (!orbit) return;
+      const cam = orbit.object;
+      const target = orbit.target;
+      // Compute spherical coords
+      const offset = cam.position.clone().sub(target);
+      const radius = offset.length();
+      const currentAzimuth = Math.atan2(offset.x, offset.z);
+      const newAzimuth = currentAzimuth + (deg * Math.PI / 180);
+      const currentPolar = Math.acos(Math.max(-1, Math.min(1, offset.y / radius)));
+      cam.position.set(
+        target.x + radius * Math.sin(currentPolar) * Math.sin(newAzimuth),
+        target.y + radius * Math.cos(currentPolar),
+        target.z + radius * Math.sin(currentPolar) * Math.cos(newAzimuth),
+      );
+      cam.lookAt(target);
+      orbit.update();
+    };
+  }, [rotationStepRef]);
 
   const handleCanvasCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     (canvasRef as React.MutableRefObject<HTMLCanvasElement | null>).current = gl.domElement;
@@ -479,13 +506,13 @@ export default function Scene(props: SceneProps) {
         )}
 
         {/* Controls */}
-        {/* Camera-to-view syncer: orbit movement updates cameraPos state when locked */}
-        {cameraViewMode && lockCameraToView && <CameraViewSyncer onCameraMove={onCameraMove} />}
+        {/* Camera-to-view syncer: orbit movement always updates cameraPos state in camera view */}
+        {cameraViewMode && <CameraViewSyncer onCameraMove={onCameraMove} />}
 
         <OrbitControls
           ref={orbitRef}
           makeDefault
-          enabled={!cameraViewMode || lockCameraToView}
+          enabled={true}
           autoRotate={autoRotate && !cameraViewMode}
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
