@@ -57,7 +57,6 @@ const SHADING_MODES: { id: ShadingMode; label: string; bg: string }[] = [
 ];
 
 const PRESET_MODELS = [
-  { id: 'house', name: 'Modern House', path: '/models/house.glb', cat: 'Architecture', desc: 'Residential house model — ideal for architectural visualization, real-estate presentations, and exterior walkthroughs. Showcases how SlothView handles full building-scale geometry.' },
   { id: 'chair', name: 'Designer Chair', path: '/models/SheenChair.glb', cat: 'Furniture', desc: 'Modern fabric chair with sheen' },
   { id: 'helmet', name: 'Damaged Helmet', path: '/models/DamagedHelmet.glb', cat: 'Sci-Fi', desc: 'Battle-worn helmet with PBR materials' },
   { id: 'shoe', name: 'Sneaker', path: '/models/MaterialsVariantsShoe.glb', cat: 'Fashion', desc: 'Athletic shoe with material variants' },
@@ -621,7 +620,8 @@ export default function Page() {
       <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
       <input ref={hdriRef} type="file" accept=".hdr,.exr" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { const url = URL.createObjectURL(f); setCustomHdri(url); setShowEnvBg(true); showToast(`HDRI: ${f.name}`); } }} />
 
-      {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, animation: 'fadeIn 0.1s', maxWidth: 'calc(100vw - 32px)', textAlign: 'center' }}>{toast}</div>}
+      {/* transform is intentionally NOT in inline style — CSS handles translateX(-50%) + slide-up via toastPop animation */}
+      {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '80px', left: '50%', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, maxWidth: 'calc(100vw - 32px)', textAlign: 'center', whiteSpace: 'nowrap' }}>{toast}</div>}
 
       {/* drag-to-load removed */}
 
@@ -1421,7 +1421,7 @@ export default function Page() {
             {[
               ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
               ['Click', 'Select obj'], ['F', 'Focus obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
-              ['F4', 'Camera view'],
+              ['F4', 'Camera view'], ['Tab', 'Open settings'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>
@@ -1633,7 +1633,7 @@ export default function Page() {
                 {rendering && (
                   <>
                     <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#6C63FF,transparent)', top: `${renderProgress}%`, transition: 'top 0.1s linear', boxShadow: '0 0 8px rgba(108,99,255,0.8)' }} />
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(108,99,255,0.4)', borderRadius: '8px', padding: '12px 24px', textAlign: 'center', backdropFilter: 'blur(12px)' }}>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 80, pointerEvents: 'auto', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(108,99,255,0.4)', borderRadius: '8px', padding: '12px 24px', textAlign: 'center', backdropFilter: 'blur(12px)' }}>
                       <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF', marginBottom: '6px' }}>RENDERING</div>
                       <div style={{ width: '140px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />

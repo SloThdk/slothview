@@ -12,9 +12,10 @@ interface DefaultModelProps {
   modelPath?: string;
   overrideColor: string | null;
   disableFloat?: boolean;
+  onBoundsReady?: (size: THREE.Vector3) => void;
 }
 
-export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb', overrideColor, disableFloat }: DefaultModelProps) {
+export default function DefaultModel({ wireframe, shadingMode, modelPath = '/models/DamagedHelmet.glb', overrideColor, disableFloat, onBoundsReady }: DefaultModelProps) {
   const { scene: originalScene } = useGLTF(modelPath);
   const groupRef = useRef<THREE.Group>(null);
 
@@ -107,7 +108,7 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
   // Store the centered base Y so floating animation adds ON TOP of centering (not replaces it)
   const baseY = useRef(0);
 
-  // Auto-center/scale
+  // Auto-center/scale + report fitted world-space bounds to parent for dynamic hitbox sizing
   useEffect(() => {
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
@@ -120,7 +121,15 @@ export default function DefaultModel({ wireframe, shadingMode, modelPath = '/mod
       groupRef.current.scale.setScalar(scale);
       groupRef.current.position.set(-center.x * scale, centeredY, -center.z * scale);
     }
-  }, [scene]);
+    // Emit fitted bounds (with 30% padding) so the parent can resize the transparent hit box
+    if (onBoundsReady) {
+      onBoundsReady(new THREE.Vector3(
+        Math.max(size.x * scale * 1.3, 1.0),
+        Math.max(size.y * scale * 1.3, 1.0),
+        Math.max(size.z * scale * 1.3, 1.0),
+      ));
+    }
+  }, [scene, onBoundsReady]);
 
   useFrame((state) => {
     if (groupRef.current) {

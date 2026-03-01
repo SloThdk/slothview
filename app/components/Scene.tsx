@@ -312,6 +312,13 @@ function SceneLightObject({ light, selected, onSelect, onMove, orbitRef, dragRef
       >
         {/* Hide ALL visual gizmo geometry during final render — only the pointLight contributes */}
         {!rendering && <>
+          {/* Large transparent click zone — 10× the visible sphere radius.
+              This is what gets raycasted first, making light selection reliable.
+              stopPropagation prevents the model hitbox from also firing when clicking a light. */}
+          <mesh onClick={(e) => { e.stopPropagation(); onSelect(light.id); }}>
+            <sphereGeometry args={[0.45, 8, 8]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
           {/* Core emissive sphere */}
           <mesh>
             <sphereGeometry args={[0.07, 12, 12]} />
@@ -557,6 +564,12 @@ export default function Scene(props: SceneProps) {
 
   const modelSelected = selectedObjectIds.includes('model');
 
+  // Dynamic hitbox — sized to match the loaded model's actual world-space bounds
+  const [hitBoxSize, setHitBoxSize] = useState<[number, number, number]>([4.5, 4.5, 4.5]);
+  const onModelBoundsReady = useCallback((size: Vector3) => {
+    setHitBoxSize([size.x, size.y, size.z]);
+  }, []);
+
   const orbitRef = useRef<any>(null);
   const modelGroupRef = useRef<any>(null);
   const isModelSelectedRef = useRef<boolean>(false);
@@ -683,14 +696,15 @@ export default function Scene(props: SceneProps) {
           ref={modelGroupRef}
           onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
         >
-          {/* Transparent hit-target box — guarantees reliable click selection across all model types,
-              including skinned meshes, characters, and geometry with transparent/missing surfaces.
+          {/* Transparent hit-target box — scales to the model's actual fitted bounds via onBoundsReady.
+              Covers skinned meshes, characters, and geometry with transparent/missing surfaces.
               Invisible (depthWrite:false, opacity:0) but fully raycasted. */}
           <mesh
+            scale={hitBoxSize}
             onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
             renderOrder={-1}
           >
-            <boxGeometry args={[4.5, 4.5, 4.5]} />
+            <boxGeometry args={[1, 1, 1]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} />
           </mesh>
           <Suspense fallback={null}>
@@ -698,7 +712,7 @@ export default function Scene(props: SceneProps) {
               <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
             ) : (
               <>
-                <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} />
+                <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} onBoundsReady={onModelBoundsReady} />
                 {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
                   <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
                 ))}

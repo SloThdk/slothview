@@ -26,6 +26,12 @@ input, select { font: inherit; }
 .leva-container { display: none !important; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+/* Toast: animation owns the full transform (X centering + Y slide) so they never conflict */
+@keyframes toastPop {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+}
+.toast-msg { animation: toastPop 0.18s ease-out forwards; }
 @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeInStrip { from { opacity: 0; transform: scaleY(0.96); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
