@@ -991,7 +991,7 @@ export default function Scene(props: SceneProps) {
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
           enableZoom={true}
-          enableDamping={true}
+          enableDamping={!cameraViewMode}
           dampingFactor={0.12}
           rotateSpeed={0.7}
           panSpeed={0.5}
