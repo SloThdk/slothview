@@ -1472,6 +1472,25 @@ export default function Page() {
             {ibtn(<IconGrid />, 'Toggle grid', showGrid, () => setShowGrid(!showGrid), 'top')}
             {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen, 'top')}
           </div>
+
+          {/* Separator */}
+          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.06)' }} />
+
+          {/* Render button — always in toolbar so it's reachable on mobile without opening sidebar */}
+          <Tip text="Render scene to image" pos="top">
+            <button onClick={render} disabled={rendering} style={{
+              padding: '7px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: '5px',
+              background: rendering ? 'rgba(108,99,255,0.2)' : 'rgba(108,99,255,0.06)',
+              color: rendering ? '#6C63FF' : 'rgba(108,99,255,0.75)',
+              border: `1px solid ${rendering ? 'rgba(108,99,255,0.4)' : 'rgba(108,99,255,0.2)'}`,
+              transition: 'all 0.15s', opacity: rendering ? 0.7 : 1,
+              cursor: rendering ? 'not-allowed' : 'pointer',
+            }}>
+              <IconCamera />
+              <span className="badge-hint">{rendering ? '...' : 'Render'}</span>
+            </button>
+          </Tip>
         </div>
 
         {/* Mobile model picker strip */}

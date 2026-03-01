@@ -100,28 +100,34 @@ input, select { font: inherit; }
   /* Shading overlay labels — smaller on mobile */
   .shading-overlay-label { font-size: 8px !important; padding: 3px 5px !important; }
 
-  /* Toast — above mobile model bar */
-  .toast-msg { bottom: 105px !important; }
-
-  /* Stats overlay — repositioned above mobile bar */
-  .scene-stats { bottom: 115px !important; right: 8px !important; font-size: 8px !important; }
+  /* Mobile stacking (from bottom up):
+     0–46px  → toolbar
+     50–96px → model bar
+     100px+  → model badge / transform panel / toast / FAB / stats  */
 
   /* Mobile model bar — horizontal scroll strip above toolbar */
-  .mobile-model-bar { display: block !important; bottom: 46px !important; }
-  .mobile-fab { display: flex !important; }
+  .mobile-model-bar { display: block !important; bottom: 50px !important; }
+  .mobile-fab { display: flex !important; bottom: 140px !important; right: 12px !important; }
 
-  /* Transform panel — push above mobile bar, collapse to just header on mobile */
+  /* Model badge — must clear the model bar (96px) with room to breathe */
+  .model-badge { bottom: 100px !important; }
+  /* Hide keyboard shortcut hints on mobile — no keyboard */
+  .badge-hint { display: none !important; }
+
+  /* Transform panel — above model bar and badge */
   .transform-panel {
-    bottom: 112px !important;
+    bottom: 100px !important;
     left: 8px !important;
     min-width: 0 !important;
     width: calc(100vw - 16px) !important;
     max-width: 280px !important;
   }
 
-  /* Model badge — hide verbose keyboard hints */
-  .model-badge { bottom: 56px !important; }
-  .badge-hint { display: none !important; }
+  /* Toast — above transform panel */
+  .toast-msg { bottom: 130px !important; }
+
+  /* Stats overlay — top-right to avoid bottom crowding on mobile */
+  .scene-stats { top: 38px !important; bottom: auto !important; right: 8px !important; font-size: 9px !important; }
 }
 
 /* ── Small phones (iPhone SE, Pixel 5, 375px and under) ── */

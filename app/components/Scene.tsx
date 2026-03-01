@@ -475,6 +475,9 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
     let capturedNoAlt = false;
     const onDown = (e: PointerEvent) => {
       if (e.button === 0 && !e.altKey) {
+        // Touch devices: no marquee select — tap directly selects via R3F raycast / hit box.
+        // Letting OrbitControls handle all touch drags gives smooth pan/orbit on mobile.
+        if (e.pointerType === 'touch') return;
         // If model is selected, DON'T intercept - let TC and R3F handle the interaction
         if (isModelSelectedRef.current) return;
         if (orbitRef.current) orbitRef.current.enabled = false;
