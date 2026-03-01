@@ -164,9 +164,11 @@ export default function Page() {
   // Camera gizmo mode (G=translate, E=rotate — only when camera is in scene)
   const [cameraGizmoMode, setCameraGizmoMode] = useState<'translate' | 'rotate'>('translate');
 
-  // Model transform
-  const [modelScaleMode, setModelScaleMode] = useState(false);
+  // Model selection + transform (Blender-style)
+  const [modelSelected, setModelSelected] = useState(false);
+  const [modelTransformMode, setModelTransformMode] = useState<'translate' | 'rotate' | 'scale'>('translate');
   const [modelUniformScale, setModelUniformScale] = useState(1.0);
+  const modelScaleActive = modelSelected && modelTransformMode === 'scale';
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
@@ -223,16 +225,23 @@ export default function Page() {
         e.preventDefault();
         if (window.innerWidth > 768) setSidebarOpen(prev => !prev);
       }
-      // Camera gizmo shortcuts (E=rotate gizmo, G=move gizmo — Blender-style)
-      if (e.key === 'e' || e.key === 'E') { setCameraGizmoMode('rotate'); }
-      if (e.key === 'g' || e.key === 'G') { setCameraGizmoMode('translate'); }
-      // R = toggle model scale mode
-      if (e.key === 'r' || e.key === 'R') {
-        setModelScaleMode(prev => !prev);
+      // G = Move (translate gizmo) — applies to selected model AND camera gizmo
+      if (e.key === 'g' || e.key === 'G') {
+        setCameraGizmoMode('translate');
+        setModelTransformMode('translate');
       }
-      // Escape = exit all transform modes
+      // E = Rotate gizmo — applies to selected model AND camera gizmo
+      if (e.key === 'e' || e.key === 'E') {
+        setCameraGizmoMode('rotate');
+        if (modelSelected) setModelTransformMode('rotate');
+      }
+      // R = Scale mode — applies to selected model (scroll to scale)
+      if (e.key === 'r' || e.key === 'R') {
+        if (modelSelected) setModelTransformMode('scale');
+      }
+      // Escape = deselect all
       if (e.key === 'Escape') {
-        setModelScaleMode(false);
+        setModelSelected(false);
       }
     };
     window.addEventListener('keydown', handler);
@@ -885,7 +894,7 @@ export default function Page() {
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
               setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
               setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
-              setCameraGizmoMode('translate'); setModelScaleMode(false); setModelUniformScale(1.0); setHdriLighting(true);
+              setCameraGizmoMode('translate'); setModelSelected(false); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -901,7 +910,7 @@ export default function Page() {
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}
         onWheel={(e) => {
-          if (modelScaleMode) {
+          if (modelScaleActive) {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -0.05 : 0.05;
             setModelUniformScale(s => Math.max(0.05, Math.min(10, +(s + delta).toFixed(2))));
@@ -960,17 +969,22 @@ export default function Page() {
           </div>
         )}
 
-        {/* Model scale mode badge */}
-        {modelScaleMode && (
+        {/* Model selected — transform mode badge */}
+        {modelSelected && (
           <div style={{
             position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
-            background: 'rgba(0,212,168,0.88)', border: '1px solid rgba(0,212,168,0.5)',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            background: modelTransformMode === 'rotate' ? 'rgba(108,99,255,0.88)' : modelTransformMode === 'scale' ? 'rgba(0,212,168,0.88)' : 'rgba(255,176,32,0.88)',
+            border: `1px solid ${modelTransformMode === 'rotate' ? 'rgba(108,99,255,0.5)' : modelTransformMode === 'scale' ? 'rgba(0,212,168,0.5)' : 'rgba(255,176,32,0.5)'}`,
             borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: '#001a14' }}>SCALE MODE [R]</span>
-            <span style={{ fontSize: '9px', fontWeight: 700, color: '#001a14', fontFamily: 'monospace' }}>{modelUniformScale.toFixed(2)}x</span>
-            <span style={{ fontSize: '8px', color: 'rgba(0,26,20,0.7)', fontFamily: 'monospace' }}>Scroll to scale · R to exit</span>
+            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: modelTransformMode === 'scale' ? '#001a14' : '#fff' }}>
+              MODEL · {modelTransformMode === 'translate' ? 'MOVE [G]' : modelTransformMode === 'rotate' ? 'ROTATE [E]' : 'SCALE [R]'}
+            </span>
+            {modelTransformMode === 'scale' && <span style={{ fontSize: '9px', fontWeight: 700, fontFamily: 'monospace', color: '#001a14' }}>{modelUniformScale.toFixed(2)}x</span>}
+            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: modelTransformMode === 'scale' ? 'rgba(0,26,20,0.7)' : 'rgba(255,255,255,0.6)' }}>
+              {modelTransformMode === 'scale' ? 'Scroll · Esc to deselect' : 'G=Move · E=Rotate · R=Scale · Esc=Done'}
+            </span>
           </div>
         )}
 
@@ -1005,6 +1019,10 @@ export default function Page() {
           hdriLighting={hdriLighting}
           cameraGizmoMode={cameraGizmoMode}
           modelUniformScale={modelUniformScale}
+          modelSelected={modelSelected}
+          modelTransformMode={modelTransformMode}
+          onModelSelect={() => { setModelSelected(true); }}
+          onModelDeselect={() => setModelSelected(false)}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -1059,7 +1077,7 @@ export default function Page() {
           }}>
             {[
               ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
-              ['G', 'Move Cam'], ['E', 'Rotate Cam'], ['R', 'Scale Model'],
+              ['Click', 'Select'], ['G', 'Move'], ['E', 'Rotate'], ['R', 'Scale'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>
@@ -1149,30 +1167,29 @@ export default function Page() {
           color: '#6C63FF', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
         }}><IconSliders /></button>
-      </div>
 
-      {/* Scene stats overlay */}
-      {sceneStats && (
-        <div className="scene-stats" style={{
-          position: 'absolute', bottom: '56px', right: '12px', zIndex: 15,
-          background: 'rgba(8,8,12,0.75)', border: '1px solid rgba(255,255,255,0.04)',
-          borderRadius: '8px', padding: '8px 14px',
-          fontSize: '12px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.45)',
-          lineHeight: 1.7, pointerEvents: 'none', letterSpacing: '0.03em',
-        }}>
-          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TRI</span> {sceneStats.triangles.toLocaleString()}</div>
-          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>VTX</span> {sceneStats.vertices.toLocaleString()}</div>
-          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>OBJ</span> {sceneStats.meshes}</div>
-          <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TEX</span> {sceneStats.textures}</div>
-          <div style={{ marginTop: '2px', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <span style={{ color: 'rgba(108,99,255,0.6)' }}>SPP</span> {renderSamples}
+        {/* Scene stats overlay — inside viewport so it positions from viewport right edge */}
+        {sceneStats && (
+          <div className="scene-stats" style={{
+            position: 'absolute', bottom: '56px', right: '12px', zIndex: 15,
+            background: 'rgba(8,8,12,0.75)', border: '1px solid rgba(255,255,255,0.04)',
+            borderRadius: '8px', padding: '8px 14px',
+            fontSize: '12px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.45)',
+            lineHeight: 1.7, pointerEvents: 'none', letterSpacing: '0.03em',
+          }}>
+            <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TRI</span> {sceneStats.triangles.toLocaleString()}</div>
+            <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>VTX</span> {sceneStats.vertices.toLocaleString()}</div>
+            <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>OBJ</span> {sceneStats.meshes}</div>
+            <div><span style={{ color: 'rgba(108,99,255,0.6)' }}>TEX</span> {sceneStats.textures}</div>
+            <div style={{ marginTop: '2px', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <span style={{ color: 'rgba(108,99,255,0.6)' }}>SPP</span> {renderSamples}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Camera boundary overlay */}
-      {(showCameraBoundary || rendering || cameraViewMode) && (
-        <div style={{ position: 'absolute', inset: 0, top: '32px', zIndex: 12, pointerEvents: 'none' }}>
+        {/* Camera boundary overlay — INSIDE viewport div so it never bleeds over sidebar */}
+        {(showCameraBoundary || rendering || cameraViewMode) && (
+        <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
             <div style={{ position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)', zIndex: 15, background: 'rgba(239,68,68,0.9)', border: '1px solid rgba(239,68,68,0.6)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
@@ -1229,6 +1246,8 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      </div>{/* end viewport div */}
 
       {/* Built by link removed — demo info kept in top bar only */}
     </div>

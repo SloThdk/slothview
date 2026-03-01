@@ -135,6 +135,10 @@ export interface SceneProps {
   hdriLighting: boolean;
   cameraGizmoMode: 'translate' | 'rotate';
   modelUniformScale: number;
+  modelSelected: boolean;
+  modelTransformMode: 'translate' | 'rotate' | 'scale';
+  onModelSelect: () => void;
+  onModelDeselect: () => void;
 }
 
 /* ── Hotspot marker ── */
@@ -375,9 +379,11 @@ export default function Scene(props: SceneProps) {
     showSceneCamera, cameraPos, cameraViewMode, lockCameraToView, onCameraMove,
     rotationMode, rotationStepRef,
     hdriLighting, cameraGizmoMode, modelUniformScale,
+    modelSelected, modelTransformMode, onModelSelect, onModelDeselect,
   } = props;
 
   const orbitRef = useRef<any>(null);
+  const modelGroupRef = useRef<any>(null);
 
   // Populate rotationStepRef so page.tsx can step-rotate orbit camera from outside Canvas
   useEffect(() => {
@@ -435,6 +441,7 @@ export default function Scene(props: SceneProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onContextMenu={(e) => { if (e.altKey) e.preventDefault(); }}
+      onPointerMissed={() => onModelDeselect()}
     >
       {cameraViewMode
         ? <PerspectiveCamera makeDefault position={cameraPos} fov={fov} near={0.1} far={100} />
@@ -475,8 +482,12 @@ export default function Scene(props: SceneProps) {
           </React.Fragment>
         ))}
 
-        {/* Model — wrapped in scale group (R key controls modelUniformScale) */}
-        <group scale={[modelUniformScale, modelUniformScale, modelUniformScale]}>
+        {/* Model — wrapped in scale+select group; click to select, G/E/R to transform */}
+        <group
+          ref={modelGroupRef}
+          scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
+          onClick={(e) => { e.stopPropagation(); onModelSelect(); }}
+        >
           {userFile ? (
             <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} />
           ) : (
@@ -488,6 +499,17 @@ export default function Scene(props: SceneProps) {
             </>
           )}
         </group>
+
+        {/* Model TransformControls — G (translate) and E (rotate) modes; R uses scroll-scale only */}
+        {modelSelected && modelGroupRef.current && modelTransformMode !== 'scale' && (
+          <TransformControls
+            object={modelGroupRef.current}
+            mode={modelTransformMode}
+            size={0.8}
+            onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+            onMouseUp={() => { if (orbitRef.current) orbitRef.current.enabled = true; }}
+          />
+        )}
 
         {/* Environment — PBR gets full lighting + optional bg; other modes get bg only if enabled */}
         {shadingMode === 'pbr' ? (
