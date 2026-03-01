@@ -527,6 +527,58 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
   return null;
 }
 
+/* ── Alt+RMB zoom: drag up = zoom in, drag down = zoom out (Blender-style) ── */
+function AltRMBZoomController({ orbitRef }: { orbitRef: React.RefObject<any> }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let active = false;
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button === 2 && e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (orbitRef.current) orbitRef.current.enabled = false;
+        active = true;
+      }
+    };
+
+    const onMove = (e: PointerEvent) => {
+      if (!active || !orbitRef.current) return;
+      const orbit = orbitRef.current;
+      const camera = orbit.object;
+      const target = orbit.target;
+      // movementY positive = mouse moved down = zoom out
+      const dollyFactor = 1 + e.movementY * 0.012;
+      const dir = camera.position.clone().sub(target);
+      const minD = orbit.minDistance ?? 1.2;
+      const maxD = orbit.maxDistance ?? 20;
+      const newLen = Math.max(minD, Math.min(maxD, dir.length() * dollyFactor));
+      dir.setLength(newLen);
+      camera.position.copy(target).add(dir);
+      orbit.update();
+    };
+
+    const onUp = () => {
+      if (active) {
+        active = false;
+        if (orbitRef.current) orbitRef.current.enabled = true;
+      }
+    };
+
+    // Capture phase - fires BEFORE OrbitControls' own listener
+    canvas.addEventListener('pointerdown', onDown, { capture: true });
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      canvas.removeEventListener('pointerdown', onDown, { capture: true });
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [gl, orbitRef]);
+  return null;
+}
+
 /* ── World → screen projector exposed via ref for marquee selection ── */
 function ProjectorSetup({ projectorRef }: {
   projectorRef: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -873,6 +925,7 @@ export default function Scene(props: SceneProps) {
           maxPolarAngle={Math.PI * 0.88}
         />
         {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} isModelSelectedRef={isModelSelectedRef} />}
+        <AltRMBZoomController orbitRef={orbitRef} />
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {props.onTransformChange && modelSelected && (
           <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />
