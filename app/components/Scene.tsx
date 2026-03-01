@@ -150,6 +150,8 @@ export interface SceneProps {
   modelName: string;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
+  onTransformChange?: (t: TransformSnapshot) => void;
+  applyTransformRef?: React.MutableRefObject<ApplyTransformFn | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -360,6 +362,55 @@ function StatsCollector({ onStats }: { onStats: (s: SceneStats) => void }) {
       onStats({ triangles: Math.round(triangles), vertices, meshes, drawCalls, textures });
     }
   });
+  return null;
+}
+
+/* ── Types ── */
+export interface TransformSnapshot {
+  px: number; py: number; pz: number;
+  rx: number; ry: number; rz: number; // degrees
+  s: number; // uniform scale (from modelUniformScale prop)
+}
+export type ApplyTransformFn = (pos?: [number, number, number], rot?: [number, number, number]) => void;
+
+/* ── Live transform reporter — throttled to actual changes ── */
+function TransformReporter({ modelGroupRef, modelUniformScale, onTransformChange }: {
+  modelGroupRef: React.RefObject<any>;
+  modelUniformScale: number;
+  onTransformChange: (t: TransformSnapshot) => void;
+}) {
+  const lastKey = useRef('');
+  const RAD2DEG = 180 / Math.PI;
+  useFrame(() => {
+    const obj = modelGroupRef.current;
+    if (!obj) return;
+    const k = `${obj.position.x.toFixed(3)},${obj.position.y.toFixed(3)},${obj.position.z.toFixed(3)},${obj.rotation.x.toFixed(3)},${obj.rotation.y.toFixed(3)},${obj.rotation.z.toFixed(3)},${modelUniformScale.toFixed(3)}`;
+    if (k !== lastKey.current) {
+      lastKey.current = k;
+      onTransformChange({
+        px: obj.position.x, py: obj.position.y, pz: obj.position.z,
+        rx: obj.rotation.x * RAD2DEG, ry: obj.rotation.y * RAD2DEG, rz: obj.rotation.z * RAD2DEG,
+        s: modelUniformScale,
+      });
+    }
+  });
+  return null;
+}
+
+/* ── Apply transform imperatively from outside Canvas ── */
+function ApplyTransformSetup({ modelGroupRef, applyTransformRef }: {
+  modelGroupRef: React.RefObject<any>;
+  applyTransformRef: React.MutableRefObject<ApplyTransformFn | null>;
+}) {
+  const DEG2RAD = Math.PI / 180;
+  useEffect(() => {
+    applyTransformRef.current = (pos, rot) => {
+      const obj = modelGroupRef.current;
+      if (!obj) return;
+      if (pos) obj.position.set(pos[0], pos[1], pos[2]);
+      if (rot) obj.rotation.set(rot[0] * DEG2RAD, rot[1] * DEG2RAD, rot[2] * DEG2RAD);
+    };
+  }, []);
   return null;
 }
 
@@ -671,6 +722,12 @@ export default function Scene(props: SceneProps) {
         />
         {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} />}
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
+        {props.onTransformChange && modelSelected && (
+          <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />
+        )}
+        {props.applyTransformRef && (
+          <ApplyTransformSetup modelGroupRef={modelGroupRef} applyTransformRef={props.applyTransformRef} />
+        )}
         {onStats && <StatsCollector onStats={onStats} />}
         {onSceneHierarchy && (
           <HierarchyReporter

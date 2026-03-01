@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import type { ShadingMode, SceneStats, SceneLight, OutlinerNode } from './components/Scene';
+import type { ShadingMode, SceneStats, SceneLight, OutlinerNode, TransformSnapshot, ApplyTransformFn } from './components/Scene';
 import {
   IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
@@ -153,6 +153,13 @@ export default function Page() {
   const [renderWidth, setRenderWidth] = useState(1920);
   const [renderHeight, setRenderHeight] = useState(1080);
   const [renderSamples, setRenderSamples] = useState(4);
+  const [renderFormat, setRenderFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
+  const [renderQuality, setRenderQuality] = useState(0.92);
+
+  // Transform properties panel (Blender-style)
+  const [displayTransform, setDisplayTransform] = useState<TransformSnapshot | null>(null);
+  const [transformPanelOpen, setTransformPanelOpen] = useState(true);
+  const applyTransformRef = useRef<ApplyTransformFn | null>(null);
 
   // Marquee select
   const marqueeStartRef = useRef<{ x: number; y: number; shift: boolean } | null>(null);
@@ -396,11 +403,12 @@ export default function Page() {
         setRenderProgress(Math.round((frame / renderSamples) * 100));
         requestAnimationFrame(doFrame);
       } else {
-        const url = gl.domElement.toDataURL('image/png');
+        const mimeType = renderFormat === 'jpeg' ? 'image/jpeg' : renderFormat === 'webp' ? 'image/webp' : 'image/png';
+        const url = gl.domElement.toDataURL(mimeType, renderFormat !== 'png' ? renderQuality : undefined);
         gl.setSize(oW, oH, false);
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         const a = document.createElement('a');
-        a.download = `slothview-render-${rW}x${rH}-${renderSamples}spp-${Date.now()}.png`;
+        a.download = `slothview-render-${rW}x${rH}-${renderSamples}spp-${Date.now()}.${renderFormat}`;
         a.href = url;
         a.click();
         setRendering(false);
@@ -410,7 +418,7 @@ export default function Page() {
     };
     // Small delay to let grid hide before capturing
     setTimeout(() => requestAnimationFrame(doFrame), 100);
-  }, [renderWidth, renderHeight, renderSamples, showGrid]);
+  }, [renderWidth, renderHeight, renderSamples, renderFormat, renderQuality, showGrid]);
 
   const fullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -929,6 +937,35 @@ export default function Page() {
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
 
+                <span style={stl.label}>Format</span>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
+                  {([
+                    { id: 'png', label: 'PNG', desc: 'Lossless · transparent' },
+                    { id: 'jpeg', label: 'JPEG', desc: 'Lossy · smaller file' },
+                    { id: 'webp', label: 'WebP', desc: 'Modern · best ratio' },
+                  ] as const).map(f => (
+                    <button key={f.id} onClick={() => setRenderFormat(f.id)} style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px',
+                      marginBottom: '2px', borderRadius: '4px', textAlign: 'left',
+                      background: renderFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
+                      border: renderFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
+                    }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid ${renderFormat === f.id ? '#6C63FF' : 'rgba(255,255,255,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {renderFormat === f.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#6C63FF' }} />}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: renderFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                  {renderFormat !== 'png' && (
+                    <div style={{ marginTop: '6px' }}>
+                      <Slider label="Quality" value={renderQuality * 100} min={10} max={100} step={1} onChange={v => setRenderQuality(v / 100)} unit="%" tooltip="Compression quality. 92% is near-lossless for most uses." />
+                    </div>
+                  )}
+                </div>
+
                 <span style={stl.label}>Export</span>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
                   {/* Resolution presets */}
@@ -1195,6 +1232,8 @@ export default function Page() {
           modelName={userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
           onLMBDownNoAlt={(sx, sy, shift) => { marqueeStartRef.current = { x: sx, y: sy, shift }; }}
           projectorRef={sceneProjectorRef}
+          onTransformChange={setDisplayTransform}
+          applyTransformRef={applyTransformRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -1469,6 +1508,81 @@ export default function Page() {
                     </div>
                   </>
                 )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Transform Properties Panel — Blender-style Last Operator, bottom-left ── */}
+      {modelSelected && displayTransform && (
+        <div style={{
+          position: 'absolute', bottom: '54px', left: '10px', zIndex: 28,
+          background: 'rgba(30,28,40,0.97)', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '6px', minWidth: '200px', pointerEvents: 'auto',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)',
+          userSelect: 'none',
+        }}>
+          {/* Header */}
+          <button onClick={() => setTransformPanelOpen(!transformPanelOpen)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px',
+            borderBottom: transformPanelOpen ? '1px solid rgba(255,255,255,0.06)' : 'none',
+          }}>
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ transform: transformPanelOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+              <path d="M2 1l4 3-4 3" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>
+              {modelTransformMode === 'scale' ? 'Resize' : modelTransformMode === 'rotate' ? 'Rotate' : 'Move'}
+            </span>
+          </button>
+          {/* Fields */}
+          {transformPanelOpen && (() => {
+            const axisColor = (a: string) => a === 'X' ? '#ef4444' : a === 'Y' ? '#22c55e' : '#3b82f6';
+            const fieldStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', padding: '3px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, width: '85px', textAlign: 'right' as const };
+            const labelStyle = { fontSize: '9px', color: 'rgba(255,255,255,0.4)', width: '28px', textAlign: 'right' as const };
+            const row = (axis: string, val: number, onChange: (v: number) => void) => (
+              <div key={axis} style={{ display: 'flex', alignItems: 'center', padding: '3px 10px', gap: '8px' }}>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: axisColor(axis), width: '10px', textAlign: 'center' }}>{axis}</span>
+                <span style={labelStyle}>{modelTransformMode === 'scale' ? 'Scale' : modelTransformMode === 'rotate' ? 'Angle' : 'Pos'}</span>
+                <input
+                  type="number"
+                  value={parseFloat(val.toFixed(4))}
+                  step={modelTransformMode === 'rotate' ? 0.1 : 0.001}
+                  onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); }}
+                  onClick={e => (e.target as HTMLInputElement).select()}
+                  style={fieldStyle}
+                />
+                <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', width: '18px' }}>
+                  {modelTransformMode === 'rotate' ? '°' : modelTransformMode === 'scale' ? 'x' : 'm'}
+                </span>
+              </div>
+            );
+            if (modelTransformMode === 'scale') return (
+              <div style={{ padding: '4px 0 6px' }}>
+                {['X', 'Y', 'Z'].map(a => row(a, displayTransform.s, v => setModelUniformScale(v)))}
+                <div style={{ padding: '3px 10px 0', fontSize: '8px', color: 'rgba(255,255,255,0.18)', fontStyle: 'italic' }}>Uniform scale — all axes equal</div>
+              </div>
+            );
+            if (modelTransformMode === 'rotate') return (
+              <div style={{ padding: '4px 0 6px' }}>
+                {[
+                  ['X', displayTransform.rx, (v: number) => applyTransformRef.current?.(undefined, [v, displayTransform.ry, displayTransform.rz])],
+                  ['Y', displayTransform.ry, (v: number) => applyTransformRef.current?.(undefined, [displayTransform.rx, v, displayTransform.rz])],
+                  ['Z', displayTransform.rz, (v: number) => applyTransformRef.current?.(undefined, [displayTransform.rx, displayTransform.ry, v])],
+                ].map(([a, val, fn]) => row(a as string, val as number, fn as (v: number) => void))}
+                <div style={{ padding: '4px 10px 0', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>Orientation</span>
+                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Global</span>
+                </div>
+              </div>
+            );
+            return (
+              <div style={{ padding: '4px 0 6px' }}>
+                {[
+                  ['X', displayTransform.px, (v: number) => applyTransformRef.current?.([v, displayTransform.py, displayTransform.pz])],
+                  ['Y', displayTransform.py, (v: number) => applyTransformRef.current?.([displayTransform.px, v, displayTransform.pz])],
+                  ['Z', displayTransform.pz, (v: number) => applyTransformRef.current?.([displayTransform.px, displayTransform.py, v])],
+                ].map(([a, val, fn]) => row(a as string, val as number, fn as (v: number) => void))}
               </div>
             );
           })()}
