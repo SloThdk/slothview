@@ -133,13 +133,12 @@ export default function Page() {
   const [showHotspots, setShowHotspots] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<number | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
-  // Auto-restore sidebar when exiting responsive/DevTools mode back to desktop width
+  // SSR-safe: always start open (matches server), correct after hydration
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   useEffect(() => {
-    const onResize = () => {
-      if (window.innerWidth > 768) setSidebarOpen(true);
-      else setSidebarOpen(false);
-    };
+    // Set correct initial value post-hydration + auto-restore on responsive exit
+    setSidebarOpen(window.innerWidth > 768);
+    const onResize = () => setSidebarOpen(window.innerWidth > 768);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -154,7 +153,9 @@ export default function Page() {
   const [ambI, setAmbI] = useState(0.3);
 
   // Post-processing (disable on mobile for performance)
-  const [enablePP, setEnablePP] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
+  // SSR-safe: default true server-side, disable on mobile post-hydration
+  const [enablePP, setEnablePP] = useState(true);
+  useEffect(() => { setEnablePP(window.innerWidth > 768); }, []);
   const [bloomI, setBloomI] = useState(0.15);
   const [bloomT, setBloomT] = useState(0.9);
   const [vigI, setVigI] = useState(0.3);
@@ -615,18 +616,14 @@ export default function Page() {
           onTouchStart={e => e.stopPropagation()}
           onTouchMove={e => e.stopPropagation()}
         >
-          {/* Render-in-progress overlay — grays out all sidebar controls */}
+          {/* Render-in-progress overlay — grays out all sidebar controls, no cancel button here */}
           {rendering && (
-            <div style={{ position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(8,8,12,0.8)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+            <div style={{ position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(8,8,12,0.8)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', pointerEvents: 'none' }}>
               <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF' }}>RENDERING</div>
               <div style={{ width: '130px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
               </div>
               <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{renderProgress}% · {renderWidth}×{renderHeight}</div>
-              <button onClick={cancelRender} style={{ padding: '6px 18px', borderRadius: '5px', fontSize: '10px', fontWeight: 700, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171', cursor: 'pointer', transition: 'all 0.15s' }}>
-                Cancel Render
-              </button>
-              <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>or press Esc</div>
             </div>
           )}
           {/* Panel tabs + close */}
@@ -1556,9 +1553,10 @@ export default function Page() {
                         <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
                       </div>
                       <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px', marginBottom: '8px' }}>{renderProgress}% · {renderWidth}×{renderHeight} · {renderSamples} SPP</div>
-                      <button onClick={cancelRender} style={{ padding: '5px 16px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171', cursor: 'pointer' }}>
-                        Cancel (Esc)
+                      <button onClick={cancelRender} style={{ padding: '6px 20px', borderRadius: '5px', fontSize: '10px', fontWeight: 700, background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', color: '#f87171', cursor: 'pointer', letterSpacing: '0.02em' }}>
+                        Cancel Render
                       </button>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>or press Esc</div>
                     </div>
                   </>
                 )}
