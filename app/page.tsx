@@ -353,7 +353,9 @@ export default function Page() {
 
   // Scene Camera
   const [showSceneCamera, setShowSceneCamera] = useState(false);
-  const [cameraPos, setCameraPos] = useState<[number,number,number]>([3, 2, 5]);
+  // Scene camera position — intentionally DIFFERENT from orbit camera default [3,2,5]
+  // If they matched, the camera gizmo would render from inside the orbit camera → frustum lines fill the viewport
+  const [cameraPos, setCameraPos] = useState<[number,number,number]>([0, 1.5, 4]);
   const [cameraViewMode, setCameraViewMode] = useState(false);
   const cameraViewModeRef = useRef(false);
   useEffect(() => { cameraViewModeRef.current = cameraViewMode; }, [cameraViewMode]);
@@ -1195,7 +1197,7 @@ export default function Page() {
                 setEnablePP(true); setAutoRotate(false); setShowGrid(true);
                 setShowHotspots(true); setOverrideColor(null); setEnv('studio');
                 setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
-                setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
+                setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([0,1.5,4]); setLockCameraToView(true);
                 setCameraGizmoMode('translate'); setSelectedObjectIds([]); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
                 setRenderWidth(1920); setRenderHeight(1080); setRenderSamples(4); setRenderFormat('png'); setRenderQuality(0.92);
                 setShowCameraBoundary(false); setExploded(false); setWireframe(false); setCustomHdri(null);
