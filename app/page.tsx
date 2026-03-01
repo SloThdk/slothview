@@ -74,6 +74,12 @@ const PRESET_MODELS = [
   { id: 'iridescent-dish', name: 'Iridescent Dish', path: '/models/IridescentDishWithOlives.glb', cat: 'Materials', desc: 'Shows iridescence and thin-film interference' },
   { id: 'velvet-sofa', name: 'Velvet Sofa', path: '/models/GlamVelvetSofa.glb', cat: 'Furniture', desc: 'Glam sofa with velvet sheen material' },
   { id: 'cesium-man', name: 'Cesium Man', path: '/models/CesiumMan.glb', cat: 'Character', desc: 'Humanoid character for animation tests' },
+  // — Game-ready characters & environments —
+  { id: 'soldier', name: 'Soldier', path: '/models/Soldier.glb', cat: 'Game', desc: 'Rigged military game character — test with your game lighting' },
+  { id: 'xbot', name: 'Game Character', path: '/models/Xbot.glb', cat: 'Game', desc: 'Prototype game character rig — classic industry test asset' },
+  { id: 'michelle', name: 'Michelle', path: '/models/Michelle.glb', cat: 'Game', desc: 'Realistic rigged female character — AAA game production quality' },
+  { id: 'littlest-tokyo', name: 'Tokyo Scene', path: '/models/LittlestTokyo.glb', cat: 'Game', desc: 'Stylized Japanese city environment — test scene lighting at scale' },
+  { id: 'buggy', name: 'Buggy', path: '/models/Buggy.glb', cat: 'Game', desc: 'Open-world off-road vehicle — game-ready with full PBR materials' },
 ];
 
 const BASE_PRICE = 2499;
@@ -1149,6 +1155,15 @@ export default function Page() {
           <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
             <Tip text="Resets all lights, camera, effects, shading, environment, and transforms to defaults" pos="top" fullWidth>
               <button onClick={() => {
+                if (!window.confirm('Reset all settings and transforms to defaults?')) return;
+                // Direct Three.js reset first (immediate, no React round-trip lag)
+                if (externalGroupRef.current) {
+                  externalGroupRef.current.position.set(0, 0, 0);
+                  externalGroupRef.current.rotation.set(0, 0, 0);
+                  externalGroupRef.current.scale.setScalar(1.0);
+                  externalGroupRef.current.updateMatrix?.();
+                }
+                applyTransformRef.current?.([0, 0, 0], [0, 0, 0]);
                 setLightI(1.2); setLightAng(45); setLightH(8); setAmbI(0.3);
                 setFov(40); setBloomI(0.15); setBloomT(0.9); setVigI(0.3);
                 setSsao(true); setSsaoRadius(0.5); setSsaoIntensity(1.0);
@@ -1206,23 +1221,22 @@ export default function Page() {
           {ibtn(<IconShare />, 'Share config', false, share)}
         </div>
 
-        {/* Model selected — transform mode badge */}
-        {modelSelected && (
+        {/* Blender-style mode indicator — only visible when in a non-default transform mode */}
+        {modelSelected && modelTransformMode !== 'translate' && (
           <div className="model-badge" style={{
             position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
-            display: 'flex', alignItems: 'center', gap: '6px',
-            background: modelTransformMode === 'rotate' ? 'rgba(108,99,255,0.88)' : modelTransformMode === 'scale' ? 'rgba(0,212,168,0.88)' : 'rgba(255,176,32,0.88)',
-            border: `1px solid ${modelTransformMode === 'rotate' ? 'rgba(108,99,255,0.5)' : modelTransformMode === 'scale' ? 'rgba(0,212,168,0.5)' : 'rgba(255,176,32,0.5)'}`,
-            borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
-            whiteSpace: 'nowrap', maxWidth: 'calc(100vw - 80px)', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: 'rgba(8,8,12,0.82)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '4px', padding: '5px 14px', backdropFilter: 'blur(10px)',
           }}>
-            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: modelTransformMode === 'scale' ? '#001a14' : '#fff' }}>
-              MODEL · {modelTransformMode === 'translate' ? 'MOVE [G]' : modelTransformMode === 'rotate' ? 'ROTATE [E]' : 'SCALE [R]'}
+            <span style={{ fontSize: '12px', fontWeight: 600, color: modelTransformMode === 'rotate' ? '#9590ff' : '#00D4A8', fontFamily: 'monospace', letterSpacing: '0.03em' }}>
+              {modelTransformMode === 'rotate' ? 'Rotate' : 'Scale'}
             </span>
-            {modelTransformMode === 'scale' && <span style={{ fontSize: '9px', fontWeight: 700, fontFamily: 'monospace', color: '#001a14' }}>{modelUniformScale.toFixed(2)}x</span>}
-            <span className="badge-hint" style={{ fontSize: '8px', fontFamily: 'monospace', color: modelTransformMode === 'scale' ? 'rgba(0,26,20,0.7)' : 'rgba(255,255,255,0.6)' }}>
-              {modelTransformMode === 'scale' ? 'Scroll · Esc to deselect' : 'G=Move · E=Rotate · R=Scale · Esc=Done'}
-            </span>
+            {modelTransformMode === 'scale' && (
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>
+                {modelUniformScale.toFixed(3)}
+              </span>
+            )}
           </div>
         )}
 
@@ -1368,7 +1382,7 @@ export default function Page() {
           }}>
             {[
               ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
-              ['Click', 'Select obj'], ['G', 'Move obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
+              ['Click', 'Select obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
               ['F4', 'Camera view'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
