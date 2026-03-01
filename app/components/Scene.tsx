@@ -140,6 +140,7 @@ export interface SceneProps {
   onModelClick: (shiftKey: boolean, ctrlKey: boolean) => void;
   onModelDeselect: () => void;
   onCameraSelect?: (shift: boolean) => void;
+  onModelUniformScaleChange?: (s: number) => void;
   rendering?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -513,7 +514,36 @@ export default function Scene(props: SceneProps) {
   const modelGroupRef = useRef<any>(null);
   const isModelSelectedRef = useRef<boolean>(false);
   const isDraggingTransformRef = useRef<boolean>(false);
+  // Saved orbit position for restoring after exiting camera view
+  const savedOrbitState = useRef<{ camPos: [number,number,number]; target: [number,number,number] } | null>(null);
+  // Pointer drag detection — prevent onPointerMissed deselecting during pan/orbit
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+  const pointerDidDrag = useRef(false);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
+
+  // Save orbit camera state when entering camera view; restore on exit
+  useEffect(() => {
+    if (cameraViewMode) {
+      const orbit = orbitRef.current;
+      if (orbit) {
+        savedOrbitState.current = {
+          camPos: [orbit.object.position.x, orbit.object.position.y, orbit.object.position.z],
+          target: [orbit.target.x, orbit.target.y, orbit.target.z],
+        };
+      }
+    } else {
+      // Give R3F 2 frames to mount the non-camera PerspectiveCamera before overriding
+      setTimeout(() => {
+        const orbit = orbitRef.current;
+        const saved = savedOrbitState.current;
+        if (orbit && saved) {
+          orbit.object.position.set(...saved.camPos);
+          orbit.target.set(...saved.target);
+          orbit.update();
+        }
+      }, 32);
+    }
+  }, [cameraViewMode]);
 
   // Populate rotationStepRef so page.tsx can step-rotate orbit camera from outside Canvas
   useEffect(() => {
@@ -550,15 +580,25 @@ export default function Scene(props: SceneProps) {
   const lightZ = Math.sin(MathUtils.degToRad(lightAngle)) * 6;
   const showWireframe = false; // Each shading mode handles its own wireframe internally
 
-  // Alt+RMB light control
+  // Alt+RMB light control + drag detection for pointer-missed guard
   const altDrag = useRef(false);
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+    pointerDidDrag.current = false;
     if (e.altKey && e.button === 2) { altDrag.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault(); }
   }, []);
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (pointerDownPos.current) {
+      const dx = e.clientX - pointerDownPos.current.x;
+      const dy = e.clientY - pointerDownPos.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 4) pointerDidDrag.current = true;
+    }
     if (altDrag.current && onLightDrag) { onLightDrag(e.movementX, e.movementY); e.preventDefault(); e.stopPropagation(); }
   }, [onLightDrag]);
-  const handlePointerUp = useCallback(() => { altDrag.current = false; }, []);
+  const handlePointerUp = useCallback(() => {
+    altDrag.current = false;
+    pointerDownPos.current = null;
+  }, []);
 
   return (
     <Canvas
@@ -571,7 +611,11 @@ export default function Scene(props: SceneProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onContextMenu={(e) => { if (e.altKey) e.preventDefault(); }}
-      onPointerMissed={() => { if (!isDraggingTransformRef.current) onModelDeselect(); }}
+      onPointerMissed={() => {
+        if (!isDraggingTransformRef.current && !pointerDidDrag.current) onModelDeselect();
+        pointerDidDrag.current = false;
+        pointerDownPos.current = null;
+      }}
     >
       {cameraViewMode
         ? <PerspectiveCamera makeDefault position={cameraPos} fov={fov} near={0.1} far={100} />
@@ -637,8 +681,8 @@ export default function Scene(props: SceneProps) {
 
         {/* Model group hoisted above Suspense — see group at top of Canvas */}
 
-        {/* Model TransformControls — G (translate) and E (rotate) modes; R uses scroll-scale only; hidden during render */}
-        {modelSelected && modelGroupRef.current && modelTransformMode !== 'scale' && !rendering && (
+        {/* Model TransformControls — G=translate, E=rotate, R=scale; hidden during render */}
+        {modelSelected && modelGroupRef.current && !rendering && (
           <TransformControls
             object={modelGroupRef.current}
             mode={modelTransformMode}
@@ -646,7 +690,16 @@ export default function Scene(props: SceneProps) {
             translationSnap={null}
             rotationSnap={null}
             onMouseDown={() => { isDraggingTransformRef.current = true; if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
-            onMouseUp={() => { setTimeout(() => { isDraggingTransformRef.current = false; }, 50); if (orbitRef.current) orbitRef.current.enabled = true; }}
+            onMouseUp={() => {
+              setTimeout(() => { isDraggingTransformRef.current = false; }, 50);
+              if (orbitRef.current) orbitRef.current.enabled = true;
+              // When scale mode: sync TC-applied scale back to React state (average of all 3 axes)
+              if (modelTransformMode === 'scale' && modelGroupRef.current && props.onModelUniformScaleChange) {
+                const s = modelGroupRef.current.scale;
+                const avg = Math.max(0.01, (s.x + s.y + s.z) / 3);
+                props.onModelUniformScaleChange(Math.round(avg * 1000) / 1000);
+              }
+            }}
           />
         )}
 

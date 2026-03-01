@@ -914,21 +914,16 @@ export default function Page() {
 
                     {/* ── Render Region ── */}
                     <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <div style={{ marginBottom: '6px' }}>
                       <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Render Region</span>
-                      <button onClick={() => setShowCameraBoundary(!showCameraBoundary)} style={{
-                        padding: '2px 10px', borderRadius: '4px', fontSize: '8px', fontWeight: 700,
-                        background: showCameraBoundary ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.03)',
-                        color: showCameraBoundary ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                        border: showCameraBoundary ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.05)',
-                      }}>{showCameraBoundary ? 'ON' : 'OFF'}</button>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', marginTop: '3px', lineHeight: 1.5 }}>Output resolution in pixels. The box in the viewport shows your exact crop area.</div>
                     </div>
                     {/* Resolution presets */}
-                    <div style={{ display: 'flex', gap: '2px', marginBottom: '5px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '6px', flexWrap: 'wrap' }}>
                       {[{ label: '1080p', w: 1920, h: 1080 }, { label: '4K', w: 3840, h: 2160 }, { label: '1:1', w: 2048, h: 2048 }, { label: 'Portrait', w: 1080, h: 1350 }].map(p => {
                         const active = renderWidth === p.w && renderHeight === p.h;
                         return (
-                          <button key={p.label} onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); setShowCameraBoundary(true); }} style={{
+                          <button key={p.label} onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); }} style={{
                             flex: 1, minWidth: '40px', padding: '4px 3px', borderRadius: '3px', fontSize: '8px', fontWeight: 700,
                             background: active ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
                             color: active ? '#6C63FF' : 'rgba(255,255,255,0.3)',
@@ -937,17 +932,23 @@ export default function Page() {
                         );
                       })}
                     </div>
-                    {/* Custom W × H */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" value={renderWidth} min={100} max={8192} step={1}
-                        onChange={e => { setRenderWidth(Math.max(100, Math.min(8192, Number(e.target.value)))); setShowCameraBoundary(true); }}
-                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                      <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
-                      <input type="number" value={renderHeight} min={100} max={8192} step={1}
-                        onChange={e => { setRenderHeight(Math.max(100, Math.min(8192, Number(e.target.value)))); setShowCameraBoundary(true); }}
-                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                      <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>px</span>
+                    {/* Custom W x H */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Width (px)</div>
+                        <input type="number" value={renderWidth} min={100} max={8192} step={1}
+                          onChange={e => setRenderWidth(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, marginTop: '14px' }}>x</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Height (px)</div>
+                        <input type="number" value={renderHeight} min={100} max={8192} step={1}
+                          onChange={e => setRenderHeight(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
+                      </div>
                     </div>
+                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>1920x1080 = Full HD &nbsp;|&nbsp; 3840x2160 = 4K &nbsp;|&nbsp; 2048x2048 = Square</div>
                   </>
                 )}
               </div>
@@ -1264,6 +1265,7 @@ export default function Page() {
           }}
           onModelDeselect={() => { setSelectedObjectIds([]); setSelectedLightId(null); }}
           rendering={rendering}
+          onModelUniformScaleChange={setModelUniformScale}
           onCameraSelect={(shift: boolean) => {
             if (shift) {
               setSelectedObjectIds(prev => prev.includes('camera') ? prev : [...prev, 'camera']);
@@ -1463,8 +1465,8 @@ export default function Page() {
           </div>
         )}
 
-        {/* Camera boundary overlay — INSIDE viewport div so it never bleeds over sidebar */}
-        {(showCameraBoundary || rendering || cameraViewMode) && (
+        {/* Camera boundary overlay — shows whenever camera is enabled or rendering */}
+        {(showSceneCamera || rendering || cameraViewMode) && (
         <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
@@ -1507,7 +1509,7 @@ export default function Page() {
                   maxWidth: '92%', maxHeight: '84%', width: '92%',
                   border: `1.5px ${rendering || cameraViewMode ? 'solid' : 'dashed'} ${bColor}`,
                   // box-shadow dims everything outside the aperture
-                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(showCameraBoundary || rendering || cameraViewMode) ? '0.35' : '0'})`,
+                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(showSceneCamera || rendering || cameraViewMode) ? '0.35' : '0'})`,
                   pointerEvents: 'none',
                   zIndex: 13,
                 }}
@@ -1525,7 +1527,7 @@ export default function Page() {
                   }} />
                 ))}
                 {/* Rule of thirds */}
-                {showCameraBoundary && !rendering && (
+                {showSceneCamera && !rendering && (
                   <>
                     <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
                     <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
@@ -1534,13 +1536,13 @@ export default function Page() {
                   </>
                 )}
                 {/* Dimension badge */}
-                {showCameraBoundary && !rendering && (
+                {showSceneCamera && !rendering && (
                   <div style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: '8px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.35)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '3px' }}>
-                    {renderWidth} × {renderHeight}
+                    {renderWidth} x {renderHeight}
                   </div>
                 )}
                 {/* Draggable resize handles (only in boundary mode, not while rendering) */}
-                {showCameraBoundary && !rendering && handles.map(h => (
+                {showSceneCamera && !rendering && handles.map(h => (
                   <div
                     key={h.id}
                     onPointerDown={(e) => {
