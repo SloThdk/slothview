@@ -150,6 +150,8 @@ export interface SceneProps {
   onTransformChange?: (t: TransformSnapshot) => void;
   applyTransformRef?: React.MutableRefObject<ApplyTransformFn | null>;
   focusOnModelRef?: React.MutableRefObject<(() => void) | null>;
+  setAzimuthRef?: React.MutableRefObject<((angle: number) => void) | null>;
+  getAzimuthRef?: React.MutableRefObject<(() => number) | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -579,6 +581,66 @@ function AltRMBZoomController({ orbitRef }: { orbitRef: React.RefObject<any> }) 
   return null;
 }
 
+/* ── Alt+MMB pan: drag to pan the scene (Blender industry standard) ── */
+function AltMMBPanController({ orbitRef }: { orbitRef: React.RefObject<any> }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let active = false;
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button === 1 && e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (orbitRef.current) orbitRef.current.enabled = false;
+        active = true;
+      }
+    };
+
+    const onMove = (e: PointerEvent) => {
+      if (!active || !orbitRef.current) return;
+      const orbit = orbitRef.current;
+      const camera = orbit.object;
+      const target = orbit.target;
+      const distance = camera.position.distanceTo(target);
+      const panSpeed = 0.002 * distance;
+      const rx = camera.matrix.elements[0];
+      const ry = camera.matrix.elements[1];
+      const rz = camera.matrix.elements[2];
+      const ux = camera.matrix.elements[4];
+      const uy = camera.matrix.elements[5];
+      const uz = camera.matrix.elements[6];
+      const dx = (-e.movementX * rx + e.movementY * ux) * panSpeed;
+      const dy = (-e.movementX * ry + e.movementY * uy) * panSpeed;
+      const dz = (-e.movementX * rz + e.movementY * uz) * panSpeed;
+      camera.position.x += dx;
+      camera.position.y += dy;
+      camera.position.z += dz;
+      target.x += dx;
+      target.y += dy;
+      target.z += dz;
+      orbit.update();
+    };
+
+    const onUp = () => {
+      if (active) {
+        active = false;
+        if (orbitRef.current) orbitRef.current.enabled = true;
+      }
+    };
+
+    canvas.addEventListener('pointerdown', onDown, { capture: true });
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      canvas.removeEventListener('pointerdown', onDown, { capture: true });
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [gl, orbitRef]);
+  return null;
+}
+
 /* ── World → screen projector exposed via ref for marquee selection ── */
 function ProjectorSetup({ projectorRef }: {
   projectorRef: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -658,6 +720,20 @@ export default function Scene(props: SceneProps) {
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const pointerDidDrag = useRef(false);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
+
+  // Expose azimuthal angle setter for turntable render
+  useEffect(() => {
+    if (props.setAzimuthRef) {
+      props.setAzimuthRef.current = (angle: number) => {
+        if (!orbitRef.current) return;
+        (orbitRef.current as any).setAzimuthalAngle(angle);
+        (orbitRef.current as any).update();
+      };
+    }
+    if (props.getAzimuthRef) {
+      props.getAzimuthRef.current = () => (orbitRef.current as any)?.getAzimuthalAngle?.() ?? 0;
+    }
+  }, [props.setAzimuthRef, props.getAzimuthRef]);
 
   // Save orbit camera state when entering camera view; restore on exit
   useEffect(() => {
@@ -926,6 +1002,7 @@ export default function Scene(props: SceneProps) {
         />
         {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} isModelSelectedRef={isModelSelectedRef} />}
         <AltRMBZoomController orbitRef={orbitRef} />
+        <AltMMBPanController orbitRef={orbitRef} />
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {props.onTransformChange && modelSelected && (
           <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />

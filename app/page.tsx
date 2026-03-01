@@ -191,6 +191,18 @@ export default function Page() {
   const [renderFormat, setRenderFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [renderQuality, setRenderQuality] = useState(0.92);
 
+  // Turntable render
+  const [ttFrames, setTtFrames] = useState(120);
+  const [ttFps, setTtFps] = useState(24);
+  const [ttFormat, setTtFormat] = useState<'webm' | 'png-zip' | 'jpg-zip' | 'webp-zip'>('webm');
+  const [ttActive, setTtActive] = useState(false);
+  const [ttProgress, setTtProgress] = useState(0);
+  const cancelTtRef = useRef(false);
+  const [ttDirection, setTtDirection] = useState<'cw' | 'ccw'>('cw');
+  const [ttEasing, setTtEasing] = useState<'linear' | 'smooth'>('linear');
+  const setAzimuthRef = useRef<((angle: number) => void) | null>(null);
+  const getAzimuthRef = useRef<(() => number) | null>(null);
+
   // F key focus-on-selection — ref set by FocusController inside Canvas
   const focusOnModelRef = useRef<(() => void) | null>(null);
 
@@ -519,6 +531,117 @@ export default function Page() {
   const cancelRender = useCallback(() => {
     cancelRenderRef.current = true;
   }, []);
+
+  const cancelTurntable = useCallback(() => {
+    cancelTtRef.current = true;
+  }, []);
+
+  const renderTurntable = useCallback(async () => {
+    const gl = glRef.current;
+    if (!gl || !setAzimuthRef.current) return;
+
+    cancelTtRef.current = false;
+    setTtActive(true);
+    setTtProgress(0);
+
+    const oW = (gl.domElement as HTMLCanvasElement).width;
+    const oH = (gl.domElement as HTMLCanvasElement).height;
+    const rW = renderWidth;
+    const rH = renderHeight;
+
+    gl.setSize(rW, rH, false);
+    gl.setPixelRatio(1);
+
+    const totalFrames = ttFrames;
+    const startAngle = getAzimuthRef.current ? getAzimuthRef.current() : 0;
+    const dirSign = ttDirection === 'cw' ? 1 : -1;
+
+    const frameAngle = (i: number) => {
+      const t = i / totalFrames;
+      const eased = ttEasing === 'smooth' ? (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t) : t;
+      return startAngle + eased * Math.PI * 2 * dirSign;
+    };
+
+    try {
+      if (ttFormat === 'webm') {
+        const stream = (gl.domElement as HTMLCanvasElement).captureStream(ttFps);
+        const chunks: BlobPart[] = [];
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9'
+          : 'video/webm';
+        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+        await new Promise<void>((resolve, reject) => {
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `slothview-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+            a.click();
+            resolve();
+          };
+          recorder.onerror = () => reject(new Error('MediaRecorder error'));
+          recorder.start();
+        });
+
+        const frameMs = 1000 / ttFps;
+        for (let i = 0; i < totalFrames; i++) {
+          if (cancelTtRef.current) { recorder.stop(); break; }
+          setAzimuthRef.current!(frameAngle(i));
+          setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
+          await new Promise(r => setTimeout(r, frameMs));
+        }
+        if (!cancelTtRef.current) recorder.stop();
+
+      } else {
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        const folder = zip.folder('frames')!;
+
+        const ext = ttFormat === 'jpg-zip' ? 'jpg' : ttFormat === 'webp-zip' ? 'webp' : 'png';
+        const mime = ttFormat === 'jpg-zip' ? 'image/jpeg' : ttFormat === 'webp-zip' ? 'image/webp' : 'image/png';
+
+        let captured = 0;
+        for (let i = 0; i < totalFrames; i++) {
+          if (cancelTtRef.current) break;
+          setAzimuthRef.current!(frameAngle(i));
+          setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const blob = await new Promise<Blob>((res) =>
+            (gl.domElement as HTMLCanvasElement).toBlob((b) => res(b!), mime, 0.92)
+          );
+          folder.file(`frame_${String(i + 1).padStart(4, '0')}.${ext}`, blob);
+          captured++;
+        }
+
+        if (captured > 0) {
+          const partial = cancelTtRef.current;
+          showToast(partial ? `Packing partial ZIP (${captured}/${totalFrames})...` : 'Packing ZIP...');
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(zipBlob);
+          a.download = partial
+            ? `slothview-turntable-frames-partial-${captured}of${totalFrames}.zip`
+            : `slothview-turntable-frames-${rW}x${rH}-${totalFrames}f.zip`;
+          a.click();
+        }
+      }
+    } finally {
+      gl.setSize(oW, oH, false);
+      gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // Return to start angle, not 0
+      if (setAzimuthRef.current) setAzimuthRef.current(startAngle);
+      setTtActive(false);
+      setTtProgress(0);
+      if (cancelTtRef.current) {
+        // Toast already shown for partial zip; video partial downloads via recorder.onstop
+      } else {
+        showToast('Turntable export complete');
+      }
+      cancelTtRef.current = false;
+    }
+  }, [renderWidth, renderHeight, ttFrames, ttFps, ttFormat, ttDirection, ttEasing]);
 
   const render = useCallback(() => {
     const gl = glRef.current, c = canvasRef.current;
@@ -1085,6 +1208,7 @@ export default function Page() {
                       { label: '4K', w: 3840, h: 2160 },
                       { label: '1:1', w: 2048, h: 2048 },
                       { label: 'Portrait', w: 1080, h: 1350 },
+                      { label: '8K', w: 7680, h: 4320 },
                     ].map(p => {
                       const active = renderWidth === p.w && renderHeight === p.h;
                       return (
@@ -1108,6 +1232,7 @@ export default function Page() {
                       style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
                     <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span>
                   </div>
+                  {(renderWidth > 3840 || renderHeight > 2160) && ttFormat !== 'webm' && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>8K+ image sequences are memory-intensive. Use WebM for large turntables.</div>}
                   <Slider label="Samples" value={renderSamples} min={1} max={16384} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" tooltip={renderSamples > 512 ? 'WARNING: Very high sample count — this may slow or freeze your machine. Use 4–64 for previews, 128–512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production. Very high counts will lag your machine.'} />
                   {renderSamples > 512 && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>High SPP can slow or freeze your browser</div>}
                   <div style={{ display: 'flex', gap: '2px', marginBottom: '6px' }}>
@@ -1131,6 +1256,133 @@ export default function Page() {
                   color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 }}><IconCamera /> Quick Screenshot</button>
+
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
+
+                <span style={stl.label}>Turntable Render</span>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
+
+                  {/* Output format */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', marginBottom: '8px' }}>
+                    {([
+                      { id: 'webm', label: 'WebM', desc: 'Video file' },
+                      { id: 'png-zip', label: 'PNG Seq', desc: 'ZIP archive' },
+                      { id: 'jpg-zip', label: 'JPG Seq', desc: 'ZIP archive' },
+                      { id: 'webp-zip', label: 'WebP Seq', desc: 'ZIP archive' },
+                    ] as const).map(f => (
+                      <button key={f.id} onClick={() => setTtFormat(f.id)} style={{
+                        padding: '5px 4px', borderRadius: '4px', textAlign: 'left' as const,
+                        background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
+                        border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                      }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: ttFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Frames + FPS row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Frames</div>
+                      <div style={{ display: 'flex', gap: '2px', marginBottom: '3px' }}>
+                        {[60, 120, 240, 360].map(v => (
+                          <button key={v} onClick={() => setTtFrames(v)} style={{
+                            flex: 1, padding: '3px 1px', borderRadius: '3px', fontSize: '8px', fontWeight: 600,
+                            background: ttFrames === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
+                            color: ttFrames === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                            border: ttFrames === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                          }}>{v}</button>
+                        ))}
+                      </div>
+                      <input type="number" value={ttFrames} min={12} max={720} step={1}
+                        onChange={e => setTtFrames(Math.max(12, Math.min(720, Number(e.target.value))))}
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>FPS {ttFormat !== 'webm' && <span style={{ color: 'rgba(255,255,255,0.15)' }}>(video)</span>}</div>
+                      <div style={{ display: 'flex', gap: '2px', marginBottom: '3px' }}>
+                        {[24, 30, 60].map(v => (
+                          <button key={v} onClick={() => setTtFps(v)} style={{
+                            flex: 1, padding: '3px 1px', borderRadius: '3px', fontSize: '8px', fontWeight: 600,
+                            background: ttFps === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
+                            color: ttFps === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                            border: ttFps === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                          }}>{v}</button>
+                        ))}
+                      </div>
+                      <input type="number" value={ttFps} min={1} max={60} step={1}
+                        onChange={e => setTtFps(Math.max(1, Math.min(60, Number(e.target.value))))}
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
+                    </div>
+                  </div>
+
+                  {/* Duration info */}
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', marginBottom: '8px', textAlign: 'center' as const }}>
+                    {ttFormat === 'webm'
+                      ? `${(ttFrames / ttFps).toFixed(1)}s video at ${ttFps}fps`
+                      : `${ttFrames} frames as ${ttFormat === 'png-zip' ? 'PNG' : ttFormat === 'jpg-zip' ? 'JPG' : 'WebP'} ZIP`
+                    }
+                  </div>
+
+                  {/* Progress bar (shown during render) */}
+                  {ttActive && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>Rendering...</span>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF' }}>{ttProgress}%</span>
+                      </div>
+                      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #6C63FF, #8B7FFF)', borderRadius: '2px', width: `${ttProgress}%`, transition: 'width 0.3s' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Direction + Easing */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Direction</div>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {([['cw', 'CW'], ['ccw', 'CCW']] as const).map(([v, label]) => (
+                          <button key={v} onClick={() => setTtDirection(v)} style={{
+                            flex: 1, padding: '4px 2px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
+                            background: ttDirection === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
+                            color: ttDirection === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                            border: ttDirection === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                          }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Easing</div>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {([['linear', 'Linear'], ['smooth', 'Smooth']] as const).map(([v, label]) => (
+                          <button key={v} onClick={() => setTtEasing(v)} style={{
+                            flex: 1, padding: '4px 2px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
+                            background: ttEasing === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
+                            color: ttEasing === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                            border: ttEasing === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                          }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering} style={{
+                      flex: 1, padding: '9px', borderRadius: '6px',
+                      background: ttActive ? 'rgba(239,68,68,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                      color: ttActive ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
+                      border: ttActive ? '1px solid rgba(239,68,68,0.2)' : 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      opacity: rendering ? 0.4 : 1,
+                    }}>
+                      <IconRotate />
+                      {ttActive ? `Cancel (${ttProgress}%)` : 'Render Turntable'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1343,6 +1595,8 @@ export default function Page() {
           onTransformChange={(t) => startTransition(() => setDisplayTransform(t))}
           applyTransformRef={applyTransformRef}
           focusOnModelRef={focusOnModelRef}
+          setAzimuthRef={setAzimuthRef}
+          getAzimuthRef={getAzimuthRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
