@@ -30,6 +30,17 @@ function CustomHDRI({ url, background }: { url: string; background: boolean }) {
   return null;
 }
 
+/* Strip environment from scene.environment every frame — keeps bg but kills IBL */
+function EnvLightingOverride({ enable }: { enable: boolean }) {
+  const { scene } = useThree();
+  useFrame(() => {
+    if (!enable && scene.environment !== null) {
+      scene.environment = null;
+    }
+  });
+  return null;
+}
+
 /* Set solid background, clear environment lighting (no PBR env effects) */
 function ClearBackground({ keepBg }: { keepBg?: boolean }) {
   const { scene, gl } = useThree();
@@ -121,6 +132,9 @@ export interface SceneProps {
   onCameraMove: (p: [number, number, number]) => void;
   rotationMode?: boolean;
   rotationStepRef?: React.RefObject<((deg: number) => void) | null>;
+  hdriLighting: boolean;
+  cameraGizmoMode: 'translate' | 'rotate';
+  modelUniformScale: number;
 }
 
 /* ── Hotspot marker ── */
@@ -158,10 +172,11 @@ function HotspotMarker({ hotspot, index, active, onClick }: { hotspot: Hotspot; 
 }
 
 /* ── Scene Camera Gizmo ── */
-function SceneCameraGizmo({ position, onMove, orbitRef }: {
+function SceneCameraGizmo({ position, onMove, orbitRef, mode }: {
   position: [number, number, number];
   onMove: (p: [number, number, number]) => void;
   orbitRef: React.RefObject<any>;
+  mode: 'translate' | 'rotate';
 }) {
   const groupRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
@@ -196,18 +211,19 @@ function SceneCameraGizmo({ position, onMove, orbitRef }: {
       {ready && groupRef.current && (
         <TransformControls
           object={groupRef.current}
-          mode="translate"
+          mode={mode}
           size={0.7}
           onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
           onMouseUp={() => {
             if (orbitRef.current) orbitRef.current.enabled = true;
-            if (groupRef.current) {
+            // Only sync position back when in translate mode
+            if (mode === 'translate' && groupRef.current) {
               const p = groupRef.current.position;
               onMove([Math.round(p.x*10)/10, Math.round(p.y*10)/10, Math.round(p.z*10)/10]);
             }
           }}
           onChange={() => {
-            if (groupRef.current) {
+            if (mode === 'translate' && groupRef.current) {
               const p = groupRef.current.position;
               onMove([Math.round(p.x*10)/10, Math.round(p.y*10)/10, Math.round(p.z*10)/10]);
             }
@@ -358,6 +374,7 @@ export default function Scene(props: SceneProps) {
     selectedLightId, onSelectLight, onMoveLight,
     showSceneCamera, cameraPos, cameraViewMode, lockCameraToView, onCameraMove,
     rotationMode, rotationStepRef,
+    hdriLighting, cameraGizmoMode, modelUniformScale,
   } = props;
 
   const orbitRef = useRef<any>(null);
@@ -458,23 +475,27 @@ export default function Scene(props: SceneProps) {
           </React.Fragment>
         ))}
 
-        {/* Model */}
-        {userFile ? (
-          <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} />
-        ) : (
-          <>
-            <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} />
-            {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
-              <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
-            ))}
-          </>
-        )}
+        {/* Model — wrapped in scale group (R key controls modelUniformScale) */}
+        <group scale={[modelUniformScale, modelUniformScale, modelUniformScale]}>
+          {userFile ? (
+            <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} />
+          ) : (
+            <>
+              <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} />
+              {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
+                <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
+              ))}
+            </>
+          )}
+        </group>
 
         {/* Environment — PBR gets full lighting + optional bg; other modes get bg only if enabled */}
         {shadingMode === 'pbr' ? (
           <>
             {!customHdri && <Environment preset={environment as any} background={showEnvBackground} />}
             {customHdri && <CustomHDRI url={customHdri} background={showEnvBackground} />}
+            {/* Kill IBL when hdriLighting is off — keeps background, strips env lighting contribution */}
+            <EnvLightingOverride enable={hdriLighting} />
             <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2.5} far={4} />
           </>
         ) : showEnvBackground ? (
@@ -502,7 +523,7 @@ export default function Scene(props: SceneProps) {
 
         {/* Scene Camera Gizmo — only visible when not in camera view */}
         {showSceneCamera && !cameraViewMode && (
-          <SceneCameraGizmo position={cameraPos} onMove={onCameraMove} orbitRef={orbitRef} />
+          <SceneCameraGizmo position={cameraPos} onMove={onCameraMove} orbitRef={orbitRef} mode={cameraGizmoMode} />
         )}
 
         {/* Controls */}

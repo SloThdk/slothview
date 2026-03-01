@@ -159,6 +159,14 @@ export default function Page() {
   // Environment
   const [showEnvBg, setShowEnvBg] = useState(true);
   const [customHdri, setCustomHdri] = useState<string | null>(null);
+  const [hdriLighting, setHdriLighting] = useState(true); // HDRI contributes IBL lighting
+
+  // Camera gizmo mode (G=translate, E=rotate — only when camera is in scene)
+  const [cameraGizmoMode, setCameraGizmoMode] = useState<'translate' | 'rotate'>('translate');
+
+  // Model transform
+  const [modelScaleMode, setModelScaleMode] = useState(false);
+  const [modelUniformScale, setModelUniformScale] = useState(1.0);
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
@@ -180,8 +188,8 @@ export default function Page() {
   const [cameraViewMode, setCameraViewMode] = useState(false);
   const [lockCameraToView, setLockCameraToView] = useState(true);
 
-  // Rotation Mode (E key — scroll = orbit ±15° steps)
-  const [rotationMode, setRotationMode] = useState(false);
+  // (rotationMode removed — E now controls camera gizmo rotate in scene)
+  const rotationMode = false;
   const rotationStepRef = useRef<((deg: number) => void) | null>(null);
 
   // Override color (null = original materials)
@@ -215,9 +223,16 @@ export default function Page() {
         e.preventDefault();
         if (window.innerWidth > 768) setSidebarOpen(prev => !prev);
       }
-      // E = toggle Rotation Mode (scroll-step orbit like Blender numpad)
-      if (e.key === 'e' || e.key === 'E') {
-        setRotationMode(prev => !prev);
+      // Camera gizmo shortcuts (E=rotate gizmo, G=move gizmo — Blender-style)
+      if (e.key === 'e' || e.key === 'E') { setCameraGizmoMode('rotate'); }
+      if (e.key === 'g' || e.key === 'G') { setCameraGizmoMode('translate'); }
+      // R = toggle model scale mode
+      if (e.key === 'r' || e.key === 'R') {
+        setModelScaleMode(prev => !prev);
+      }
+      // Escape = exit all transform modes
+      if (e.key === 'Escape') {
+        setModelScaleMode(false);
       }
     };
     window.addEventListener('keydown', handler);
@@ -518,7 +533,7 @@ export default function Page() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
                   <button onClick={() => setShowEnvBg(!showEnvBg)} title="Show or hide the HDRI environment as the background" style={{
                     flex: 1, padding: '6px 8px', borderRadius: '5px', fontSize: '9px', fontWeight: 600,
                     background: showEnvBg ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.015)',
@@ -534,6 +549,27 @@ export default function Page() {
                     transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
                   }}><IconUpload /> {customHdri ? 'Custom' : 'Load HDR'}</button>
                 </div>
+                {/* HDRI Lighting toggle */}
+                <button onClick={() => setHdriLighting(!hdriLighting)} title="When ON, the HDRI contributes image-based lighting (reflections, ambient). When OFF, only used as background — lighting is manual only." style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '7px 10px', borderRadius: '5px', marginBottom: '12px',
+                  background: hdriLighting ? 'rgba(108,99,255,0.06)' : 'rgba(255,255,255,0.015)',
+                  border: hdriLighting ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
+                  transition: 'all 0.15s',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '9px' }}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.5 2.5l.7.7M8.8 8.8l.7.7M8.8 2.5l-.7.7M2.5 8.8l.7.7" stroke={hdriLighting ? '#6C63FF' : 'rgba(255,255,255,0.2)'} strokeWidth="1" strokeLinecap="round"/><circle cx="6" cy="6" r="2" stroke={hdriLighting ? '#6C63FF' : 'rgba(255,255,255,0.2)'} strokeWidth="1"/></svg>
+                    </span>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: hdriLighting ? '#fff' : 'rgba(255,255,255,0.4)' }}>HDRI Lighting</div>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{hdriLighting ? 'IBL active — reflections + ambient' : 'Background only — manual lights'}</div>
+                    </div>
+                  </div>
+                  <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: hdriLighting ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: hdriLighting ? '16px' : '2px', transition: 'left 0.2s' }} />
+                  </div>
+                </button>
                 {customHdri && (
                   <button onClick={() => { setCustomHdri(null); showToast('HDRI removed'); }} style={{
                     width: '100%', padding: '4px 8px', borderRadius: '4px', fontSize: '8px', fontWeight: 600, marginBottom: '10px',
@@ -688,8 +724,8 @@ export default function Page() {
                     </div>
 
                     {!cameraViewMode && (
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 0' }}>
-                        Drag the camera gizmo in the viewport to move it
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 6px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', lineHeight: 1.5 }}>
+                        Drag gizmo to move &nbsp;·&nbsp; <span style={{ color: 'rgba(108,99,255,0.7)' }}>G</span> = Move &nbsp;·&nbsp; <span style={{ color: 'rgba(108,99,255,0.7)' }}>E</span> = Rotate
                       </div>
                     )}
                     {cameraViewMode && (
@@ -848,7 +884,8 @@ export default function Page() {
               setEnablePP(true); setAutoRotate(false); setShowGrid(true);
               setShowHotspots(true); setOverrideColor(null); setEnv('studio');
               setShowEnvBg(true); setShadingMode('pbr'); setSceneLights([]);
-              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true); setRotationMode(false);
+              setShowSceneCamera(false); setCameraViewMode(false); setCameraPos([3,2,5]); setLockCameraToView(true);
+              setCameraGizmoMode('translate'); setModelScaleMode(false); setModelUniformScale(1.0); setHdriLighting(true);
               showToast('Reset to defaults');
             }} style={{
               width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -864,7 +901,11 @@ export default function Page() {
       {/* ── Viewport ── */}
       <div style={{ flex: 1, position: 'relative', paddingTop: '32px' }}
         onWheel={(e) => {
-          if (rotationMode) {
+          if (modelScaleMode) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.05 : 0.05;
+            setModelUniformScale(s => Math.max(0.05, Math.min(10, +(s + delta).toFixed(2))));
+          } else if (rotationMode) {
             e.preventDefault();
             const deg = e.deltaY > 0 ? 15 : -15;
             rotationStepRef.current?.(deg);
@@ -901,16 +942,35 @@ export default function Page() {
           {ibtn(<IconShare />, 'Share config', false, share)}
         </div>
 
-        {/* Rotation mode badge */}
-        {rotationMode && (
+        {/* Camera gizmo mode badge */}
+        {showSceneCamera && !cameraViewMode && (
           <div style={{
             position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
-            background: 'rgba(255,176,32,0.88)', border: '1px solid rgba(255,176,32,0.5)',
+            background: cameraGizmoMode === 'rotate' ? 'rgba(108,99,255,0.88)' : 'rgba(30,30,50,0.88)',
+            border: `1px solid ${cameraGizmoMode === 'rotate' ? 'rgba(108,99,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
             borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', gap: '6px',
+            display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: '#1a1000' }}>ROTATION MODE</span>
-            <span style={{ fontSize: '8px', color: 'rgba(26,16,0,0.6)', fontFamily: 'monospace' }}>Drag · Scroll ±15° · E to exit</span>
+            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: '#fff' }}>
+              CAMERA · {cameraGizmoMode === 'rotate' ? 'ROTATE [E]' : 'MOVE [G]'}
+            </span>
+            <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>
+              {cameraGizmoMode === 'rotate' ? 'E=Rotate · G=Move' : 'G=Move · E=Rotate'}
+            </span>
+          </div>
+        )}
+
+        {/* Model scale mode badge */}
+        {modelScaleMode && (
+          <div style={{
+            position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)', zIndex: 25,
+            background: 'rgba(0,212,168,0.88)', border: '1px solid rgba(0,212,168,0.5)',
+            borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: '#001a14' }}>SCALE MODE [R]</span>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: '#001a14', fontFamily: 'monospace' }}>{modelUniformScale.toFixed(2)}x</span>
+            <span style={{ fontSize: '8px', color: 'rgba(0,26,20,0.7)', fontFamily: 'monospace' }}>Scroll to scale · R to exit</span>
           </div>
         )}
 
@@ -942,6 +1002,9 @@ export default function Page() {
           onCameraMove={setCameraPos}
           rotationMode={rotationMode}
           rotationStepRef={rotationStepRef}
+          hdriLighting={hdriLighting}
+          cameraGizmoMode={cameraGizmoMode}
+          modelUniformScale={modelUniformScale}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
@@ -995,7 +1058,8 @@ export default function Page() {
             pointerEvents: 'none',
           }}>
             {[
-              ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'], ['E', rotationMode ? 'Exit Rotate' : 'Rotate Mode'],
+              ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
+              ['G', 'Move Cam'], ['E', 'Rotate Cam'], ['R', 'Scale Model'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>
