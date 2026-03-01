@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, startTransition } from 'react';
 import dynamic from 'next/dynamic';
 import type { ShadingMode, SceneStats, SceneLight, OutlinerNode, TransformSnapshot, ApplyTransformFn } from './components/Scene';
 import {
@@ -1267,7 +1267,7 @@ export default function Page() {
           modelName={userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
           onLMBDownNoAlt={(sx, sy, shift) => { marqueeStartRef.current = { x: sx, y: sy, shift }; }}
           projectorRef={sceneProjectorRef}
-          onTransformChange={setDisplayTransform}
+          onTransformChange={(t) => startTransition(() => setDisplayTransform(t))}
           applyTransformRef={applyTransformRef}
         />
 

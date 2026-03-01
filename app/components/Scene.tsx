@@ -380,13 +380,18 @@ function TransformReporter({ modelGroupRef, modelUniformScale, onTransformChange
   onTransformChange: (t: TransformSnapshot) => void;
 }) {
   const lastKey = useRef('');
+  const lastUpdate = useRef(0);
   const RAD2DEG = 180 / Math.PI;
-  useFrame(() => {
+  // Throttle to ~12fps max — prevents React re-renders from blocking 3D canvas at 60fps
+  useFrame((state) => {
     const obj = modelGroupRef.current;
     if (!obj) return;
-    const k = `${obj.position.x.toFixed(3)},${obj.position.y.toFixed(3)},${obj.position.z.toFixed(3)},${obj.rotation.x.toFixed(3)},${obj.rotation.y.toFixed(3)},${obj.rotation.z.toFixed(3)},${modelUniformScale.toFixed(3)}`;
+    const now = state.clock.elapsedTime;
+    if (now - lastUpdate.current < 0.083) return; // ~12fps cap
+    const k = `${obj.position.x.toFixed(2)},${obj.position.y.toFixed(2)},${obj.position.z.toFixed(2)},${obj.rotation.x.toFixed(2)},${obj.rotation.y.toFixed(2)},${obj.rotation.z.toFixed(2)},${modelUniformScale.toFixed(2)}`;
     if (k !== lastKey.current) {
       lastKey.current = k;
+      lastUpdate.current = now;
       onTransformChange({
         px: obj.position.x, py: obj.position.y, pz: obj.position.z,
         rx: obj.rotation.x * RAD2DEG, ry: obj.rotation.y * RAD2DEG, rz: obj.rotation.z * RAD2DEG,
@@ -661,8 +666,10 @@ export default function Scene(props: SceneProps) {
           <TransformControls
             object={modelGroupRef.current}
             mode={modelTransformMode}
-            size={0.8}
-            onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+            size={1.2}
+            translationSnap={null}
+            rotationSnap={null}
+            onMouseDown={() => { if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
             onMouseUp={() => { if (orbitRef.current) orbitRef.current.enabled = true; }}
           />
         )}
@@ -717,7 +724,7 @@ export default function Scene(props: SceneProps) {
           enablePan={true}
           enableZoom={true}
           enableDamping={true}
-          dampingFactor={0.06}
+          dampingFactor={0.12}
           rotateSpeed={0.7}
           panSpeed={0.5}
           zoomSpeed={0.8}
