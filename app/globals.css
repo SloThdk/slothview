@@ -74,6 +74,9 @@ input, select { font: inherit; }
   }
   .sidebar-panel > div { min-width: 0 !important; overflow: hidden !important; }
   .sidebar-panel * { max-width: 100% !important; box-sizing: border-box !important; }
+  /* Single scroll container on mobile — sidebar-panel owns all scrolling.
+     sidebar-content must NOT independently scroll or you get snap-back jank. */
+  .sidebar-content { overflow-y: visible !important; overflow-x: visible !important; }
   /* Touch-friendly tap targets */
   .sidebar-panel button { min-height: 38px; }
   .sidebar-panel input[type="range"] { height: 6px !important; touch-action: pan-x; }

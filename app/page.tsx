@@ -691,7 +691,7 @@ export default function Page() {
           </div>
 
           {/* Panel content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+          <div className="sidebar-content" style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
 
             {/* ── Model tab ── */}
             {tab === 'model' && (
