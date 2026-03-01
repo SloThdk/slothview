@@ -99,6 +99,56 @@ function Tip({ text, children, pos = 'bottom', fullWidth = false }: { text: stri
   );
 }
 
+function NumericInput({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  style,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (v: number) => void;
+  style?: React.CSSProperties;
+}) {
+  const [local, setLocal] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setLocal(String(value));
+  }, [value, focused]);
+
+  const commit = () => {
+    const parsed = parseFloat(local);
+    if (!isNaN(parsed)) {
+      const clamped = Math.max(min, Math.min(max, parsed));
+      onChange(clamped);
+      setLocal(String(clamped));
+    } else {
+      setLocal(String(value));
+    }
+    setFocused(false);
+  };
+
+  return (
+    <input
+      type="number"
+      value={local}
+      min={min}
+      max={max}
+      step={step}
+      onChange={(e) => setLocal(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
+      style={style}
+    />
+  );
+}
+
 function Slider({ label, value, min, max, step, onChange, unit = '', defaultValue, tooltip }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string; defaultValue?: number; tooltip?: string }) {
   const isDefault = defaultValue !== undefined && Math.abs(value - defaultValue) < step * 0.5;
   return (
@@ -1107,17 +1157,15 @@ export default function Page() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', marginBottom: '4px' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Exact Width (px)</div>
-                        <input type="number" value={renderWidth} min={100} max={16384} step={1}
-                          onChange={e => { const n = parseInt(e.target.value, 10); if (!isNaN(n) && n > 0) setRenderWidth(n); }}
-                          onBlur={() => setRenderWidth(w => Math.max(100, Math.min(16384, w)))}
+                        <NumericInput value={renderWidth} min={100} max={16384} step={1}
+                          onChange={v => setRenderWidth(v)}
                           style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
                       </div>
                       <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, marginTop: '14px' }}>x</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Exact Height (px)</div>
-                        <input type="number" value={renderHeight} min={100} max={16384} step={1}
-                          onChange={e => { const n = parseInt(e.target.value, 10); if (!isNaN(n) && n > 0) setRenderHeight(n); }}
-                          onBlur={() => setRenderHeight(h => Math.max(100, Math.min(16384, h)))}
+                        <NumericInput value={renderHeight} min={100} max={16384} step={1}
+                          onChange={v => setRenderHeight(v)}
                           style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
                       </div>
                     </div>
@@ -1223,12 +1271,12 @@ export default function Page() {
                   </div>
                   {/* Custom W × H inputs */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-                    <input type="number" value={renderWidth} min={100} max={8192} step={1}
-                      onChange={e => setRenderWidth(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                    <NumericInput value={renderWidth} min={100} max={8192} step={1}
+                      onChange={v => setRenderWidth(v)}
                       style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
                     <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
-                    <input type="number" value={renderHeight} min={100} max={8192} step={1}
-                      onChange={e => setRenderHeight(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                    <NumericInput value={renderHeight} min={100} max={8192} step={1}
+                      onChange={v => setRenderHeight(v)}
                       style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
                     <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span>
                   </div>
@@ -1265,19 +1313,19 @@ export default function Page() {
                   {/* Output format */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', marginBottom: '8px' }}>
                     {([
-                      { id: 'webm', label: 'WebM', desc: 'Video file' },
-                      { id: 'png-zip', label: 'PNG Seq', desc: 'ZIP archive' },
-                      { id: 'jpg-zip', label: 'JPG Seq', desc: 'ZIP archive' },
-                      { id: 'webp-zip', label: 'WebP Seq', desc: 'ZIP archive' },
+                      { id: 'webm', label: 'WebM', desc: 'Video file', tip: 'Single video file \u2014 best for presentations and social media' },
+                      { id: 'png-zip', label: 'PNG Seq', desc: 'ZIP archive', tip: 'Lossless image sequence as ZIP \u2014 best for compositing and post-production' },
+                      { id: 'jpg-zip', label: 'JPG Seq', desc: 'ZIP archive', tip: 'Compressed image sequence as ZIP \u2014 smaller files, slight quality loss' },
+                      { id: 'webp-zip', label: 'WebP Seq', desc: 'ZIP archive', tip: 'Modern format sequence as ZIP \u2014 small files, near-lossless quality' },
                     ] as const).map(f => (
-                      <button key={f.id} onClick={() => setTtFormat(f.id)} style={{
-                        padding: '5px 4px', borderRadius: '4px', textAlign: 'left' as const,
+                      <Tip key={f.id} text={f.tip} pos="top"><button onClick={() => setTtFormat(f.id)} style={{
+                        padding: '5px 4px', borderRadius: '4px', textAlign: 'left' as const, width: '100%',
                         background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
                         border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
                       }}>
                         <div style={{ fontSize: '10px', fontWeight: 700, color: ttFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</div>
                         <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</div>
-                      </button>
+                      </button></Tip>
                     ))}
                   </div>
 
@@ -1295,8 +1343,8 @@ export default function Page() {
                           }}>{v}</button>
                         ))}
                       </div>
-                      <input type="number" value={ttFrames} min={12} max={720} step={1}
-                        onChange={e => setTtFrames(Math.max(12, Math.min(720, Number(e.target.value))))}
+                      <NumericInput value={ttFrames} min={12} max={720} step={1}
+                        onChange={v => setTtFrames(v)}
                         style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
                     </div>
                     <div>
@@ -1311,8 +1359,8 @@ export default function Page() {
                           }}>{v}</button>
                         ))}
                       </div>
-                      <input type="number" value={ttFps} min={1} max={60} step={1}
-                        onChange={e => setTtFps(Math.max(1, Math.min(60, Number(e.target.value))))}
+                      <NumericInput value={ttFps} min={1} max={60} step={1}
+                        onChange={v => setTtFps(v)}
                         style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
                     </div>
                   </div>
@@ -1343,26 +1391,26 @@ export default function Page() {
                     <div>
                       <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Direction</div>
                       <div style={{ display: 'flex', gap: '2px' }}>
-                        {([['cw', 'CW'], ['ccw', 'CCW']] as const).map(([v, label]) => (
-                          <button key={v} onClick={() => setTtDirection(v)} style={{
+                        {([['cw', 'CW', 'Clockwise rotation \u2014 model appears to rotate right to left'], ['ccw', 'CCW', 'Counter-clockwise rotation \u2014 model appears to rotate left to right']] as const).map(([v, label, tip]) => (
+                          <Tip key={v} text={tip} pos="top"><button onClick={() => setTtDirection(v)} style={{
                             flex: 1, padding: '4px 2px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
                             background: ttDirection === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
                             color: ttDirection === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
                             border: ttDirection === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
-                          }}>{label}</button>
+                          }}>{label}</button></Tip>
                         ))}
                       </div>
                     </div>
                     <div>
                       <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Easing</div>
                       <div style={{ display: 'flex', gap: '2px' }}>
-                        {([['linear', 'Linear'], ['smooth', 'Smooth']] as const).map(([v, label]) => (
-                          <button key={v} onClick={() => setTtEasing(v)} style={{
+                        {([['linear', 'Linear', 'Constant rotation speed throughout'], ['smooth', 'Smooth', 'Ease-in and ease-out \u2014 slower at start and end, faster in the middle']] as const).map(([v, label, tip]) => (
+                          <Tip key={v} text={tip} pos="top"><button onClick={() => setTtEasing(v)} style={{
                             flex: 1, padding: '4px 2px', borderRadius: '3px', fontSize: '9px', fontWeight: 600,
                             background: ttEasing === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
                             color: ttEasing === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
                             border: ttEasing === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
-                          }}>{label}</button>
+                          }}>{label}</button></Tip>
                         ))}
                       </div>
                     </div>
@@ -1821,7 +1869,7 @@ export default function Page() {
                 <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#fff' }}>CAMERA VIEW</span>
               </div>
               {/* F4 exit hint only */}
-              <div style={{ position: 'absolute', bottom: 'calc(8% + 10px)', left: '50%', transform: 'translateX(-50%)', zIndex: 15, pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', bottom: 'calc(8% + 60px)', left: '50%', transform: 'translateX(-50%)', zIndex: 15, pointerEvents: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(8,8,12,0.7)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
                   <span style={{ fontFamily: 'monospace', fontSize: '8px', fontWeight: 700, color: '#ef4444' }}>F4</span>
                   <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Exit Camera View</span>
