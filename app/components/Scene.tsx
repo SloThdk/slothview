@@ -529,6 +529,27 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
   return null;
 }
 
+/* ── Azimuth setup — must live inside Canvas to safely call useThree() ── */
+function AzimuthSetupInner({ orbitRef, setAzimuthRef }: {
+  orbitRef: React.RefObject<any>;
+  setAzimuthRef: React.MutableRefObject<((angle: number) => void) | null>;
+}) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    setAzimuthRef.current = (angle: number) => {
+      if (!orbitRef.current) return;
+      (orbitRef.current as any).setAzimuthalAngle(angle);
+      (orbitRef.current as any).update();
+      // Force immediate render so captureStream / toBlob captures the new frame
+      const cam = (orbitRef.current as any).object;
+      if (gl && scene && cam) {
+        gl.render(scene, cam);
+      }
+    };
+  }, [gl, scene, orbitRef, setAzimuthRef]);
+  return null;
+}
+
 /* ── Alt+RMB zoom: drag up = zoom in, drag down = zoom out (Blender-style) ── */
 function AltRMBZoomController({ orbitRef }: { orbitRef: React.RefObject<any> }) {
   const { gl } = useThree();
@@ -694,7 +715,8 @@ export default function Scene(props: SceneProps) {
   } = props;
   const rendering = props.rendering ?? false;
 
-  const { gl: threeGl, scene: threeScene } = useThree();
+  // NOTE: useThree() cannot be called here — Scene renders the Canvas (it is outside R3F context).
+  // gl/scene access for azimuth rendering is handled via AzimuthSetupInner below.
   const modelSelected = selectedObjectIds.includes('model');
 
   // Dynamic hitbox — sized to match the loaded model's actual world-space bounds
@@ -722,24 +744,12 @@ export default function Scene(props: SceneProps) {
   const pointerDidDrag = useRef(false);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
 
-  // Expose azimuthal angle setter for turntable render
+  // Expose azimuthal angle getter for turntable render (setter is wired inside AzimuthSetupInner)
   useEffect(() => {
-    if (props.setAzimuthRef) {
-      props.setAzimuthRef.current = (angle: number) => {
-        if (!orbitRef.current) return;
-        (orbitRef.current as any).setAzimuthalAngle(angle);
-        (orbitRef.current as any).update();
-        // Force immediate render so captureStream / toBlob captures the new frame
-        const cam = (orbitRef.current as any).object;
-        if (threeGl && threeScene && cam) {
-          threeGl.render(threeScene, cam);
-        }
-      };
-    }
     if (props.getAzimuthRef) {
       props.getAzimuthRef.current = () => (orbitRef.current as any)?.getAzimuthalAngle?.() ?? 0;
     }
-  }, [props.setAzimuthRef, props.getAzimuthRef]);
+  }, [props.getAzimuthRef]);
 
   // Save orbit camera state when entering camera view; restore on exit
   useEffect(() => {
@@ -1009,6 +1019,7 @@ export default function Scene(props: SceneProps) {
         {props.onLMBDownNoAlt && <AltOrbitController orbitRef={orbitRef} onLMBDownNoAlt={props.onLMBDownNoAlt} isModelSelectedRef={isModelSelectedRef} />}
         <AltRMBZoomController orbitRef={orbitRef} />
         <AltMMBPanController orbitRef={orbitRef} />
+        {props.setAzimuthRef && <AzimuthSetupInner orbitRef={orbitRef} setAzimuthRef={props.setAzimuthRef} />}
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {props.onTransformChange && modelSelected && (
           <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />
