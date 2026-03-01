@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, startTransition } from 'react';
 import dynamic from 'next/dynamic';
-import type { ShadingMode, SceneStats, SceneLight, OutlinerNode, TransformSnapshot, ApplyTransformFn } from './components/Scene';
+import type { ShadingMode, SceneStats, SceneLight, TransformSnapshot, ApplyTransformFn } from './components/Scene';
 import {
   IconCamera, IconMaximize, IconShare, IconGrid, IconExplode, IconRotate,
   IconWireframe, IconHotspot, IconUpload, IconSun, IconPalette, IconLayers,
@@ -197,11 +197,6 @@ export default function Page() {
   useEffect(() => { modelScaleActiveRef.current = modelScaleActive; }, [modelScaleActive]);
   useEffect(() => { modelUniformScaleRef.current = modelUniformScale; }, [modelUniformScale]);
 
-  // Outliner
-  const [outlinerNodes, setOutlinerNodes] = useState<OutlinerNode[]>([]);
-  const [outlinerExpanded, setOutlinerExpanded] = useState(true);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['model']));
-
   // Non-passive scroll scale + MMB drag scale on the viewport element
   useEffect(() => {
     const el = viewportRef.current;
@@ -356,6 +351,16 @@ export default function Page() {
       // R = Scale mode (scroll to scale)
       if (e.key === 'r' || e.key === 'R') {
         if (modelSelectedRef.current) setModelTransformMode('scale');
+      }
+      // F4 = enter / exit camera view
+      if (e.key === 'F4') {
+        e.preventDefault();
+        setCameraViewMode(prev => {
+          const entering = !prev;
+          if (!entering) setLockCameraToView(false);
+          if (entering) setShowSceneCamera(true); // auto-enable camera object if not already shown
+          return entering;
+        });
       }
       // Escape = deselect all
       if (e.key === 'Escape') {
@@ -583,87 +588,6 @@ export default function Page() {
               color: 'rgba(255,255,255,0.25)', borderBottom: '2px solid transparent',
               transition: 'all 0.15s', flexShrink: 0,
             }}><IconX /></button>
-          </div>
-
-          {/* ── Outliner — always-visible scene hierarchy ── */}
-          <div style={{ flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.05)', maxHeight: outlinerExpanded ? '220px' : '28px', transition: 'max-height 0.2s ease', overflow: 'hidden' }}>
-            {/* Header */}
-            <button onClick={() => setOutlinerExpanded(!outlinerExpanded)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 10px', background: 'transparent', borderBottom: outlinerExpanded ? '1px solid rgba(255,255,255,0.04)' : 'none', textAlign: 'left' }}>
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transition: 'transform 0.15s', transform: outlinerExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Outliner</span>
-              <span style={{ marginLeft: 'auto', fontSize: '8px', color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace' }}>{selectedObjectIds.length > 0 ? `${selectedObjectIds.length} selected` : ''}</span>
-            </button>
-            {/* Nodes */}
-            {outlinerExpanded && (
-              <div style={{ overflowY: 'auto', maxHeight: '192px', padding: '4px 0' }}>
-                {(() => {
-                  const typeIcon = (type: OutlinerNode['type']) => {
-                    if (type === 'camera') return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="0.5" y="2.5" width="7" height="6" rx="1" stroke="currentColor" strokeWidth="0.8"/><circle cx="4" cy="5.5" r="1.2" stroke="currentColor" strokeWidth="0.8"/><path d="M2.5 2.5V1.5h3v1" stroke="currentColor" strokeWidth="0.8"/><path d="M8 4l1.5-1v4L8 6" stroke="currentColor" strokeWidth="0.8" strokeLinejoin="round"/></svg>;
-                    if (type === 'light') return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="0.8"/><path d="M5 7v2M3 7.5h4M5 0.5v1M1 4H0M10 4H9M2 1.5l.7.7M7.3 1.5l-.7.7" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/></svg>;
-                    if (type === 'mesh') return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 3.5v4L5 9 1 7.5V3.5L5 1Z" stroke="currentColor" strokeWidth="0.8"/></svg>;
-                    return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="0.8"/><path d="M1 4h8M4 1v8" stroke="currentColor" strokeWidth="0.8"/></svg>;
-                  };
-
-                  const renderNode = (node: OutlinerNode, depth: number, parentSelected = false): React.ReactNode => {
-                    // Children inherit parent selection state (not individually selectable)
-                    const isTopLevel = node.type === 'model' || node.type === 'light' || node.type === 'camera';
-                    const isSelected = isTopLevel ? selectedObjectIds.includes(node.id) : parentSelected;
-                    const isExpanded = expandedIds.has(node.id);
-                    const hasChildren = node.children.length > 0;
-                    return (
-                      <div key={node.id}>
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Non-top-level nodes (meshes/groups): select parent model
-                            const selectId = isTopLevel ? node.id : 'model';
-                            if (e.ctrlKey || e.metaKey) {
-                              setSelectedObjectIds(prev => prev.filter(id => id !== selectId));
-                            } else if (e.shiftKey) {
-                              setSelectedObjectIds(prev => [...new Set([...prev, selectId])]);
-                            } else {
-                              const alreadySole = selectedObjectIds.length === 1 && selectedObjectIds[0] === selectId;
-                              setSelectedObjectIds(alreadySole ? [] : [selectId]);
-                              if (!alreadySole && selectId === 'model') setModelTransformMode('translate');
-                            }
-                          }}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px',
-                            paddingLeft: `${8 + depth * 14}px`, cursor: 'pointer',
-                            background: isSelected ? 'rgba(108,99,255,0.18)' : 'transparent',
-                            borderLeft: isSelected ? '2px solid #6C63FF' : '2px solid transparent',
-                            userSelect: 'none',
-                          }}
-                        >
-                          {/* Expand toggle */}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setExpandedIds(prev => { const n = new Set(prev); n.has(node.id) ? n.delete(node.id) : n.add(node.id); return n; }); }}
-                            style={{ width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: hasChildren ? 1 : 0, pointerEvents: hasChildren ? 'auto' : 'none' }}
-                          >
-                            <svg width="6" height="6" viewBox="0 0 6 6" fill="none" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.1s' }}><path d="M1 1l4 2-4 2" stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeLinecap="round"/></svg>
-                          </button>
-                          {/* Icon */}
-                          <span style={{ color: isSelected ? '#6C63FF' : node.type === 'light' ? '#FFB020' : node.type === 'camera' ? '#00D4A8' : 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
-                            {typeIcon(node.type)}
-                          </span>
-                          {/* Name */}
-                          <span style={{ fontSize: '9px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#fff' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
-                            {node.name}
-                          </span>
-                          {/* Type badge */}
-                          <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace', flexShrink: 0, textTransform: 'uppercase' }}>{node.type}</span>
-                        </div>
-                        {isExpanded && hasChildren && node.children.map(child => renderNode(child, depth + 1, isSelected))}
-                      </div>
-                    );
-                  };
-
-                  return outlinerNodes.length > 0
-                    ? outlinerNodes.map(n => renderNode(n, 0))
-                    : <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', padding: '8px 12px' }}>Loading scene...</div>;
-                })()}
-              </div>
-            )}
           </div>
 
           {/* Panel content */}
@@ -1273,8 +1197,7 @@ export default function Page() {
             }
           }}
           onModelDeselect={() => setSelectedObjectIds([])}
-          onSceneHierarchy={setOutlinerNodes}
-          modelName={userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
+          rendering={rendering}
           onLMBDownNoAlt={(sx, sy, shift) => { marqueeStartRef.current = { x: sx, y: sy, shift }; }}
           projectorRef={sceneProjectorRef}
           onTransformChange={(t) => startTransition(() => setDisplayTransform(t))}
@@ -1334,6 +1257,7 @@ export default function Page() {
             {[
               ['LMB', 'Orbit'], ['RMB', 'Pan'], ['Scroll', 'Zoom'],
               ['Click', 'Select obj'], ['G', 'Move obj'], ['E', 'Rotate obj'], ['R', 'Scale obj'],
+              ['F4', 'Camera view'],
             ].map(([key, action]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{key}</span>

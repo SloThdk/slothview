@@ -60,13 +60,6 @@ export type ShadingMode = 'pbr' | 'matcap' | 'normals' | 'wireframe' | 'unlit' |
 
 export type SceneLight = { id: string; color: string; intensity: number; x: number; y: number; z: number };
 
-export interface OutlinerNode {
-  id: string;
-  name: string;
-  type: 'model' | 'mesh' | 'group' | 'light' | 'camera';
-  children: OutlinerNode[];
-}
-
 interface Hotspot {
   position: [number, number, number];
   label: string;
@@ -146,8 +139,7 @@ export interface SceneProps {
   modelTransformMode: 'translate' | 'rotate' | 'scale';
   onModelClick: (shiftKey: boolean, ctrlKey: boolean) => void;
   onModelDeselect: () => void;
-  onSceneHierarchy?: (nodes: OutlinerNode[]) => void;
-  modelName: string;
+  rendering?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
   onTransformChange?: (t: TransformSnapshot) => void;
@@ -475,40 +467,6 @@ function ProjectorSetup({ projectorRef }: {
   return null;
 }
 
-/* ── Scene hierarchy reporter for outliner panel ── */
-function HierarchyReporter({ modelGroupRef, sceneLights, showSceneCamera, modelName, onSceneHierarchy }: {
-  modelGroupRef: React.RefObject<any>;
-  sceneLights: SceneLight[];
-  showSceneCamera: boolean;
-  modelName: string;
-  onSceneHierarchy: (nodes: OutlinerNode[]) => void;
-}) {
-  const lastKey = useRef('');
-
-  function traverseChildren(obj: any): OutlinerNode[] {
-    return (obj.children || [])
-      .filter((c: any) => c.isMesh || c.isGroup)
-      .map((c: any): OutlinerNode => ({
-        id: c.uuid,
-        name: c.name || (c.isMesh ? 'Mesh' : 'Group'),
-        type: c.isMesh ? 'mesh' : 'group',
-        children: traverseChildren(c),
-      }));
-  }
-
-  useFrame(() => {
-    if (!modelGroupRef.current) return;
-    const nodes: OutlinerNode[] = [
-      { id: 'model', name: modelName, type: 'model', children: traverseChildren(modelGroupRef.current) },
-      ...(showSceneCamera ? [{ id: 'camera', name: 'Scene Camera', type: 'camera' as const, children: [] }] : []),
-      ...sceneLights.map((l, i) => ({ id: l.id, name: `Point Light ${i + 1}`, type: 'light' as const, children: [] })),
-    ];
-    const key = nodes.map(n => `${n.id}:${n.children.length}`).join(',');
-    if (key !== lastKey.current) { lastKey.current = key; onSceneHierarchy(nodes); }
-  });
-  return null;
-}
-
 /* Ensure autoClear=true whenever PP is off or changes */
 function AutoClearFix({ enablePP }: { enablePP: boolean }) {
   const { gl } = useThree();
@@ -536,8 +494,9 @@ export default function Scene(props: SceneProps) {
     showSceneCamera, cameraPos, cameraViewMode, lockCameraToView, onCameraMove,
     rotationMode, rotationStepRef,
     hdriLighting, cameraGizmoMode, modelUniformScale,
-    selectedObjectIds, modelTransformMode, onModelClick, onModelDeselect, onSceneHierarchy, modelName,
+    selectedObjectIds, modelTransformMode, onModelClick, onModelDeselect,
   } = props;
+  const rendering = props.rendering ?? false;
 
   const modelSelected = selectedObjectIds.includes('model');
 
@@ -665,8 +624,8 @@ export default function Scene(props: SceneProps) {
 
         {/* Model group hoisted above Suspense — see group at top of Canvas */}
 
-        {/* Model TransformControls — G (translate) and E (rotate) modes; R uses scroll-scale only */}
-        {modelSelected && modelGroupRef.current && modelTransformMode !== 'scale' && (
+        {/* Model TransformControls — G (translate) and E (rotate) modes; R uses scroll-scale only; hidden during render */}
+        {modelSelected && modelGroupRef.current && modelTransformMode !== 'scale' && !rendering && (
           <TransformControls
             object={modelGroupRef.current}
             mode={modelTransformMode}
@@ -722,7 +681,7 @@ export default function Scene(props: SceneProps) {
         <OrbitControls
           ref={orbitRef}
           makeDefault
-          enabled={true}
+          enabled={!rendering}
           autoRotate={autoRotate && !cameraViewMode}
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
@@ -745,15 +704,6 @@ export default function Scene(props: SceneProps) {
           <ApplyTransformSetup modelGroupRef={modelGroupRef} applyTransformRef={props.applyTransformRef} />
         )}
         {onStats && <StatsCollector onStats={onStats} />}
-        {onSceneHierarchy && (
-          <HierarchyReporter
-            modelGroupRef={modelGroupRef}
-            sceneLights={sceneLights}
-            showSceneCamera={showSceneCamera}
-            modelName={modelName}
-            onSceneHierarchy={onSceneHierarchy}
-          />
-        )}
         <AutoClearFix enablePP={enablePostProcessing} />
       </Suspense>
     </Canvas>
