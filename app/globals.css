@@ -126,8 +126,8 @@ input, select { font: inherit; }
   /* Toast — above transform panel */
   .toast-msg { bottom: 130px !important; }
 
-  /* Stats overlay — top-right to avoid bottom crowding on mobile */
-  .scene-stats { top: 38px !important; bottom: auto !important; right: 8px !important; font-size: 9px !important; }
+  /* Stats overlay — already top-right on desktop; mobile just trims padding/font */
+  .scene-stats { top: 40px !important; bottom: auto !important; right: 8px !important; font-size: 9px !important; padding: 5px 10px !important; }
 }
 
 /* ── Small phones (iPhone SE, Pixel 5, 375px and under) ── */

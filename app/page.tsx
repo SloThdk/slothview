@@ -1411,8 +1411,8 @@ export default function Page() {
           </div>
         )}
 
-        {/* ── Navigation hints — bottom-left, only when no overlay ── */}
-        {!shadingOverlay && (
+        {/* ── Navigation hints — bottom-left, only when no overlay AND transform panel not active ── */}
+        {!shadingOverlay && !(modelSelected && displayTransform && transformActioned) && (
           <div className="nav-hint" style={{
             position: 'absolute', bottom: '58px', left: '12px',
             zIndex: 18, display: 'flex', flexDirection: 'column', gap: '3px',
@@ -1431,15 +1431,22 @@ export default function Page() {
           </div>
         )}
 
-        {/* ── Mobile nav hint ── */}
+        {/* ── Mobile nav hint — touch controls only, hidden when transform panel active ── */}
+        {!(modelSelected && displayTransform && transformActioned) && (
         <div className="mobile-nav-hint" style={{
           display: 'none', position: 'absolute', top: '46px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 18, flexDirection: 'row', gap: '5px', alignItems: 'center', pointerEvents: 'none',
+          zIndex: 18, flexDirection: 'row', gap: '4px', alignItems: 'center', pointerEvents: 'none',
+          flexWrap: 'wrap', justifyContent: 'center', maxWidth: '90vw',
         }}>
-          {[{ label: '1 finger · Orbit' }, { label: '2 fingers · Zoom' }].map(h => (
-            <span key={h.label} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', background: 'rgba(8,8,12,0.8)', padding: '3px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>{h.label}</span>
+          {[
+            { label: 'Tap · Select' },
+            { label: '1 finger · Orbit' },
+            { label: 'Pinch · Zoom' },
+          ].map(h => (
+            <span key={h.label} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.32)', background: 'rgba(8,8,12,0.8)', padding: '3px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>{h.label}</span>
           ))}
         </div>
+        )}
 
         {/* ── Bottom viewport toolbar ── */}
         <div className="viewport-toolbar" style={{
@@ -1533,7 +1540,7 @@ export default function Page() {
         {/* Scene stats overlay — inside viewport so it positions from viewport right edge */}
         {sceneStats && (
           <div className="scene-stats" style={{
-            position: 'absolute', bottom: '56px', right: '12px', zIndex: 15,
+            position: 'absolute', top: '40px', right: '12px', zIndex: 15,
             background: 'rgba(8,8,12,0.75)', border: '1px solid rgba(255,255,255,0.04)',
             borderRadius: '8px', padding: '8px 14px',
             fontSize: '12px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.45)',
