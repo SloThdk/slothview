@@ -57,6 +57,7 @@ const SHADING_MODES: { id: ShadingMode; label: string; bg: string }[] = [
 ];
 
 const PRESET_MODELS = [
+  { id: 'house', name: 'Modern House', path: '/models/house.glb', cat: 'Architecture', desc: 'Residential house model — ideal for architectural visualization, real-estate presentations, and exterior walkthroughs. Showcases how SlothView handles full building-scale geometry.' },
   { id: 'chair', name: 'Designer Chair', path: '/models/SheenChair.glb', cat: 'Furniture', desc: 'Modern fabric chair with sheen' },
   { id: 'helmet', name: 'Damaged Helmet', path: '/models/DamagedHelmet.glb', cat: 'Sci-Fi', desc: 'Battle-worn helmet with PBR materials' },
   { id: 'shoe', name: 'Sneaker', path: '/models/MaterialsVariantsShoe.glb', cat: 'Fashion', desc: 'Athletic shoe with material variants' },
@@ -253,6 +254,11 @@ export default function Page() {
       modelUniformScaleRef.current = next;
       setModelUniformScale(next);
       setTransformActioned(true);
+      // Update transform panel IMMEDIATELY — bypass TransformReporter's 83ms poll for live feel
+      setDisplayTransform(prev => prev
+        ? { ...prev, s: next }
+        : { px: externalGroupRef.current?.position.x ?? 0, py: externalGroupRef.current?.position.y ?? 0, pz: externalGroupRef.current?.position.z ?? 0, rx: 0, ry: 0, rz: 0, s: next }
+      );
     };
     // MMB hold + drag up/down to scale (industry standard scroll-wheel button drag)
     const onPointerDown = (e: PointerEvent) => {
@@ -269,6 +275,11 @@ export default function Page() {
       externalGroupRef.current?.scale.setScalar(newScale);
       modelUniformScaleRef.current = newScale;
       setModelUniformScale(newScale);
+      // Live transform panel update during MMB drag (bypasses TransformReporter polling)
+      setDisplayTransform(prev => prev
+        ? { ...prev, s: newScale }
+        : { px: externalGroupRef.current?.position.x ?? 0, py: externalGroupRef.current?.position.y ?? 0, pz: externalGroupRef.current?.position.z ?? 0, rx: 0, ry: 0, rz: 0, s: newScale }
+      );
     };
     const onPointerUp = (e: PointerEvent) => {
       if (e.button === 1) {
