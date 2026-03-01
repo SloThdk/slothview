@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Sloth Studio Viewer | Professional 3D Model Viewer',
+  title: 'SlothStudio 3D Viewer | Professional 3D Model Viewer',
   description: 'Professional-grade 3D model viewer and configurator by Sloth Studio. PBR rendering, real-time post-processing, scene camera, and export tools.',
   icons: { icon: '/favicon.svg' },
 };

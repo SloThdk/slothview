@@ -509,7 +509,7 @@ export default function Page() {
     if (hadGrid) setShowGrid(false);
     await new Promise<void>(r => { let c = 0; const t = () => { if (++c >= 3) r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
     const a = document.createElement('a');
-    a.download = `slothview-${Date.now()}.png`;
+    a.download = `slothstudio-3d-viewer-${Date.now()}.png`;
     a.href = canvasRef.current.toDataURL('image/png');
     a.click();
     if (hadGrid) setShowGrid(true);
@@ -553,7 +553,7 @@ export default function Page() {
         gl.setSize(oW, oH, false);
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         const a = document.createElement('a');
-        a.download = `slothview-render-${rW}x${rH}-${renderSamples}spp-${Date.now()}.${renderFormat}`;
+        a.download = `slothstudio-3d-viewer-render-${rW}x${rH}-${renderSamples}spp-${Date.now()}.${renderFormat}`;
         a.href = url;
         a.click();
         setRendering(false);
@@ -628,7 +628,7 @@ export default function Page() {
       {/* ── Top bar ── */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60, height: '32px', background: 'rgba(8,8,12,0.98)', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', fontSize: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#fff' }}>Sloth</span><span style={{ color: '#4F8EF7' }}>Studio</span> Viewer</span>
+          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '12px' }}><span style={{ color: '#fff' }}>Sloth</span><span style={{ color: '#4F8EF7' }}>Studio</span> 3D Viewer</span>
           <span style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
           <span style={{ background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.2)', color: '#4F8EF7', fontSize: '7px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.1em' }}>DEMO</span>
         </div>
@@ -1221,7 +1221,7 @@ export default function Page() {
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>Reset All to Defaults</button>
             </Tip>
-            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>SlothView 3D Viewer - Demo</div>
+            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>SlothStudio 3D Viewer - Demo</div>
           </div>
         </div>
       </div>
