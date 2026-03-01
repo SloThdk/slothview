@@ -259,6 +259,9 @@ function FocusController({ modelGroupRef, focusRef }: {
   focusRef: React.MutableRefObject<(() => void) | null>;
 }) {
   const { camera, controls } = useThree();
+  // Fly-to target — set on F key, cleared once camera arrives
+  const flyTarget = useRef<{ pos: Vector3; lookAt: Vector3 } | null>(null);
+
   useEffect(() => {
     focusRef.current = () => {
       const group = modelGroupRef.current;
@@ -269,23 +272,38 @@ function FocusController({ modelGroupRef, focusRef }: {
       box.getCenter(center);
       box.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z);
-      // Find a nice framing distance (1.8× max dimension)
+      // Nice framing distance: 1.8× max dimension
       const distance = Math.max(maxDim * 1.8, 1.2);
-      // Keep current elevation angle, just pull camera to the right distance
-      const camPos = camera.position.clone();
-      const dir = camPos.clone().sub(center);
+      // Preserve current viewing angle, just adjust distance
+      const dir = camera.position.clone().sub(center);
       if (dir.length() < 0.001) dir.set(0, 0.4, 1);
       dir.normalize().multiplyScalar(distance);
-      camera.position.copy(center.clone().add(dir));
-      camera.lookAt(center);
-      // Update OrbitControls target
-      const orbit = controls as any;
-      if (orbit?.target) {
-        orbit.target.copy(center);
-        orbit.update?.();
-      }
+      // Store as fly target — useFrame will lerp smoothly toward it
+      flyTarget.current = {
+        pos: center.clone().add(dir),
+        lookAt: center.clone(),
+      };
     };
-  }, [camera, controls]); // modelGroupRef and focusRef are stable refs
+  }, [camera, controls]);
+
+  // Smooth camera fly animation — exponential ease-out at 7% per frame (~60fps)
+  useFrame(() => {
+    if (!flyTarget.current) return;
+    const { pos, lookAt } = flyTarget.current;
+    const orbit = controls as any;
+    camera.position.lerp(pos, 0.07);
+    if (orbit?.target) {
+      orbit.target.lerp(lookAt, 0.07);
+      orbit.update?.();
+    }
+    // Snap and clear once we're within 1cm
+    if (camera.position.distanceTo(pos) < 0.01) {
+      camera.position.copy(pos);
+      if (orbit?.target) { orbit.target.copy(lookAt); orbit.update?.(); }
+      flyTarget.current = null;
+    }
+  });
+
   return null;
 }
 
