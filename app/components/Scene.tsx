@@ -609,6 +609,26 @@ export default function Scene(props: SceneProps) {
         : <PerspectiveCamera makeDefault position={[3, 2, 5]} fov={fov} near={0.1} far={100} />
       }
 
+      {/* Model group is OUTSIDE Suspense so ref is immediately available for HierarchyReporter */}
+      <group
+        ref={modelGroupRef}
+        scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
+        onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey || e.metaKey); }}
+      >
+        <Suspense fallback={null}>
+          {userFile ? (
+            <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
+          ) : (
+            <>
+              <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} />
+              {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
+                <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
+              ))}
+            </>
+          )}
+        </Suspense>
+      </group>
+
       <Suspense fallback={null}>
         {/* Lighting */}
         <ambientLight intensity={shadingMode === 'unlit' ? 1.5 : shadingMode === 'toon' ? ambientIntensity * 0.4 : ambientIntensity} />
@@ -643,23 +663,7 @@ export default function Scene(props: SceneProps) {
           </React.Fragment>
         ))}
 
-        {/* Model — wrapped in scale+select group; click to select, G/E/R to transform */}
-        <group
-          ref={modelGroupRef}
-          scale={[modelUniformScale, modelUniformScale, modelUniformScale]}
-          onClick={(e) => { e.stopPropagation(); onModelClick(e.shiftKey, e.ctrlKey); }}
-        >
-          {userFile ? (
-            <UserModel key={`user-${shadingMode}-${overrideColor}`} file={userFile} wireframe={showWireframe} shadingMode={shadingMode} overrideColor={overrideColor} disableFloat={cameraViewMode} />
-          ) : (
-            <>
-              <DefaultModel key={`${modelPath || 'default'}-${shadingMode}-${overrideColor}`} wireframe={showWireframe} shadingMode={shadingMode} modelPath={modelPath} overrideColor={overrideColor} disableFloat={cameraViewMode} />
-              {showHotspots && shadingMode === 'pbr' && !modelPath && HOTSPOTS.map((h, i) => (
-                <HotspotMarker key={i} hotspot={h} index={i} active={activeHotspot === i} onClick={() => setActiveHotspot(activeHotspot === i ? null : i)} />
-              ))}
-            </>
-          )}
-        </group>
+        {/* Model group hoisted above Suspense — see group at top of Canvas */}
 
         {/* Model TransformControls — G (translate) and E (rotate) modes; R uses scroll-scale only */}
         {modelSelected && modelGroupRef.current && modelTransformMode !== 'scale' && (

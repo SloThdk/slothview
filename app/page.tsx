@@ -604,8 +604,10 @@ export default function Page() {
                     return <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="0.8"/><path d="M1 4h8M4 1v8" stroke="currentColor" strokeWidth="0.8"/></svg>;
                   };
 
-                  const renderNode = (node: OutlinerNode, depth: number): React.ReactNode => {
-                    const isSelected = selectedObjectIds.includes(node.id);
+                  const renderNode = (node: OutlinerNode, depth: number, parentSelected = false): React.ReactNode => {
+                    // Children inherit parent selection state (not individually selectable)
+                    const isTopLevel = node.type === 'model' || node.type === 'light' || node.type === 'camera';
+                    const isSelected = isTopLevel ? selectedObjectIds.includes(node.id) : parentSelected;
                     const isExpanded = expandedIds.has(node.id);
                     const hasChildren = node.children.length > 0;
                     return (
@@ -613,13 +615,16 @@ export default function Page() {
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (e.ctrlKey) {
-                              setSelectedObjectIds(prev => prev.filter(id => id !== node.id));
+                            // Non-top-level nodes (meshes/groups): select parent model
+                            const selectId = isTopLevel ? node.id : 'model';
+                            if (e.ctrlKey || e.metaKey) {
+                              setSelectedObjectIds(prev => prev.filter(id => id !== selectId));
                             } else if (e.shiftKey) {
-                              setSelectedObjectIds(prev => [...new Set([...prev, node.id])]);
+                              setSelectedObjectIds(prev => [...new Set([...prev, selectId])]);
                             } else {
-                              setSelectedObjectIds([node.id]);
-                              if (node.id === 'model' || node.type === 'model') setModelTransformMode('translate');
+                              const alreadySole = selectedObjectIds.length === 1 && selectedObjectIds[0] === selectId;
+                              setSelectedObjectIds(alreadySole ? [] : [selectId]);
+                              if (!alreadySole && selectId === 'model') setModelTransformMode('translate');
                             }
                           }}
                           style={{
@@ -648,7 +653,7 @@ export default function Page() {
                           {/* Type badge */}
                           <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace', flexShrink: 0, textTransform: 'uppercase' }}>{node.type}</span>
                         </div>
-                        {isExpanded && hasChildren && node.children.map(child => renderNode(child, depth + 1))}
+                        {isExpanded && hasChildren && node.children.map(child => renderNode(child, depth + 1, isSelected))}
                       </div>
                     );
                   };
@@ -1254,11 +1259,16 @@ export default function Page() {
           modelTransformMode={modelTransformMode}
           onModelClick={(shiftKey, ctrlKey) => {
             if (ctrlKey) {
+              // Ctrl/Meta+click = remove from selection
               setSelectedObjectIds(prev => prev.filter(id => id !== 'model'));
             } else if (shiftKey) {
+              // Shift+click = add to selection
               setSelectedObjectIds(prev => prev.includes('model') ? prev : [...prev, 'model']);
             } else {
-              setSelectedObjectIds(['model']);
+              // Regular click: toggle if already the sole selection, else select only this
+              setSelectedObjectIds(prev =>
+                prev.length === 1 && prev[0] === 'model' ? [] : ['model']
+              );
               setModelTransformMode('translate');
             }
           }}
