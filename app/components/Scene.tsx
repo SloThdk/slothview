@@ -141,6 +141,8 @@ export interface SceneProps {
   onModelDeselect: () => void;
   onCameraSelect?: (shift: boolean) => void;
   onModelUniformScaleChange?: (s: number) => void;
+  onTransformActioned?: () => void;
+  onGroupMount?: (ref: React.RefObject<any>) => void;
   rendering?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -518,6 +520,10 @@ export default function Scene(props: SceneProps) {
   useEffect(() => {
     if (modelGroupRef.current) modelGroupRef.current.scale.setScalar(props.modelUniformScale);
   }, [props.modelUniformScale]);
+  // Expose modelGroupRef to parent for direct Three.js scale updates (no React round-trip)
+  useEffect(() => {
+    if (props.onGroupMount) props.onGroupMount(modelGroupRef);
+  }, []);
   // Saved orbit position for restoring after exiting camera view
   const savedOrbitState = useRef<{ camPos: [number,number,number]; target: [number,number,number] } | null>(null);
   // Pointer drag detection — prevent onPointerMissed deselecting during pan/orbit
@@ -692,7 +698,7 @@ export default function Scene(props: SceneProps) {
             size={1.2}
             translationSnap={null}
             rotationSnap={null}
-            onMouseDown={() => { isDraggingTransformRef.current = true; if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
+            onMouseDown={() => { isDraggingTransformRef.current = true; props.onTransformActioned?.(); if (orbitRef.current) { orbitRef.current.enabled = false; orbitRef.current.saveState?.(); } }}
             onMouseUp={() => {
               setTimeout(() => { isDraggingTransformRef.current = false; }, 50);
               if (orbitRef.current) orbitRef.current.enabled = true;

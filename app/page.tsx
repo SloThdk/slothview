@@ -178,7 +178,10 @@ export default function Page() {
   // Transform properties panel (Blender-style)
   const [displayTransform, setDisplayTransform] = useState<TransformSnapshot | null>(null);
   const [transformPanelOpen, setTransformPanelOpen] = useState(true);
+  const [transformActioned, setTransformActioned] = useState(false);
   const applyTransformRef = useRef<ApplyTransformFn | null>(null);
+  // Direct ref to the Scene model group for immediate Three.js scale updates (zero React latency)
+  const externalGroupRef = useRef<any>(null);
 
   // Marquee select
   const marqueeStartRef = useRef<{ x: number; y: number; shift: boolean } | null>(null);
@@ -225,7 +228,12 @@ export default function Page() {
       if (!modelScaleActiveRef.current) return;
       e.preventDefault(); e.stopPropagation();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
-      setModelUniformScale(s => Math.max(0.05, Math.min(10, parseFloat((s + delta).toFixed(2)))));
+      const next = Math.max(0.05, Math.min(10, parseFloat((modelUniformScaleRef.current + delta).toFixed(2))));
+      // Direct Three.js update first (immediate, no React latency)
+      externalGroupRef.current?.scale.setScalar(next);
+      modelUniformScaleRef.current = next;
+      setModelUniformScale(next);
+      setTransformActioned(true);
     };
     // MMB hold + drag up/down to scale (industry standard scroll-wheel button drag)
     const onPointerDown = (e: PointerEvent) => {
@@ -238,10 +246,16 @@ export default function Page() {
       if (!mmbScaleRef.current) return;
       const dy = e.clientY - mmbScaleRef.current.y; // down = positive = bigger (Blender standard)
       const newScale = Math.max(0.05, Math.min(10, parseFloat((mmbScaleRef.current.startScale + dy * 0.008).toFixed(3))));
+      // Direct Three.js update first (zero-latency visual feedback)
+      externalGroupRef.current?.scale.setScalar(newScale);
+      modelUniformScaleRef.current = newScale;
       setModelUniformScale(newScale);
     };
     const onPointerUp = (e: PointerEvent) => {
-      if (e.button === 1) mmbScaleRef.current = null;
+      if (e.button === 1) {
+        if (mmbScaleRef.current) setTransformActioned(true);
+        mmbScaleRef.current = null;
+      }
     };
     el.addEventListener('wheel', onWheel, { passive: false, capture: true });
     el.addEventListener('pointerdown', onPointerDown, { capture: true });
@@ -1149,6 +1163,7 @@ export default function Page() {
                 setCameraGizmoMode('translate'); setSelectedObjectIds([]); setModelTransformMode('translate'); setModelUniformScale(1.0); setHdriLighting(true);
                 setRenderWidth(1920); setRenderHeight(1080); setRenderSamples(4); setRenderFormat('png'); setRenderQuality(0.92);
                 setShowCameraBoundary(false); setExploded(false); setWireframe(false); setCustomHdri(null);
+                setTransformActioned(false); setDisplayTransform(null);
                 showToast('Reset to defaults');
               }} style={{
                 width: '100%', padding: '6px', borderRadius: '5px', marginBottom: '6px',
@@ -1264,7 +1279,9 @@ export default function Page() {
           }}
           onModelDeselect={() => { setSelectedObjectIds([]); setSelectedLightId(null); }}
           rendering={rendering}
-          onModelUniformScaleChange={setModelUniformScale}
+          onModelUniformScaleChange={(s) => { externalGroupRef.current?.scale.setScalar(s); setModelUniformScale(s); setTransformActioned(true); }}
+          onTransformActioned={() => setTransformActioned(true)}
+          onGroupMount={(ref) => { externalGroupRef.current = ref.current; }}
           onCameraSelect={(shift: boolean) => {
             if (shift) {
               setSelectedObjectIds(prev => prev.includes('camera') ? prev : [...prev, 'camera']);
@@ -1463,8 +1480,8 @@ export default function Page() {
           </div>
         )}
 
-        {/* Camera boundary overlay — only visible when actively in camera view or rendering */}
-        {(cameraViewMode || rendering) && (
+        {/* Camera boundary overlay — visible when camera is in scene, in camera view, or rendering */}
+        {(showSceneCamera || cameraViewMode || rendering) && (
         <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
@@ -1496,7 +1513,7 @@ export default function Page() {
                   maxWidth: '92%', maxHeight: '84%', width: '92%',
                   border: `1.5px ${rendering || cameraViewMode ? 'solid' : 'dashed'} ${bColor}`,
                   // box-shadow dims everything outside the aperture
-                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(cameraViewMode || rendering) ? '0.35' : '0'})`,
+                  boxShadow: `0 0 0 9999px rgba(0,0,0,${(cameraViewMode || rendering) ? '0.35' : '0.15'})`,
                   pointerEvents: 'none',
                   zIndex: 13,
                 }}
@@ -1514,7 +1531,7 @@ export default function Page() {
                   }} />
                 ))}
                 {/* Rule of thirds */}
-                {cameraViewMode && !rendering && (
+                {(showSceneCamera || cameraViewMode) && !rendering && (
                   <>
                     <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
                     <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
@@ -1523,7 +1540,7 @@ export default function Page() {
                   </>
                 )}
                 {/* Dimension badge */}
-                {cameraViewMode && !rendering && (
+                {(showSceneCamera || cameraViewMode) && !rendering && (
                   <div style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: '8px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.35)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '3px' }}>
                     {renderWidth} x {renderHeight}
                   </div>
@@ -1551,8 +1568,8 @@ export default function Page() {
         </div>
       )}
 
-      {/* ── Transform Properties Panel — Blender-style Last Operator, bottom-left ── */}
-      {modelSelected && displayTransform && (
+      {/* ── Transform Properties Panel — only shows after an actual transform was applied ── */}
+      {modelSelected && displayTransform && transformActioned && (
         <div className="transform-panel" style={{
           position: 'absolute', bottom: '54px', left: '10px', zIndex: 28,
           background: 'rgba(30,28,40,0.97)', border: '1px solid rgba(255,255,255,0.1)',
