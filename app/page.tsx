@@ -62,23 +62,34 @@ const PRESET_MODELS = [
   { id: 'shoe', name: 'Sneaker', path: '/models/MaterialsVariantsShoe.glb', cat: 'Fashion', desc: 'Athletic shoe with material variants' },
   { id: 'car', name: 'Toy Car', path: '/models/ToyCar.glb', cat: 'Automotive', desc: 'Detailed miniature car model' },
   { id: 'dragon', name: 'Crystal Dragon', path: '/models/DragonAttenuation.glb', cat: 'Art', desc: 'Translucent dragon sculpture' },
-  { id: 'camera', name: 'Antique Camera', path: '/models/AntiqueCamera.glb', cat: 'Vintage', desc: 'Classic folding camera with brass details' },
+  { id: 'antique-camera', name: 'Antique Camera', path: '/models/AntiqueCamera.glb', cat: 'Vintage', desc: 'Classic folding camera with brass details' },
   { id: 'lantern', name: 'Lantern', path: '/models/Lantern.glb', cat: 'Props', desc: 'Oil lantern with glass and metal' },
+  // — New models —
+  { id: 'avocado', name: 'Avocado', path: '/models/Avocado.glb', cat: 'Food', desc: 'Hyper-real avocado with PBR skin' },
+  { id: 'boombox', name: 'Boom Box', path: '/models/BoomBox.glb', cat: 'Electronics', desc: 'Retro 80s boombox with scratches and decals' },
+  { id: 'corset', name: 'Victorian Corset', path: '/models/Corset.glb', cat: 'Fashion', desc: 'Ornate corset with intricate fabric detail' },
+  { id: 'duck', name: 'Rubber Duck', path: '/models/Duck.glb', cat: 'Classic', desc: 'The original glTF rubber duck' },
+  { id: 'fox', name: 'Animated Fox', path: '/models/Fox.glb', cat: 'Character', desc: 'Rigged fox character with walk animations' },
+  { id: 'waterbottle', name: 'Water Bottle', path: '/models/WaterBottle.glb', cat: 'Product', desc: 'Insulated steel bottle, product-viz ready' },
+  { id: 'milktruck', name: 'Milk Truck', path: '/models/CesiumMilkTruck.glb', cat: 'Vehicle', desc: 'Cute vintage milk delivery truck' },
+  { id: 'iridescent-dish', name: 'Iridescent Dish', path: '/models/IridescentDishWithOlives.glb', cat: 'Materials', desc: 'Shows iridescence and thin-film interference' },
+  { id: 'velvet-sofa', name: 'Velvet Sofa', path: '/models/GlamVelvetSofa.glb', cat: 'Furniture', desc: 'Glam sofa with velvet sheen material' },
+  { id: 'cesium-man', name: 'Cesium Man', path: '/models/CesiumMan.glb', cat: 'Character', desc: 'Humanoid character for animation tests' },
 ];
 
 const BASE_PRICE = 2499;
 
 /* ── Helpers ── */
-function Tip({ text, children, pos = 'bottom' }: { text: string; children: React.ReactNode; pos?: 'bottom' | 'top' | 'left' | 'right' }) {
+function Tip({ text, children, pos = 'bottom', fullWidth = false }: { text: string; children: React.ReactNode; pos?: 'bottom' | 'top' | 'left' | 'right'; fullWidth?: boolean }) {
   const [s, setS] = useState(false);
   const p: React.CSSProperties = pos === 'top' ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '5px' }
     : pos === 'left' ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '5px' }
     : pos === 'right' ? { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '5px' }
     : { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '5px' };
   return (
-    <div style={{ position: 'relative', display: 'inline-flex' }} onMouseEnter={() => setS(true)} onMouseLeave={() => setS(false)}>
+    <div style={{ position: 'relative', display: fullWidth ? 'block' : 'inline-flex', width: fullWidth ? '100%' : undefined }} onMouseEnter={() => setS(true)} onMouseLeave={() => setS(false)}>
       {children}
-      {s && <div style={{ position: 'absolute', ...p, zIndex: 200, background: 'rgba(8,8,12,0.96)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', padding: '4px 8px', fontSize: '9px', color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', pointerEvents: 'none', backdropFilter: 'blur(8px)', animation: 'fadeIn 0.1s ease', letterSpacing: '0.01em' }}>{text}</div>}
+      {s && <div style={{ position: 'absolute', ...p, zIndex: 200, background: 'rgba(8,8,12,0.96)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', padding: '4px 8px', fontSize: '9px', color: 'rgba(255,255,255,0.6)', whiteSpace: 'normal', maxWidth: '180px', textAlign: 'center', pointerEvents: 'none', backdropFilter: 'blur(8px)', animation: 'fadeIn 0.1s ease', letterSpacing: '0.01em', lineHeight: 1.5 }}>{text}</div>}
     </div>
   );
 }
@@ -1125,7 +1136,7 @@ export default function Page() {
 
           {/* Reset + Footer */}
           <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
-            <Tip text="Resets all lights, camera, post-processing, shading, environment, model color, and transforms back to their original values" pos="top">
+            <Tip text="Resets all lights, camera, effects, shading, environment, and transforms to defaults" pos="top" fullWidth>
               <button onClick={() => {
                 setLightI(1.2); setLightAng(45); setLightH(8); setAmbI(0.3);
                 setFov(40); setBloomI(0.15); setBloomT(0.9); setVigI(0.3);
