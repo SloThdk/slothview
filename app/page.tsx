@@ -844,26 +844,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <span style={stl.label}>Orbit</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <button onClick={() => setAutoRotate(!autoRotate)} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '5px',
-                    background: autoRotate ? 'rgba(108,99,255,0.06)' : 'transparent',
-                    border: autoRotate ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
-                    transition: 'all 0.15s',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: autoRotate ? '#6C63FF' : 'rgba(255,255,255,0.2)' }}><IconRotate /></span>
-                      <span style={{ fontSize: '10px', fontWeight: 600, color: autoRotate ? '#fff' : 'rgba(255,255,255,0.45)' }}>Auto Rotate</span>
-                    </div>
-                    <div style={{ width: '28px', height: '14px', borderRadius: '7px', background: autoRotate ? '#6C63FF' : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s' }}>
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: autoRotate ? '16px' : '2px', transition: 'left 0.2s' }} />
-                    </div>
-                  </button>
-                  {autoRotate && <div style={{ padding: '0 4px' }}><Slider label="Speed" value={autoRotateSpeed} min={0.1} max={5} step={0.1} onChange={setAutoRotateSpeed} /></div>}
-                </div>
-
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '12px 0' }} />
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '4px 0 12px 0' }} />
                 <span style={stl.label}>Scene Camera</span>
 
                 {/* Toggle camera visibility */}
@@ -932,23 +913,30 @@ export default function Page() {
                         );
                       })}
                     </div>
-                    {/* Custom W x H */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                    {/* Sliders for visual drag control */}
+                    <Slider label="Width" value={Math.min(renderWidth, 4096)} min={480} max={4096} step={8}
+                      onChange={v => setRenderWidth(Math.round(v))} unit=" px"
+                      tooltip="Controls how many horizontal pixels your render has. More pixels = sharper output, larger file size, longer render. 1920px covers most screens and social media. 3840px is for print or large display work. Go higher only when you specifically need it." />
+                    <Slider label="Height" value={Math.min(renderHeight, 4096)} min={270} max={4096} step={8}
+                      onChange={v => setRenderHeight(Math.round(v))} unit=" px"
+                      tooltip="Controls how many vertical pixels your render has. 1080px pairs with 1920px for the standard 16:9 widescreen ratio used everywhere — screens, presentations, video. 2160px is 4K. For square or portrait formats, match width and height or use a preset above." />
+                    {/* Exact px inputs for users who need specific values above slider range */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', marginBottom: '4px' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Width (px)</div>
-                        <input type="number" value={renderWidth} min={100} max={8192} step={1}
-                          onChange={e => setRenderWidth(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                        <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Exact Width (px)</div>
+                        <input type="number" value={renderWidth} min={100} max={16384} step={1}
+                          onChange={e => setRenderWidth(Math.max(100, Math.min(16384, Number(e.target.value))))}
                           style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
                       </div>
                       <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, marginTop: '14px' }}>x</span>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Height (px)</div>
-                        <input type="number" value={renderHeight} min={100} max={8192} step={1}
-                          onChange={e => setRenderHeight(Math.max(100, Math.min(8192, Number(e.target.value))))}
+                        <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '2px', textAlign: 'center' }}>Exact Height (px)</div>
+                        <input type="number" value={renderHeight} min={100} max={16384} step={1}
+                          onChange={e => setRenderHeight(Math.max(100, Math.min(16384, Number(e.target.value))))}
                           style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '5px 4px', color: '#fff', fontSize: '11px', fontWeight: 700, textAlign: 'center' }} />
                       </div>
                     </div>
-                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>1920x1080 = Full HD &nbsp;|&nbsp; 3840x2160 = 4K &nbsp;|&nbsp; 2048x2048 = Square</div>
+                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.12)', textAlign: 'center', marginBottom: '2px' }}>Current: {renderWidth} x {renderHeight} px</div>
                   </>
                 )}
               </div>
@@ -1404,7 +1392,6 @@ export default function Page() {
           {/* Quick actions */}
           <div style={{ display: 'flex', gap: '2px' }}>
             {ibtn(<IconGrid />, 'Toggle grid', showGrid, () => setShowGrid(!showGrid), 'top')}
-            {ibtn(<IconRotate />, 'Auto-rotate', autoRotate, () => setAutoRotate(!autoRotate), 'top')}
             {ibtn(<IconMaximize />, 'Fullscreen', false, fullscreen, 'top')}
           </div>
         </div>
@@ -1474,14 +1461,12 @@ export default function Page() {
               <div style={{ position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)', zIndex: 15, background: 'rgba(239,68,68,0.9)', border: '1px solid rgba(239,68,68,0.6)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
                 <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#fff' }}>CAMERA VIEW</span>
               </div>
-              {/* Camera-specific controls HUD */}
-              <div style={{ position: 'absolute', bottom: 'calc(8% + 10px)', left: '50%', transform: 'translateX(-50%)', zIndex: 15, display: 'flex', gap: '6px', pointerEvents: 'none' }}>
-                {[['G', 'Move'], ['E', 'Rotate'], ['Orbit/Pan', 'Move Camera'], ['Esc', 'Exit View']].map(([k, a]) => (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(8,8,12,0.7)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '4px', padding: '3px 7px', backdropFilter: 'blur(8px)' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: '8px', fontWeight: 700, color: '#ef4444' }}>{k}</span>
-                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>{a}</span>
-                  </div>
-                ))}
+              {/* F4 exit hint only */}
+              <div style={{ position: 'absolute', bottom: 'calc(8% + 10px)', left: '50%', transform: 'translateX(-50%)', zIndex: 15, pointerEvents: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(8,8,12,0.7)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '4px', padding: '3px 10px', backdropFilter: 'blur(8px)' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '8px', fontWeight: 700, color: '#ef4444' }}>F4</span>
+                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Exit Camera View</span>
+                </div>
               </div>
             </>
           )}
