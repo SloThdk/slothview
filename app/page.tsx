@@ -683,6 +683,15 @@ export default function Page() {
     // Two rAFs: first lets React commit, second lets R3F render the clean scene.
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+    // RE-SNAP after Scene.tsx's savedOrbitState auto-restore:
+    // When cameraViewMode transitions false→false (no-op) this doesn't fire.
+    // When cameraViewMode was TRUE (user was in camera view), Scene.tsx's useEffect schedules a
+    // 32ms restore of savedOrbitState (the free-viewport position) after the React flush above.
+    // That restore fires at ~65ms and overwrites our initial snap. We wait 50ms past the flush
+    // (~83ms total) then re-snap to guarantee the first frame uses the correct scene camera position.
+    await new Promise(r => setTimeout(r, 50));
+    if (snapOrbitToPosRef.current) snapOrbitToPosRef.current(cameraPosRef.current);
+
     const oW = (gl.domElement as HTMLCanvasElement).width;
     const oH = (gl.domElement as HTMLCanvasElement).height;
     const rW = renderWidth;
