@@ -225,3 +225,23 @@ input[type="range"]::-moz-range-thumb {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* ── Portrait-only overlay (mobile/tablet landscape) ── */
+/* Shows on any device ≤1023px wide in landscape — covers everything so render UI never leaks */
+.portrait-lock-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #08080C;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  text-align: center;
+  padding: 2rem;
+  pointer-events: all;
+}
+@media (max-width: 1023px) and (orientation: landscape) {
+  .portrait-lock-overlay { display: flex !important; }
+}

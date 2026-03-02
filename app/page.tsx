@@ -1016,6 +1016,18 @@ export default function Page() {
   return (
     <div style={{ width: '100%', height: '100dvh', display: 'flex', overflow: 'hidden', background: '#08080C', position: 'fixed', inset: 0 }}>
 
+      {/* ── Portrait-only lock overlay — covers entire app on mobile landscape ── */}
+      <div className="portrait-lock-overlay">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ opacity: 0.5 }}>
+          <rect x="14" y="4" width="20" height="32" rx="3" stroke="rgba(255,255,255,0.6)" strokeWidth="2" fill="none" />
+          <path d="M8 22 L24 6 L40 22" stroke="#4F8EF7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        </svg>
+        <div>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginBottom: '6px' }}>Rotate your device</p>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>SlothStudio 3D Viewer works in portrait mode</p>
+        </div>
+      </div>
+
       <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
       <input ref={hdriRef} type="file" accept=".hdr,.exr" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { const url = URL.createObjectURL(f); setCustomHdri(url); setShowEnvBg(true); showToast(`HDRI: ${f.name}`); } }} />
 
