@@ -460,6 +460,17 @@ export default function Page() {
   const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
   const [hoveredShading, setHoveredShading] = useState<ShadingMode | null>(null);
   const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display'>('model');
+  // Auto-switch away from render tab on mobile
+  useEffect(() => {
+    const check = () => {
+      if (window.innerWidth <= 768 && tab === 'render') {
+        setTab('model');
+      }
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [tab]);
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
@@ -1049,7 +1060,7 @@ export default function Page() {
               ['display', 'Display', <svg key="dsp" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2.5C2 2.5 4 5 7 5C10 5 12 2.5 12 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M2 8.5C2 8.5 4 6 7 6C10 6 12 8.5 12 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="3.5" r="1" fill="currentColor"/><circle cx="7" cy="7.5" r="1" fill="currentColor"/></svg>],
             ] as [string, string, React.ReactNode][]).map(([id, label, icon]) => (
               <Tip text={label} pos="bottom" key={id}>
-                <button onClick={() => setTab(id as any)} style={{
+                <button onClick={() => setTab(id as any)} className={id === 'render' ? 'render-tab-btn' : undefined} style={{
                   flex: 1, padding: '9px 4px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: tab === id ? '#6C63FF' : 'rgba(255,255,255,0.2)',
                   borderBottom: tab === id ? '2px solid #6C63FF' : '2px solid transparent',
@@ -2193,7 +2204,7 @@ export default function Page() {
         )}
 
         {/* ── Mobile nav hint — touch controls only, hidden when transform panel active ── */}
-        {!(modelSelected && displayTransform && transformActioned) && (
+        {!(modelSelected && displayTransform && transformActioned) && !cameraViewMode && !ttActive && (
         <div className="mobile-nav-hint" style={{
           display: 'none', position: 'absolute', top: '46px', left: '50%', transform: 'translateX(-50%)',
           zIndex: 18, flexDirection: 'row', gap: '4px', alignItems: 'center', pointerEvents: 'none',
@@ -2245,7 +2256,7 @@ export default function Page() {
           <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.06)' }} />
 
           {/* Render buttons — Render Image + Render Turntable side by side */}
-          <div style={{ display: 'flex', gap: '3px' }}>
+          <div className="toolbar-render-btns" style={{ display: 'flex', gap: '3px' }}>
             <Tip text={rendering ? 'Cancel render' : 'Render scene to image'} pos="top">
               <button onClick={rendering ? cancelRender : (ttActive ? undefined : render)} disabled={ttActive && !rendering} style={{
                 padding: '7px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,

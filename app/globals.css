@@ -137,6 +137,10 @@ input, select { font: inherit; }
 
   /* Stats overlay — already top-right on desktop; mobile just trims padding/font */
   .scene-stats { top: 40px !important; bottom: auto !important; right: 8px !important; font-size: 9px !important; padding: 5px 10px !important; }
+
+  /* Hide render-related UI on mobile — GPU can't handle it and it's desktop-only */
+  .render-tab-btn { display: none !important; }
+  .toolbar-render-btns { display: none !important; }
 }
 
 /* ── Small phones (iPhone SE, Pixel 5, 375px and under) ── */
