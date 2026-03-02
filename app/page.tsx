@@ -247,6 +247,7 @@ export default function Page() {
   const [ttFormat, setTtFormat] = useState<'webm' | 'png-zip' | 'jpg-zip' | 'webp-zip'>('webm');
   const [ttActive, setTtActive] = useState(false);
   const ttActiveRef = useRef(false);
+  const [ttPreviewActive, setTtPreviewActive] = useState(false);
   const [ttProgress, setTtProgress] = useState(0);
   const [ttCurrentFrame, setTtCurrentFrame] = useState(0);
   const cancelTtRef = useRef(false);
@@ -595,6 +596,7 @@ export default function Page() {
     if (!gl || !setAzimuthRef.current) return;
 
     cancelTtRef.current = false;
+    setTtPreviewActive(false);
     setTtActive(true);
     setRendering(true);
     setTtProgress(0);
@@ -1509,6 +1511,24 @@ export default function Page() {
                     </div>
                   </div>
 
+                  {/* Preview spin toggle */}
+                  <button
+                    onClick={() => setTtPreviewActive(p => !p)}
+                    disabled={ttActive}
+                    style={{
+                      width: '100%', padding: '7px', borderRadius: '5px', marginBottom: '4px',
+                      background: ttPreviewActive ? 'rgba(0,212,168,0.1)' : 'rgba(255,255,255,0.02)',
+                      border: ttPreviewActive ? '1px solid rgba(0,212,168,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                      color: ttPreviewActive ? '#00D4A8' : 'rgba(255,255,255,0.4)',
+                      fontSize: '10px', fontWeight: 600,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      opacity: ttActive ? 0.35 : 1,
+                    }}
+                  >
+                    <IconRotate />
+                    {ttPreviewActive ? 'Stop Preview' : 'Preview Spin'}
+                  </button>
+
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '4px' }}>
                     <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering && !ttActive} style={{
@@ -1673,7 +1693,9 @@ export default function Page() {
         <Scene
           bodyColor={bodyColor} accentColor={accentColor} baseColor={baseColor}
           material={mat} environment={env} exploded={exploded} wireframe={wireframe}
-          shadingMode={shadingMode} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed}
+          shadingMode={shadingMode}
+          autoRotate={(autoRotate || ttPreviewActive) && !ttActive}
+          autoRotateSpeed={ttPreviewActive ? Math.max(0.5, 30 / (ttFrames / ttFps)) * (ttDirection === 'ccw' ? -1 : 1) : autoRotateSpeed}
           showHotspots={showHotspots} showGrid={showGrid} activeHotspot={activeHotspot}
           setActiveHotspot={setActiveHotspot} canvasRef={canvasRef} glRef={glRef}
           lightIntensity={lightI} lightAngle={lightAng} lightHeight={lightH}

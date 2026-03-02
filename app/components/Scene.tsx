@@ -538,10 +538,18 @@ function AzimuthSetupInner({ orbitRef, setAzimuthRef }: {
   useEffect(() => {
     setAzimuthRef.current = (angle: number) => {
       if (!orbitRef.current) return;
-      (orbitRef.current as any).setAzimuthalAngle(angle);
-      (orbitRef.current as any).update();
+      const orbit = orbitRef.current as any;
+      // Disable damping so the camera snaps exactly to the target angle (no lag/bounce)
+      const prevDamping = orbit.enableDamping;
+      const prevAutoRotate = orbit.autoRotate;
+      orbit.enableDamping = false;
+      orbit.autoRotate = false;
+      orbit.setAzimuthalAngle(angle);
+      orbit.update();
+      orbit.enableDamping = prevDamping;
+      orbit.autoRotate = prevAutoRotate;
       // Force immediate render so captureStream / toBlob captures the new frame
-      const cam = (orbitRef.current as any).object;
+      const cam = orbit.object;
       if (gl && scene && cam) {
         gl.render(scene, cam);
       }
