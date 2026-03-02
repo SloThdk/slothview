@@ -65,6 +65,7 @@ input, select { font: inherit; }
     animation: slideIn 0.2s ease;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   .sidebar-panel[data-closed="true"] {
     transform: translateX(-100%) !important;
@@ -72,7 +73,8 @@ input, select { font: inherit; }
     opacity: 0 !important;
     width: 0 !important;
   }
-  .sidebar-panel > div { min-width: 0 !important; overflow: hidden !important; }
+  /* overflow: visible so sidebar-panel sees all content height and can scroll it */
+  .sidebar-panel > div { min-width: 0 !important; overflow: visible !important; }
   .sidebar-panel * { max-width: 100% !important; box-sizing: border-box !important; }
   /* Single scroll container on mobile — sidebar-panel owns all scrolling.
      sidebar-content must NOT independently scroll or you get snap-back jank. */
