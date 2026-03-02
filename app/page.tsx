@@ -601,7 +601,6 @@ export default function Page() {
     // Exit camera view mode if active — CameraViewSyncer fights the azimuth setter and causes flickering
     setCameraViewMode(false);
     setTtActive(true);
-    setRendering(true);
     setTtProgress(0);
 
     const oW = (gl.domElement as HTMLCanvasElement).width;
@@ -614,7 +613,9 @@ export default function Page() {
 
     const totalFrames = ttFrames;
     const startAngle = getAzimuthRef.current ? getAzimuthRef.current() : 0;
-    const dirSign = ttDirection === 'cw' ? 1 : -1;
+    // Negative for CW to match Three.js OrbitControls autoRotate convention:
+    // positive autoRotateSpeed = rotateLeft = sphericalDelta.theta -= angle = decreasing azimuth = CW
+    const dirSign = ttDirection === 'cw' ? -1 : 1;
 
     const frameAngle = (i: number) => {
       const t = i / totalFrames;
@@ -713,7 +714,6 @@ export default function Page() {
       // Return to start angle, not 0
       if (setAzimuthRef.current) setAzimuthRef.current(startAngle);
       setTtActive(false);
-      setRendering(false);
       setTtProgress(0);
       setTtCurrentFrame(0);
       if (cancelTtRef.current) {
@@ -1361,17 +1361,17 @@ export default function Page() {
                   </div>
                   </Tip>
                   <Tip text="Renders the current scene to a high-quality image. You will be prompted to download when done. Press Esc to cancel." pos="top">
-                  <button onClick={render} disabled={rendering} style={{
+                  <button onClick={render} disabled={rendering || ttActive} style={{
                     width: '100%', padding: '10px', borderRadius: '6px', marginTop: '4px',
-                    background: rendering ? 'rgba(108,99,255,0.08)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
-                    color: '#fff', fontSize: '11px', fontWeight: 700, opacity: rendering ? 0.5 : 1,
+                    background: (rendering || ttActive) ? 'rgba(108,99,255,0.08)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                    color: '#fff', fontSize: '11px', fontWeight: 700, opacity: (rendering || ttActive) ? 0.5 : 1,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                   }}>
                     <IconZap />
-                    {rendering ? 'Rendering...' : 'Render Image'}
+                    {rendering ? 'Rendering...' : ttActive ? 'Turntable active...' : 'Render Image'}
                   </button>
                   </Tip>
-                  {!rendering && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: '5px' }}>You will be prompted to download the image when done</div>}
+                  {!rendering && !ttActive && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: '5px' }}>You will be prompted to download the image when done</div>}
                 </div>
                 <Tip text="Captures the viewport as-is at screen resolution. Instant -- no rendering." pos="top">
                 <button onClick={screenshot} style={{
@@ -1957,14 +1957,14 @@ export default function Page() {
 
           {/* Render button — always in toolbar so it's reachable on mobile without opening sidebar */}
           <Tip text="Render scene to image" pos="top">
-            <button onClick={render} disabled={rendering} style={{
+            <button onClick={render} disabled={rendering || ttActive} style={{
               padding: '7px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
               display: 'flex', alignItems: 'center', gap: '5px',
-              background: rendering ? 'rgba(108,99,255,0.2)' : 'rgba(108,99,255,0.06)',
-              color: rendering ? '#6C63FF' : 'rgba(108,99,255,0.75)',
-              border: `1px solid ${rendering ? 'rgba(108,99,255,0.4)' : 'rgba(108,99,255,0.2)'}`,
-              transition: 'all 0.15s', opacity: rendering ? 0.7 : 1,
-              cursor: rendering ? 'not-allowed' : 'pointer',
+              background: (rendering || ttActive) ? 'rgba(108,99,255,0.2)' : 'rgba(108,99,255,0.06)',
+              color: (rendering || ttActive) ? '#6C63FF' : 'rgba(108,99,255,0.75)',
+              border: `1px solid ${(rendering || ttActive) ? 'rgba(108,99,255,0.4)' : 'rgba(108,99,255,0.2)'}`,
+              transition: 'all 0.15s', opacity: (rendering || ttActive) ? 0.7 : 1,
+              cursor: (rendering || ttActive) ? 'not-allowed' : 'pointer',
             }}>
               <IconCamera />
               <span className="badge-hint">{rendering ? '...' : 'Render'}</span>
