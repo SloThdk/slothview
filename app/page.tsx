@@ -1276,15 +1276,23 @@ export default function Page() {
                     })}
                   </div>
                   {/* Custom W × H inputs */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-                    <NumericInput value={renderWidth} min={100} max={8192} step={1}
-                      onChange={v => setRenderWidth(v)}
-                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                    <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
-                    <NumericInput value={renderHeight} min={100} max={8192} step={1}
-                      onChange={v => setRenderHeight(v)}
-                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <NumericInput value={renderWidth} min={100} max={8192} step={1}
+                        onChange={v => setRenderWidth(v)}
+                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
+                      <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
+                      <NumericInput value={renderHeight} min={100} max={8192} step={1}
+                        onChange={v => setRenderHeight(v)}
+                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
+                      <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                      <button
+                        onClick={() => { setRenderWidth(1920); setRenderHeight(1080); }}
+                        style={{ fontSize: '8px', color: 'rgba(255,255,255,0.22)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.1)', letterSpacing: '0.02em' }}
+                      >Reset to default (1920x1080)</button>
+                    </div>
                   </div>
                   {(renderWidth > 3840 || renderHeight > 2160) && ttFormat !== 'webm' && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>8K+ image sequences are memory-intensive. Use WebM for large turntables.</div>}
                   <Slider label="Samples" value={renderSamples} min={1} max={16384} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" tooltip={renderSamples > 512 ? 'WARNING: Very high sample count — this may slow or freeze your machine. Use 4–64 for previews, 128–512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production. Very high counts will lag your machine.'} />
@@ -1324,7 +1332,7 @@ export default function Page() {
                     ] as const).map(f => (
                       <Tip key={f.id} text="Single WebM video file -- best for presentations and social media" pos="top">
                         <button onClick={() => setTtFormat(f.id)} style={{
-                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px',
+                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, alignItems: 'flex-start', gap: '1px', marginBottom: '2px',
                           background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
                           border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
                         }}>
@@ -1345,7 +1353,7 @@ export default function Page() {
                     ] as const).map(f => (
                       <Tip key={f.id} text={f.tip} pos="top">
                         <button onClick={() => setTtFormat(f.id)} style={{
-                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px',
+                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, alignItems: 'flex-start', gap: '1px', marginBottom: '2px',
                           background: ttFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
                           border: ttFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
                         }}>
