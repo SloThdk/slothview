@@ -447,7 +447,7 @@ export default function Page() {
   const [shadingOverlay, setShadingOverlay] = useState(false);
   const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
   const [hoveredShading, setHoveredShading] = useState<ShadingMode | null>(null);
-  const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display' | 'outliner'>('model');
+  const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display'>('model');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
@@ -858,7 +858,6 @@ export default function Page() {
               ['light', 'Lighting', <svg key="lit" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 9v3M5 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M7 1v1M2.5 2.5l.7.7M1 5.5h1M12 5.5h1M10.8 2.5l-.7.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>],
               ['render', 'Render', <svg key="ren" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h3M2 7h6M2 10h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="8" y="3" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/></svg>],
               ['display', 'Display', <svg key="dsp" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2.5C2 2.5 4 5 7 5C10 5 12 2.5 12 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M2 8.5C2 8.5 4 6 7 6C10 6 12 8.5 12 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="3.5" r="1" fill="currentColor"/><circle cx="7" cy="7.5" r="1" fill="currentColor"/></svg>],
-              ['outliner', 'Outliner', <svg key="out" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2h10M2 5h10M5 8h7M5 11h7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M2 7.5l1.5 1.5L2 10.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>],
             ] as [string, string, React.ReactNode][]).map(([id, label, icon]) => (
               <Tip text={label} pos="bottom" key={id}>
                 <button onClick={() => setTab(id as any)} style={{
@@ -1373,10 +1372,40 @@ export default function Page() {
                     ))}
                   </div>
 
+                  {/* Turntable presets */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '4px', paddingLeft: '2px' }}>Preset</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
+                      {([
+                        { label: 'Quick', frames: 60, fps: 30, desc: '2s · preview' },
+                        { label: 'Showcase', frames: 120, fps: 24, desc: '5s · standard' },
+                        { label: 'Cinematic', frames: 240, fps: 24, desc: '10s · smooth' },
+                        { label: 'Master', frames: 360, fps: 30, desc: '12s · full detail' },
+                      ] as const).map(p => {
+                        const active = ttFrames === p.frames && ttFps === p.fps;
+                        return (
+                          <button key={p.label} onClick={() => { setTtFrames(p.frames); setTtFps(p.fps); }} style={{
+                            padding: '5px 6px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, gap: '1px',
+                            background: active ? 'rgba(108,99,255,0.14)' : 'rgba(255,255,255,0.02)',
+                            border: active ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                          }}>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: active ? '#fff' : 'rgba(255,255,255,0.5)' }}>{p.label}</span>
+                            <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.2)' }}>{p.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Frames + FPS row */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
                     <div>
-                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Frames</div>
+                      <Tip text="Total number of shots captured during one full 360 degree rotation. More steps = smoother rotation but longer render time. 60 = choppy preview, 120 = smooth, 360 = 1 shot per degree." pos="top">
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, cursor: 'default' }}>
+                          Steps
+                          <div style={{ fontSize: '7px', fontWeight: 400, color: 'rgba(255,255,255,0.15)', textTransform: 'none', letterSpacing: 0, marginTop: '1px' }}>shots per 360°</div>
+                        </div>
+                      </Tip>
                       <div style={{ display: 'flex', gap: '2px', marginBottom: '3px' }}>
                         {[60, 120, 240, 360].map(v => (
                           <button key={v} onClick={() => setTtFrames(v)} style={{
@@ -1392,28 +1421,34 @@ export default function Page() {
                         style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
                     </div>
                     <div>
-                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>FPS {ttFormat !== 'webm' && <span style={{ color: 'rgba(255,255,255,0.15)' }}>(video)</span>}</div>
+                      <Tip text={ttFormat === 'webm' ? 'How fast the video plays back. 24fps = cinematic, 30fps = standard, 60fps = super smooth. Only affects WebM video output — image sequences ignore this.' : 'Playback speed for WebM video. Has no effect on image sequence (ZIP) exports.'} pos="top">
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, cursor: 'default' }}>
+                          FPS
+                          <div style={{ fontSize: '7px', fontWeight: 400, color: 'rgba(255,255,255,0.15)', textTransform: 'none', letterSpacing: 0, marginTop: '1px' }}>{ttFormat === 'webm' ? 'video playback speed' : 'WebM only'}</div>
+                        </div>
+                      </Tip>
                       <div style={{ display: 'flex', gap: '2px', marginBottom: '3px' }}>
                         {[24, 30, 60].map(v => (
                           <button key={v} onClick={() => setTtFps(v)} style={{
                             flex: 1, padding: '3px 1px', borderRadius: '3px', fontSize: '8px', fontWeight: 600,
                             background: ttFps === v ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
-                            color: ttFps === v ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                            color: ttFps === v ? ttFormat === 'webm' ? '#6C63FF' : 'rgba(108,99,255,0.4)' : 'rgba(255,255,255,0.3)',
                             border: ttFps === v ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                            opacity: ttFormat !== 'webm' ? 0.5 : 1,
                           }}>{v}</button>
                         ))}
                       </div>
                       <NumericInput value={ttFps} min={1} max={60} step={1}
                         onChange={v => setTtFps(v)}
-                        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: ttFormat !== 'webm' ? 'rgba(255,255,255,0.3)' : '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const, opacity: ttFormat !== 'webm' ? 0.5 : 1 }} />
                     </div>
                   </div>
 
                   {/* Duration info */}
                   <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', marginBottom: '8px', textAlign: 'center' as const }}>
                     {ttFormat === 'webm'
-                      ? `${(ttFrames / ttFps).toFixed(1)}s video at ${ttFps}fps`
-                      : `${ttFrames} frames as ${ttFormat === 'png-zip' ? 'PNG' : ttFormat === 'jpg-zip' ? 'JPG' : 'WebP'} ZIP`
+                      ? `${ttFrames} steps at ${ttFps}fps = ${(ttFrames / ttFps).toFixed(1)}s video`
+                      : `${ttFrames} individual frames as ${ttFormat === 'png-zip' ? 'PNG' : ttFormat === 'jpg-zip' ? 'JPG' : 'WebP'} ZIP`
                     }
                   </div>
 
@@ -1533,106 +1568,6 @@ export default function Page() {
                     </div>
                   </button>
                 ))}
-              </div>
-            )}
-
-            {/* -- Outliner tab -- */}
-            {tab === 'outliner' && (
-              <div>
-                <span style={stl.label}>Scene Hierarchy</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                  {/* Scene root */}
-                  <div style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', padding: '4px 6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scene</div>
-
-                  {/* Model */}
-                  <button
-                    onClick={() => {
-                      setSelectedObjectIds(prev => prev.length === 1 && prev[0] === 'model' ? [] : ['model']);
-                      setSelectedLightId(null);
-                    }}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
-                      padding: '5px 8px 5px 16px', borderRadius: '4px', textAlign: 'left',
-                      background: selectedObjectIds.includes('model') ? 'rgba(108,99,255,0.12)' : 'transparent',
-                      border: selectedObjectIds.includes('model') ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke={selectedObjectIds.includes('model') ? '#6C63FF' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2"/></svg>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '10px', fontWeight: 600, color: selectedObjectIds.includes('model') ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>
-                        {userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
-                      </div>
-                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>Mesh</div>
-                    </div>
-                  </button>
-
-                  {/* Camera */}
-                  {showSceneCamera && (
-                    <button
-                      onClick={() => {
-                        setSelectedObjectIds(prev => prev.length === 1 && prev[0] === 'camera' ? [] : ['camera']);
-                        setSelectedLightId(null);
-                      }}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
-                        padding: '5px 8px 5px 16px', borderRadius: '4px', textAlign: 'left',
-                        background: selectedObjectIds.includes('camera') ? 'rgba(108,99,255,0.12)' : 'transparent',
-                        border: selectedObjectIds.includes('camera') ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
-                        transition: 'all 0.12s',
-                      }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="8" rx="1.5" stroke={selectedObjectIds.includes('camera') ? '#6C63FF' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2"/><circle cx="7" cy="8" r="2" stroke={selectedObjectIds.includes('camera') ? '#6C63FF' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2"/></svg>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '10px', fontWeight: 600, color: selectedObjectIds.includes('camera') ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>Camera</div>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>Scene Camera</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Lights group */}
-                  {sceneLights.length > 0 && (
-                    <>
-                      <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', padding: '6px 6px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Lights</div>
-                      {sceneLights.map((light, idx) => {
-                        const isLightSelected = selectedLightId === light.id;
-                        return (
-                          <button
-                            key={light.id}
-                            onClick={() => {
-                              setSelectedLightId(isLightSelected ? null : light.id);
-                              setSelectedObjectIds([]);
-                            }}
-                            style={{
-                              width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
-                              padding: '5px 8px 5px 24px', borderRadius: '4px', textAlign: 'left',
-                              background: isLightSelected ? 'rgba(108,99,255,0.12)' : 'transparent',
-                              border: isLightSelected ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
-                              transition: 'all 0.12s',
-                            }}
-                          >
-                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: '10px', fontWeight: 600, color: isLightSelected ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>
-                                Point Light {idx + 1}
-                              </div>
-                              <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>
-                                {light.color} | {light.intensity.toFixed(1)}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
-
-                  {/* Empty state */}
-                  {sceneLights.length === 0 && !showSceneCamera && (
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', padding: '16px 8px' }}>
-                      Add lights or enable the scene camera to see more objects here.
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>

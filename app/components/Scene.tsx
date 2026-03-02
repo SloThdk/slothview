@@ -973,12 +973,12 @@ export default function Scene(props: SceneProps) {
             {chromaticAb > 0 ? <ChromaticAberration offset={new Vector2(chromaticAb, chromaticAb)} /> : <></>}
             {(brightness !== 0 || contrast !== 0) ? <BrightnessContrast brightness={brightness} contrast={contrast} /> : <></>}
             <ToneMapping mode={ToneMappingMode.AGX} />
-            <Outline edgeStrength={3} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} xRay={false} />
+            <Outline edgeStrength={2.5} visibleEdgeColor={0x6C63FF as any} hiddenEdgeColor={0x2a2555 as any} blur pulseSpeed={0.4} xRay={false} />
           </EffectComposer>
         ) : (
           /* Outline-only composer for non-PBR modes */
           <EffectComposer multisampling={0}>
-            <Outline edgeStrength={3} visibleEdgeColor={0xFFAA00 as any} hiddenEdgeColor={0x000000 as any} blur={false as any} xRay={false} />
+            <Outline edgeStrength={2.5} visibleEdgeColor={0x6C63FF as any} hiddenEdgeColor={0x2a2555 as any} blur pulseSpeed={0.4} xRay={false} />
           </EffectComposer>
         )}
 
