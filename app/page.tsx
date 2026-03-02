@@ -1008,9 +1008,6 @@ export default function Page() {
       <input ref={fileRef} type="file" accept=".glb,.gltf,.fbx,.obj" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setUserFile(f); showToast(`Loaded: ${f.name}`); } }} />
       <input ref={hdriRef} type="file" accept=".hdr,.exr" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { const url = URL.createObjectURL(f); setCustomHdri(url); setShowEnvBg(true); showToast(`HDRI: ${f.name}`); } }} />
 
-      {/* transform is intentionally NOT in inline style — CSS handles translateX(-50%) + slide-up via toastPop animation */}
-      {toast && <div className="toast-msg" style={{ position: 'fixed', bottom: '80px', left: '50%', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, maxWidth: 'calc(100vw - 32px)', textAlign: 'center', whiteSpace: 'nowrap' }}>{toast}</div>}
-
       {/* drag-to-load removed */}
 
       {/* ── Top bar ── */}
@@ -1979,6 +1976,11 @@ export default function Page() {
 
       {/* ── Viewport ── */}
       <div ref={viewportRef} style={{ flex: 1, position: 'relative', paddingTop: '32px' }}>
+        {/* Toast — position: absolute so left:50% resolves against canvas width (not full screen),
+            keeping it centered above the bottom toolbar regardless of sidebar state.
+            transform: translateX(-50%) is owned by the toastPop CSS animation (forwards fill). */}
+        {toast && <div className="toast-msg" style={{ position: 'absolute', bottom: '70px', left: '50%', zIndex: 100, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', borderRadius: '6px', padding: '6px 14px', color: '#9590ff', fontSize: '10px', fontWeight: 600, maxWidth: 'calc(100% - 32px)', textAlign: 'center', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{toast}</div>}
+
         {/* Mobile burger — mobile only */}
         {!shadingOverlay && !sidebarOpen && (
           <button className="burger-btn" onClick={() => setSidebarOpen(true)} style={{
