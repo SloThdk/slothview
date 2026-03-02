@@ -1740,29 +1740,47 @@ export default function Page() {
                   <div style={{ marginBottom: '8px' }}>
                     <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '4px', paddingLeft: '2px' }}>Output</div>
 
-                    {/* Folder path row */}
+                    {/* Folder picker row */}
                     <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                      <Tip text={outputDirName ? `Output folder: ${outputDirName}. Click to change.` : 'Choose a folder on your PC. Renders will auto-save there without the browser download prompt. Requires Chrome or Edge.'} pos="top">
+                      <Tip text={outputDirName
+                        ? 'Browser security only exposes the folder name — the full path is hidden by Chrome/Edge for privacy. Files save directly inside this folder. Click to change.'
+                        : 'Choose a folder on your PC. Renders auto-save there — no download prompt. Chrome/Edge only.'} pos="top">
                         <button onClick={pickOutputDir} style={{
                           flex: 1, padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const,
-                          display: 'flex', alignItems: 'center', gap: '6px',
+                          display: 'flex', alignItems: 'center', gap: '5px',
                           background: outputDirName ? 'rgba(0,212,168,0.08)' : 'rgba(255,255,255,0.03)',
                           border: outputDirName ? '1px solid rgba(0,212,168,0.25)' : '1px solid rgba(255,255,255,0.06)',
                         }}>
                           <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 3.5C1 2.67 1.67 2 2.5 2H4l1 1.5H9.5C10.33 3.5 11 4.17 11 5v3.5C11 9.33 10.33 10 9.5 10h-7C1.67 10 1 9.33 1 8.5V3.5Z" stroke={outputDirName ? '#00D4A8' : 'rgba(255,255,255,0.3)'} strokeWidth="1.1"/></svg>
-                          <span style={{ fontSize: '9px', fontWeight: 600, color: outputDirName ? '#00D4A8' : 'rgba(255,255,255,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, flex: 1 }}>
-                            {outputDirName || 'Browse folder...'}
-                          </span>
+                          {outputDirName ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                              <span style={{ fontSize: '8px', color: 'rgba(0,212,168,0.45)', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>...{'\u2009/\u2009'}</span>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: '#00D4A8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontFamily: 'monospace' }}>{outputDirName}</span>
+                              <span style={{ fontSize: '8px', color: 'rgba(0,212,168,0.45)', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>{'\u2009/'}</span>
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.3)' }}>Browse folder...</span>
+                          )}
                         </button>
                       </Tip>
                       {outputDirName && (
                         <Tip text="Clear output folder — renders will use the browser download prompt again" pos="top">
-                          <button onClick={clearOutputDir} style={{ padding: '5px 7px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', fontSize: '9px', display: 'flex', alignItems: 'center' }}>
+                          <button onClick={clearOutputDir} style={{ padding: '5px 7px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center' }}>
                             <IconX />
                           </button>
                         </Tip>
                       )}
                     </div>
+
+                    {/* Path note */}
+                    {outputDirName && (
+                      <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.18)', marginBottom: '4px', lineHeight: 1.5, padding: '4px 6px', background: 'rgba(0,212,168,0.04)', borderRadius: '3px', border: '1px solid rgba(0,212,168,0.1)', fontFamily: 'monospace' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.3)' }}>.../{outputDirName}/</span><span style={{ color: 'rgba(255,255,255,0.18)' }}>&lt;filename&gt;</span>
+                        <div style={{ fontSize: '6.5px', color: 'rgba(255,255,255,0.12)', fontFamily: 'sans-serif', marginTop: '2px' }}>
+                          Full path hidden by browser \u2014 check your folder to confirm location
+                        </div>
+                      </div>
+                    )}
 
                     {/* Filename input */}
                     <Tip text="Custom filename (no extension). Applies to Render Image and Turntable. Leave blank to use the auto-generated name." pos="top" fullWidth>
@@ -1780,7 +1798,7 @@ export default function Page() {
                     </Tip>
                     <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', marginTop: '3px', lineHeight: 1.4, paddingLeft: '2px' }}>
                       {outputDirName
-                        ? `Files save directly to: ${outputDirName}/`
+                        ? `Auto-saves to: ${outputDirName}/`
                         : 'No folder set \u2014 browser will prompt to save each file'}
                     </div>
                   </div>
