@@ -1209,6 +1209,7 @@ export default function Page() {
             {tab === 'render' && (
               <div>
                 <span style={stl.label}>Post-Processing</span>
+                <Tip text="Toggles all post-processing effects on or off. Disable for a clean flat look or to improve performance." pos="top">
                 <button onClick={() => setEnablePP(!enablePP)} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '5px', width: '100%', marginBottom: '8px',
                   background: enablePP ? 'rgba(108,99,255,0.06)' : 'transparent', border: enablePP ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
@@ -1218,11 +1219,13 @@ export default function Page() {
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: enablePP ? '16px' : '2px', transition: 'left 0.2s' }} />
                   </div>
                 </button>
+                </Tip>
                 {enablePP && (
                   <>
                     <Slider label="Bloom Intensity" value={bloomI} min={0} max={1} step={0.01} onChange={setBloomI} defaultValue={0.15} tooltip="Adds a soft glow around bright surfaces — raise for neon/cinematic looks" />
                     <Slider label="Bloom Threshold" value={bloomT} min={0} max={1.5} step={0.05} onChange={setBloomT} defaultValue={0.9} tooltip="Brightness cutoff before glow kicks in — lower = more glow everywhere" />
                     <Slider label="Vignette" value={vigI} min={0} max={1} step={0.05} onChange={setVigI} defaultValue={0.3} tooltip="Darkens the viewport edges for a cinematic / lens falloff look" />
+                    <Tip text="Screen Space Ambient Occlusion -- adds soft shadows in crevices and contact points for depth and realism." pos="top">
                     <button onClick={() => setSsao(!ssao)} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '5px', width: '100%', marginBottom: '4px',
                       background: ssao ? 'rgba(108,99,255,0.06)' : 'transparent', border: ssao ? '1px solid rgba(108,99,255,0.15)' : '1px solid rgba(255,255,255,0.03)',
@@ -1232,6 +1235,7 @@ export default function Page() {
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: ssao ? '16px' : '2px', transition: 'left 0.2s' }} />
                       </div>
                     </button>
+                    </Tip>
                     {ssao && <>
                       <Slider label="AO Radius" value={ssaoRadius} min={0.1} max={2} step={0.05} onChange={setSsaoRadius} defaultValue={0.5} tooltip="How far ambient occlusion shadows spread from contact points" />
                       <Slider label="AO Intensity" value={ssaoIntensity} min={0} max={4} step={0.1} onChange={setSsaoIntensity} defaultValue={1.0} tooltip="Strength of the ambient occlusion darkening effect" />
@@ -1251,11 +1255,12 @@ export default function Page() {
                 <span style={stl.label}>Format</span>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
                   {([
-                    { id: 'png', label: 'PNG', desc: 'Lossless · transparent' },
-                    { id: 'jpeg', label: 'JPEG', desc: 'Lossy · smaller file' },
-                    { id: 'webp', label: 'WebP', desc: 'Modern · best ratio' },
+                    { id: 'png', label: 'PNG', desc: 'Lossless · transparent', tip: 'Lossless quality, supports transparency. Largest file size.' },
+                    { id: 'jpeg', label: 'JPEG', desc: 'Lossy · smaller file', tip: 'Compressed format. Smaller file, slight quality loss. Best for sharing.' },
+                    { id: 'webp', label: 'WebP', desc: 'Modern · best ratio', tip: 'Modern format. Small file with near-lossless quality. Best overall.' },
                   ] as const).map(f => (
-                    <button key={f.id} onClick={() => setRenderFormat(f.id)} style={{
+                    <Tip key={f.id} text={f.tip} pos="top">
+                    <button onClick={() => setRenderFormat(f.id)} style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px',
                       marginBottom: '2px', borderRadius: '4px', textAlign: 'left',
                       background: renderFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
@@ -1269,6 +1274,7 @@ export default function Page() {
                         <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</div>
                       </div>
                     </button>
+                    </Tip>
                   ))}
                   {renderFormat !== 'png' && (
                     <div style={{ marginTop: '6px' }}>
@@ -1282,20 +1288,22 @@ export default function Page() {
                   {/* Resolution presets */}
                   <div style={{ display: 'flex', gap: '2px', marginBottom: '6px', flexWrap: 'wrap' }}>
                     {[
-                      { label: '1080p', w: 1920, h: 1080 },
-                      { label: '4K', w: 3840, h: 2160 },
-                      { label: '1:1', w: 2048, h: 2048 },
-                      { label: 'Portrait', w: 1080, h: 1350 },
-                      { label: '8K', w: 7680, h: 4320 },
+                      { label: '1080p', w: 1920, h: 1080, tip: '1920x1080 -- standard HD, ideal for web and most screens' },
+                      { label: '4K', w: 3840, h: 2160, tip: '3840x2160 -- ultra HD, great for print and large displays. 4x more pixels than 1080p.' },
+                      { label: '1:1', w: 2048, h: 2048, tip: '2048x2048 -- perfect square format for product photos, social posts, and thumbnails' },
+                      { label: 'Portrait', w: 1080, h: 1350, tip: '1080x1350 -- portrait ratio, ideal for Instagram and vertical content' },
+                      { label: '8K', w: 7680, h: 4320, tip: '7680x4320 -- extreme resolution. Slow to render, only use for print or professional exports.' },
                     ].map(p => {
                       const active = renderWidth === p.w && renderHeight === p.h;
                       return (
-                        <button key={p.label} onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); }} style={{
+                        <Tip key={p.label} text={p.tip} pos="top">
+                        <button onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); }} style={{
                           flex: 1, minWidth: '40px', padding: '4px 3px', borderRadius: '3px', fontSize: '8px', fontWeight: 700,
                           background: active ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
                           color: active ? '#6C63FF' : 'rgba(255,255,255,0.3)',
                           border: active ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
                         }}>{p.label}</button>
+                        </Tip>
                       );
                     })}
                   </div>
@@ -1309,23 +1317,28 @@ export default function Page() {
                       <NumericInput value={renderHeight} min={100} max={8192} step={1}
                         onChange={v => setRenderHeight(v)}
                         style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                      <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span>
+                      <Tip text="Custom width and height in pixels. Max 8192px per side." pos="top"><span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span></Tip>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                      <Tip text="Reset resolution to 1920x1080 (standard 1080p)" pos="top">
                       <button
                         onClick={() => { setRenderWidth(1920); setRenderHeight(1080); }}
                         style={{ fontSize: '8px', color: 'rgba(255,255,255,0.22)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.1)', letterSpacing: '0.02em' }}
                       >Reset to default (1920x1080)</button>
+                      </Tip>
                     </div>
                   </div>
                   {(renderWidth > 3840 || renderHeight > 2160) && ttFormat !== 'webm' && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>8K+ image sequences are memory-intensive. Use WebM for large turntables.</div>}
                   <Slider label="Samples" value={renderSamples} min={1} max={16384} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" tooltip={renderSamples > 512 ? 'WARNING: Very high sample count — this may slow or freeze your machine. Use 4–64 for previews, 128–512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production. Very high counts will lag your machine.'} />
                   {renderSamples > 512 && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>High SPP can slow or freeze your browser</div>}
+                  <Tip text="Samples per pixel -- higher values reduce noise but take longer. 4=preview, 64=quality, 256+=production." pos="top">
                   <div style={{ display: 'flex', gap: '2px', marginBottom: '6px' }}>
                     {[4, 16, 64, 256, 1024].map(s => (
                       <button key={s} onClick={() => setRenderSamples(s)} style={{ flex: 1, padding: '3px 2px', borderRadius: '3px', fontSize: '8px', fontWeight: 600, background: renderSamples === s ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)', color: renderSamples === s ? '#6C63FF' : 'rgba(255,255,255,0.3)', border: renderSamples === s ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)' }}>{s}</button>
                     ))}
                   </div>
+                  </Tip>
+                  <Tip text="Renders the current scene to a high-quality image. You will be prompted to download when done. Press Esc to cancel." pos="top">
                   <button onClick={render} disabled={rendering} style={{
                     width: '100%', padding: '10px', borderRadius: '6px', marginTop: '4px',
                     background: rendering ? 'rgba(108,99,255,0.08)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
@@ -1335,14 +1348,17 @@ export default function Page() {
                     <IconZap />
                     {rendering ? 'Rendering...' : 'Render Image'}
                   </button>
+                  </Tip>
                   {!rendering && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: '5px' }}>You will be prompted to download the image when done</div>}
                 </div>
+                <Tip text="Captures the viewport as-is at screen resolution. Instant -- no rendering." pos="top">
                 <button onClick={screenshot} style={{
                   width: '100%', padding: '8px', borderRadius: '5px',
                   background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
                   color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 }}><IconCamera /> Quick Screenshot</button>
+                </Tip>
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
 
@@ -1394,14 +1410,15 @@ export default function Page() {
                     <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '4px', paddingLeft: '2px' }}>Preset</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
                       {([
-                        { label: 'Quick', frames: 60, fps: 30, desc: '2s · preview' },
-                        { label: 'Showcase', frames: 120, fps: 24, desc: '5s · standard' },
-                        { label: 'Cinematic', frames: 240, fps: 24, desc: '10s · smooth' },
-                        { label: 'Master', frames: 360, fps: 30, desc: '12s · full detail' },
+                        { label: 'Quick', frames: 60, fps: 30, desc: '2s · preview', tip: '60 steps at 30fps -- 2-second spin. Good for quick direction and lighting checks.' },
+                        { label: 'Showcase', frames: 120, fps: 24, desc: '5s · standard', tip: '120 steps at 24fps -- 5-second cinematic spin. Standard for product showcases and social media.' },
+                        { label: 'Cinematic', frames: 240, fps: 24, desc: '10s · smooth', tip: '240 steps at 24fps -- 10-second ultra-smooth rotation. For high-end presentations and reels.' },
+                        { label: 'Master', frames: 360, fps: 30, desc: '12s · full detail', tip: '360 steps at 30fps -- 12-second one-degree-per-step rotation. Maximum detail for editing and compositing.' },
                       ] as const).map(p => {
                         const active = ttFrames === p.frames && ttFps === p.fps;
                         return (
-                          <button key={p.label} onClick={() => { setTtFrames(p.frames); setTtFps(p.fps); }} style={{
+                          <Tip key={p.label} text={p.tip} pos="top">
+                          <button onClick={() => { setTtFrames(p.frames); setTtFps(p.fps); }} style={{
                             padding: '5px 6px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, gap: '1px',
                             background: active ? 'rgba(108,99,255,0.14)' : 'rgba(255,255,255,0.02)',
                             border: active ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
@@ -1409,6 +1426,7 @@ export default function Page() {
                             <span style={{ fontSize: '10px', fontWeight: 700, color: active ? '#fff' : 'rgba(255,255,255,0.5)' }}>{p.label}</span>
                             <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.2)' }}>{p.desc}</span>
                           </button>
+                          </Tip>
                         );
                       })}
                     </div>
@@ -1518,6 +1536,7 @@ export default function Page() {
                   </div>
 
                   {/* Preview spin toggle */}
+                  <Tip text="Spins the model live in the viewport at the exact speed and direction of your current turntable settings. Use this to preview before rendering." pos="top">
                   <button
                     onClick={() => setTtPreviewActive(p => !p)}
                     disabled={ttActive}
@@ -1534,8 +1553,10 @@ export default function Page() {
                     <IconRotate />
                     {ttPreviewActive ? 'Stop Preview' : 'Preview Spin'}
                   </button>
+                  </Tip>
 
                   {/* Action buttons */}
+                  <Tip text="Captures a full 360 degree rotation as a WebM video or image sequence ZIP. Uses your current resolution and lighting settings." pos="top">
                   <div style={{ display: 'flex', gap: '4px' }}>
                     <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering && !ttActive} style={{
                       flex: 1, padding: '9px', borderRadius: '6px',
@@ -1549,6 +1570,7 @@ export default function Page() {
                       {ttActive ? `Cancel (${ttProgress}%)` : 'Render Turntable'}
                     </button>
                   </div>
+                  </Tip>
                   {ttFormat === 'webm' && !ttActive && (
                     <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', marginTop: '5px', lineHeight: 1.4 }}>
                       WebM plays in Chrome, Firefox, and VLC. Windows Media Player may not support it.
