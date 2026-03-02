@@ -752,6 +752,19 @@ export default function Scene(props: SceneProps) {
   const pointerDidDrag = useRef(false);
   useEffect(() => { isModelSelectedRef.current = modelSelected; }, [modelSelected]);
 
+  // Imperatively sync autoRotate / autoRotateSpeed so prop changes always reach the Three.js object
+  // (drei's JSX reconciliation can silently miss prop updates on OrbitControls)
+  useEffect(() => {
+    if (orbitRef.current) {
+      (orbitRef.current as any).autoRotate = autoRotate && !cameraViewMode;
+    }
+  }, [autoRotate, cameraViewMode]);
+  useEffect(() => {
+    if (orbitRef.current) {
+      (orbitRef.current as any).autoRotateSpeed = autoRotateSpeed;
+    }
+  }, [autoRotateSpeed]);
+
   // Expose azimuthal angle getter for turntable render (setter is wired inside AzimuthSetupInner)
   useEffect(() => {
     if (props.getAzimuthRef) {
