@@ -259,6 +259,8 @@ export default function Page() {
   const snapOrbitToPosRef = useRef<((pos: [number, number, number]) => void) | null>(null);
   const getOrbitStateRef = useRef<(() => { azimuth: number; polar: number; distance: number }) | null>(null);
   const setOrbitStateRef = useRef<((state: { azimuth: number; polar: number; distance: number }) => void) | null>(null);
+  // Stores free-viewport orbit position from before a turntable render — restored when user exits camera view after turntable
+  const preTtOrbitRef = useRef<{ azimuth: number; polar: number; distance: number } | null>(null);
 
   // F key focus-on-selection — ref set by FocusController inside Canvas
   const focusOnModelRef = useRef<(() => void) | null>(null);
@@ -505,6 +507,11 @@ export default function Page() {
         } else {
           setLockCameraToView(false);
           setCameraViewMode(false);
+          // If we entered camera view via a turntable render, restore the pre-turntable free viewport position
+          if (preTtOrbitRef.current && setOrbitStateRef.current) {
+            setOrbitStateRef.current(preTtOrbitRef.current);
+            preTtOrbitRef.current = null;
+          }
         }
       }
       // F = Focus on selected object (Blender-style: frame/zoom camera to fit selection)
@@ -606,6 +613,9 @@ export default function Page() {
     setTtPreviewActive(false);
 
     // After render, orbit stays at scene camera position (Blender-style: render from camera = stay there)
+
+    // Save free-viewport orbit position so we can restore it if user exits camera view after turntable
+    preTtOrbitRef.current = getOrbitStateRef.current?.() ?? null;
 
     // Exit camera view mode if active — CameraViewSyncer fights the azimuth setter and causes flickering
     setCameraViewMode(false);
@@ -809,8 +819,11 @@ export default function Page() {
       // Return to start angle, not 0
       if (setAzimuthRef.current) setAzimuthRef.current(startAngle);
       setTtActive(false);
-      // Stay at scene camera position after render (don't snap back to free-orbit viewport)
-      setCameraViewMode(false);
+      // After turntable: stay in camera view (orbit is already at scene camera position).
+      // CameraViewSyncer is safe to mount here — ttActive is now false, no conflict.
+      // preTtOrbitRef holds the pre-turntable free viewport position for when user exits camera view.
+      setShowSceneCamera(true);
+      setCameraViewMode(true);
       setTtProgress(0);
       setTtCurrentFrame(0);
       if (cancelTtRef.current) {
@@ -1217,7 +1230,17 @@ export default function Page() {
                 {showSceneCamera && (
                   <>
                     {/* Camera view toggle */}
-                    <button onClick={() => { if (cameraViewMode) setLockCameraToView(false); setCameraViewMode(!cameraViewMode); }} style={{
+                    <button onClick={() => {
+                      if (cameraViewMode) {
+                        setLockCameraToView(false);
+                        // Restore pre-turntable free viewport position if camera view was entered via turntable
+                        if (preTtOrbitRef.current && setOrbitStateRef.current) {
+                          setOrbitStateRef.current(preTtOrbitRef.current);
+                          preTtOrbitRef.current = null;
+                        }
+                      }
+                      setCameraViewMode(!cameraViewMode);
+                    }} style={{
                       width: '100%', padding: '10px', borderRadius: '6px', marginBottom: '10px',
                       background: cameraViewMode ? 'rgba(239,68,68,0.85)' : 'rgba(34,197,94,0.1)',
                       border: `1px solid ${cameraViewMode ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.35)'}`,

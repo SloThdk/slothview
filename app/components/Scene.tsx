@@ -584,21 +584,28 @@ function OrbitSnapSetupInner({ orbitRef, snapOrbitToPosRef }: {
       const prevEnabled = orbit.enabled;
       const prevDamping = orbit.enableDamping;
       const prevAutoRotate = orbit.autoRotate;
-      const prevMin = orbit.minDistance;
-      const prevMax = orbit.maxDistance;
+      const prevMinDist = orbit.minDistance;
+      const prevMaxDist = orbit.maxDistance;
+      const prevMinPolar = orbit.minPolarAngle;
+      const prevMaxPolar = orbit.maxPolarAngle;
       orbit.enabled = true;
       orbit.enableDamping = false;
       orbit.autoRotate = false;
-      // Set azimuth and polar angle
+      // Force azimuth (horizontal rotation) — setAzimuthalAngle is confirmed available
       if (typeof orbit.setAzimuthalAngle === 'function') orbit.setAzimuthalAngle(sph.theta);
-      if (typeof orbit.setPolarAngle === 'function') orbit.setPolarAngle(sph.phi);
-      // Pin distance to scene camera distance
+      // Force polar angle (vertical) via constraints — more reliable than setPolarAngle
+      // which may not exist on all Three.js/drei versions
+      orbit.minPolarAngle = sph.phi;
+      orbit.maxPolarAngle = sph.phi;
+      // Force distance
       orbit.minDistance = sph.radius;
       orbit.maxDistance = sph.radius;
       orbit.update();
-      // Restore constraints
-      orbit.minDistance = prevMin;
-      orbit.maxDistance = prevMax;
+      // Restore all constraints
+      orbit.minPolarAngle = prevMinPolar;
+      orbit.maxPolarAngle = prevMaxPolar;
+      orbit.minDistance = prevMinDist;
+      orbit.maxDistance = prevMaxDist;
       orbit.enabled = prevEnabled;
       orbit.enableDamping = prevDamping;
       orbit.autoRotate = prevAutoRotate;
