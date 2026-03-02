@@ -619,7 +619,10 @@ export default function Page() {
 
     try {
       if (ttFormat === 'webm') {
-        const stream = (gl.domElement as HTMLCanvasElement).captureStream(ttFps);
+        // captureStream(0) = no automatic capture; we push each frame manually via requestFrame()
+        // This avoids the sync mismatch where the stream timer and gl.render() run independently
+        const stream = (gl.domElement as HTMLCanvasElement).captureStream(0);
+        const track = stream.getVideoTracks()[0] as any; // CanvasCaptureMediaStreamTrack
         const chunks: BlobPart[] = [];
         const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
           ? 'video/webm;codecs=vp9'
@@ -641,12 +644,18 @@ export default function Page() {
         });
         recorder.start();
 
+        // Brief init pause so recorder is ready before first frame
+        await new Promise(r => setTimeout(r, 80));
+
         const frameMs = 1000 / ttFps;
         for (let i = 0; i < totalFrames; i++) {
           if (cancelTtRef.current) { recorder.stop(); break; }
+          // Render the rotated frame, then immediately push it as a video frame
           setAzimuthRef.current!(frameAngle(i));
+          track.requestFrame(); // push exactly this rendered canvas frame
           setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
           setTtCurrentFrame(i + 1);
+          // Pace at target FPS so WebM timestamps are spaced correctly
           await new Promise(r => setTimeout(r, frameMs));
         }
         if (!cancelTtRef.current) recorder.stop();
