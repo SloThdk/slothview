@@ -165,6 +165,9 @@ input, select { font: inherit; }
 /* ── Landscape mobile (short viewport) ── */
 @media (max-height: 500px) and (orientation: landscape) {
   .mobile-model-bar { display: none !important; }
+  .mobile-fab { display: none !important; }
+  .render-tab-btn { display: none !important; }
+  .toolbar-render-btns { display: none !important; }
   .viewport-toolbar { bottom: 4px !important; }
   .toast-msg { bottom: 50px !important; }
   .scene-stats { bottom: 55px !important; }
