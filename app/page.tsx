@@ -622,6 +622,12 @@ export default function Page() {
     setTtActive(true);
     setTtProgress(0);
 
+    // CRITICAL: yield to browser so React flushes the ttActive=true re-render.
+    // Without this, the first captured frames still show gizmos because TransformControls
+    // hasn't unmounted yet (React re-renders are async — the capture loop starts synchronously).
+    // Two rAFs: first lets React commit, second lets R3F render the clean scene.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
     const oW = (gl.domElement as HTMLCanvasElement).width;
     const oH = (gl.domElement as HTMLCanvasElement).height;
     const rW = renderWidth;
