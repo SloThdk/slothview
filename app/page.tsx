@@ -466,6 +466,8 @@ export default function Page() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const hdriRef = useRef<HTMLInputElement | null>(null);
   const cancelRenderRef = useRef(false);
+  // Locked while any render is active + 1s grace after completion — prevents camera view exit mid-render
+  const renderLockedRef = useRef(false);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
 
@@ -507,6 +509,11 @@ export default function Page() {
           setShowSceneCamera(true);
           setCameraViewMode(true);
         } else {
+          // Block exit while rendering — lock released 1s after render completes
+          if (renderLockedRef.current) {
+            showToast('Rendering in progress \u2014 cannot exit camera view yet');
+            return;
+          }
           setLockCameraToView(false);
           setCameraViewMode(false);
           // If we entered camera view via a turntable render, restore the pre-turntable free viewport position.
@@ -656,6 +663,7 @@ export default function Page() {
     if (!gl || !setAzimuthRef.current) return;
 
     cancelTtRef.current = false;
+    renderLockedRef.current = true;
     setTtPreviewActive(false);
 
     // After render, orbit stays at scene camera position (Blender-style: render from camera = stay there)
@@ -780,11 +788,12 @@ export default function Page() {
 
             if (!cancelTtRef.current || buffer.byteLength > 1000) {
               const blob = new Blob([buffer], { type: 'video/webm' });
+              const ts = Date.now().toString().slice(-8);
               const filename = cancelTtRef.current
-                ? 'slothstudio-3dviewer-turntable-partial.webm'
+                ? `slothstudio-3dviewer-turntable-partial-${ts}.webm`
                 : renderFilename.trim()
-                  ? `${renderFilename.trim()}.webm`
-                  : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+                  ? `${renderFilename.trim()}-${ts}.webm`
+                  : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f-${ts}.webm`;
               const usedPath = await saveFile(blob, filename);
               if (usedPath && outputDirHandleRef.current) showToast(`Saved \u2192 ${outputDirHandleRef.current.name}/${filename}`);
             }
@@ -808,7 +817,8 @@ export default function Page() {
           const stopPromise = new Promise<void>((resolve, reject) => {
             recorder.onstop = async () => {
               const blob = new Blob(chunks, { type: 'video/webm' });
-              const filename = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+              const ts = Date.now().toString().slice(-8);
+              const filename = renderFilename.trim() ? `${renderFilename.trim()}-${ts}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f-${ts}.webm`;
               const usedPath = await saveFile(blob, filename);
               if (usedPath && outputDirHandleRef.current) showToast(`Saved \u2192 ${outputDirHandleRef.current.name}/${filename}`);
               resolve();
@@ -858,7 +868,10 @@ export default function Page() {
           const partial = cancelTtRef.current;
           showToast(partial ? `Packing partial ZIP (${captured}/${totalFrames})...` : 'Packing ZIP...');
           const zipBlob = await zip.generateAsync({ type: 'blob' });
-          const baseName = renderFilename.trim() || `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f`;
+          const ts = Date.now().toString().slice(-8);
+          const baseName = renderFilename.trim()
+            ? `${renderFilename.trim()}-${ts}`
+            : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f-${ts}`;
           const zipFilename = partial ? `${baseName}-partial-${captured}of${totalFrames}.zip` : `${baseName}.zip`;
           const usedPath = await saveFile(zipBlob, zipFilename);
           if (usedPath && outputDirHandleRef.current) showToast(`Saved \u2192 ${outputDirHandleRef.current.name}/${zipFilename}`);
@@ -883,6 +896,8 @@ export default function Page() {
         showToast('Turntable export complete');
       }
       cancelTtRef.current = false;
+      // Release camera view lock 1s after render fully completes — covers any edge cases
+      setTimeout(() => { renderLockedRef.current = false; }, 1000);
     }
   }, [renderWidth, renderHeight, ttFrames, ttFps, ttFormat, ttDirection, ttEasing, renderFilename, saveFile]);
 
@@ -890,6 +905,7 @@ export default function Page() {
     const gl = glRef.current, c = canvasRef.current;
     if (!gl || !c) return;
     cancelRenderRef.current = false;
+    renderLockedRef.current = true;
     const hadGrid = showGrid;
     if (hadGrid) setShowGrid(false);
     setRendering(true);
@@ -906,6 +922,7 @@ export default function Page() {
       setRendering(false);
       setRenderProgress(0);
       showToast('Render cancelled');
+      setTimeout(() => { renderLockedRef.current = false; }, 1000);
     };
     const doFrame = async () => {
       if (cancelRenderRef.current) { abort(); return; }
@@ -915,9 +932,10 @@ export default function Page() {
         requestAnimationFrame(doFrame);
       } else {
         const mimeType = renderFormat === 'jpeg' ? 'image/jpeg' : renderFormat === 'webp' ? 'image/webp' : 'image/png';
+        const ts = Date.now().toString().slice(-8);
         const filename = renderFilename.trim()
-          ? `${renderFilename.trim()}.${renderFormat}`
-          : `slothstudio-3dviewer-render-${rW}x${rH}-${renderSamples}spp.${renderFormat}`;
+          ? `${renderFilename.trim()}-${ts}.${renderFormat}`
+          : `slothstudio-3dviewer-render-${rW}x${rH}-${renderSamples}spp-${ts}.${renderFormat}`;
         gl.setSize(oW, oH, false);
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         const blob = await new Promise<Blob>(res =>
@@ -928,6 +946,7 @@ export default function Page() {
         if (hadGrid) setShowGrid(true);
         const savedTo = outputDirHandleRef.current ? (outputDirName || outputDirHandleRef.current.name) : null;
         showToast(savedTo ? `Saved \u2192 ${savedTo}/${filename}` : `Rendered ${rW}\u00d7${rH} @ ${renderSamples} spp`);
+        setTimeout(() => { renderLockedRef.current = false; }, 1000);
       }
     };
     setTimeout(() => requestAnimationFrame(doFrame), 100);
@@ -1286,6 +1305,11 @@ export default function Page() {
                     {/* Camera view toggle */}
                     <button onClick={() => {
                       if (cameraViewMode) {
+                        // Block exit while rendering — lock released 1s after render completes
+                        if (renderLockedRef.current) {
+                          showToast('Rendering in progress \u2014 cannot exit camera view yet');
+                          return;
+                        }
                         setLockCameraToView(false);
                         // Restore pre-turntable free viewport position if camera view was entered via turntable.
                         // Deferred 50ms — Scene.tsx has its own savedOrbitState restore at 32ms that would overwrite us.
