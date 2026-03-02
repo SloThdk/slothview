@@ -597,6 +597,8 @@ export default function Page() {
 
     cancelTtRef.current = false;
     setTtPreviewActive(false);
+    // Exit camera view mode if active — CameraViewSyncer fights the azimuth setter and causes flickering
+    setCameraViewMode(false);
     setTtActive(true);
     setRendering(true);
     setTtProgress(0);
@@ -626,9 +628,13 @@ export default function Page() {
         const stream = (gl.domElement as HTMLCanvasElement).captureStream(0);
         const track = stream.getVideoTracks()[0] as any; // CanvasCaptureMediaStreamTrack
         const chunks: BlobPart[] = [];
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-          ? 'video/webm;codecs=vp9'
-          : 'video/webm';
+        // VP8 has the broadest platform support (incl. Windows without extensions)
+        // VP9 is higher quality but requires codec packs on Windows
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+          ? 'video/webm;codecs=vp8'
+          : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm';
         const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
         recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
@@ -1347,7 +1353,7 @@ export default function Page() {
                   <div style={{ marginBottom: '6px' }}>
                     <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px', paddingLeft: '2px' }}>Video</div>
                     {([
-                      { id: 'webm', label: 'WebM', desc: 'VP9 video \u00b7 single file' },
+                      { id: 'webm', label: 'WebM', desc: 'VP8/VP9 video \u00b7 single file' },
                     ] as const).map(f => (
                       <Tip key={f.id} text="Single WebM video file -- best for presentations and social media" pos="top">
                         <button onClick={() => setTtFormat(f.id)} style={{
@@ -1543,6 +1549,11 @@ export default function Page() {
                       {ttActive ? `Cancel (${ttProgress}%)` : 'Render Turntable'}
                     </button>
                   </div>
+                  {ttFormat === 'webm' && !ttActive && (
+                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', marginTop: '5px', lineHeight: 1.4 }}>
+                      WebM plays in Chrome, Firefox, and VLC. Windows Media Player may not support it.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
