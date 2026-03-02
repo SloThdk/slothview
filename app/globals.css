@@ -116,7 +116,7 @@ input, select { font: inherit; }
 
   /* Mobile model bar — horizontal scroll strip above toolbar */
   .mobile-model-bar { display: block !important; bottom: 50px !important; }
-  .mobile-fab { display: flex !important; bottom: 140px !important; right: 12px !important; }
+  .mobile-fab { display: none !important; }
 
   /* Model badge — must clear the model bar (96px) with room to breathe */
   .model-badge { bottom: 100px !important; }
@@ -165,7 +165,6 @@ input, select { font: inherit; }
 /* ── Landscape mobile (short viewport) ── */
 @media (max-height: 500px) and (orientation: landscape) {
   .mobile-model-bar { display: none !important; }
-  .mobile-fab { bottom: 50px !important; }
   .viewport-toolbar { bottom: 4px !important; }
   .toast-msg { bottom: 50px !important; }
   .scene-stats { bottom: 55px !important; }
