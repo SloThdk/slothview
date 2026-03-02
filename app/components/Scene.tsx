@@ -5,7 +5,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Html, Grid, PerspectiveCamera, TransformControls, Line } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, N8AO, ToneMapping, ChromaticAberration, BrightnessContrast, Outline, Select } from '@react-three/postprocessing';
 import { ToneMappingMode, BlendFunction } from 'postprocessing';
-import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3, Box3 } from 'three';
+import { WebGLRenderer, MathUtils, EquirectangularReflectionMapping, Color, Vector2, Vector3, Box3, Spherical } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import Product from './Product';
 import DefaultModel from './DefaultModel';
@@ -152,6 +152,7 @@ export interface SceneProps {
   focusOnModelRef?: React.MutableRefObject<(() => void) | null>;
   setAzimuthRef?: React.MutableRefObject<((angle: number) => void) | null>;
   getAzimuthRef?: React.MutableRefObject<(() => number) | null>;
+  snapOrbitToPosRef?: React.MutableRefObject<((pos: [number, number, number]) => void) | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -560,6 +561,49 @@ function AzimuthSetupInner({ orbitRef, setAzimuthRef }: {
       }
     };
   }, [gl, scene, orbitRef, setAzimuthRef]);
+  return null;
+}
+
+/* ── Snap orbit camera to a world-space position (for turntable "render from camera") ── */
+function OrbitSnapSetupInner({ orbitRef, snapOrbitToPosRef }: {
+  orbitRef: React.RefObject<any>;
+  snapOrbitToPosRef: React.MutableRefObject<((pos: [number, number, number]) => void) | null>;
+}) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    snapOrbitToPosRef.current = (pos: [number, number, number]) => {
+      const orbit = orbitRef.current as any;
+      if (!orbit) return;
+      const [x, y, z] = pos;
+      // Compute spherical coords relative to orbit target (usually origin)
+      const offset = new Vector3(x, y, z).sub(orbit.target);
+      const sph = new Spherical().setFromVector3(offset);
+      const prevEnabled = orbit.enabled;
+      const prevDamping = orbit.enableDamping;
+      const prevAutoRotate = orbit.autoRotate;
+      const prevMin = orbit.minDistance;
+      const prevMax = orbit.maxDistance;
+      orbit.enabled = true;
+      orbit.enableDamping = false;
+      orbit.autoRotate = false;
+      // Set azimuth and polar angle
+      if (typeof orbit.setAzimuthalAngle === 'function') orbit.setAzimuthalAngle(sph.theta);
+      if (typeof orbit.setPolarAngle === 'function') orbit.setPolarAngle(sph.phi);
+      // Pin distance to scene camera distance
+      orbit.minDistance = sph.radius;
+      orbit.maxDistance = sph.radius;
+      orbit.update();
+      // Restore constraints
+      orbit.minDistance = prevMin;
+      orbit.maxDistance = prevMax;
+      orbit.enabled = prevEnabled;
+      orbit.enableDamping = prevDamping;
+      orbit.autoRotate = prevAutoRotate;
+      // Force an immediate render so the new position is visible
+      const cam = orbit.object;
+      if (gl && scene && cam) gl.render(scene, cam);
+    };
+  }, [gl, scene, orbitRef, snapOrbitToPosRef]);
   return null;
 }
 
@@ -1046,6 +1090,7 @@ export default function Scene(props: SceneProps) {
         <AltRMBZoomController orbitRef={orbitRef} />
         <AltMMBPanController orbitRef={orbitRef} />
         {props.setAzimuthRef && <AzimuthSetupInner orbitRef={orbitRef} setAzimuthRef={props.setAzimuthRef} />}
+        {props.snapOrbitToPosRef && <OrbitSnapSetupInner orbitRef={orbitRef} snapOrbitToPosRef={props.snapOrbitToPosRef} />}
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {props.onTransformChange && modelSelected && (
           <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />

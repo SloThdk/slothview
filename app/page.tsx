@@ -256,6 +256,7 @@ export default function Page() {
   const [ttEasing, setTtEasing] = useState<'linear' | 'smooth'>('linear');
   const setAzimuthRef = useRef<((angle: number) => void) | null>(null);
   const getAzimuthRef = useRef<(() => number) | null>(null);
+  const snapOrbitToPosRef = useRef<((pos: [number, number, number]) => void) | null>(null);
 
   // F key focus-on-selection — ref set by FocusController inside Canvas
   const focusOnModelRef = useRef<(() => void) | null>(null);
@@ -433,6 +434,9 @@ export default function Page() {
   // Scene camera position — intentionally DIFFERENT from orbit camera default [3,2,5]
   // If they matched, the camera gizmo would render from inside the orbit camera → frustum lines fill the viewport
   const [cameraPos, setCameraPos] = useState<[number,number,number]>([0, 1.5, 4]);
+  // Ref so renderTurntable (useCallback) always reads the latest cameraPos without being in deps
+  const cameraPosRef = useRef<[number, number, number]>([0, 1.5, 4]);
+  useEffect(() => { cameraPosRef.current = cameraPos; }, [cameraPos]);
   const [cameraViewMode, setCameraViewMode] = useState(false);
   const cameraViewModeRef = useRef(false);
   useEffect(() => { cameraViewModeRef.current = cameraViewMode; }, [cameraViewMode]);
@@ -600,6 +604,11 @@ export default function Page() {
     setTtPreviewActive(false);
     // Exit camera view mode if active — CameraViewSyncer fights the azimuth setter and causes flickering
     setCameraViewMode(false);
+
+    // Snap orbit camera to the Scene Camera position so the turntable always renders
+    // from the defined camera, regardless of where the user has been orbiting freely.
+    if (snapOrbitToPosRef.current) snapOrbitToPosRef.current(cameraPosRef.current);
+
     setTtActive(true);
     setTtProgress(0);
 
@@ -612,6 +621,7 @@ export default function Page() {
     gl.setPixelRatio(1);
 
     const totalFrames = ttFrames;
+    // Read startAngle AFTER the snap so it reflects the scene camera's azimuth
     const startAngle = getAzimuthRef.current ? getAzimuthRef.current() : 0;
     // Negative for CW to match Three.js OrbitControls autoRotate convention:
     // positive autoRotateSpeed = rotateLeft = sphericalDelta.theta -= angle = decreasing azimuth = CW
@@ -1815,6 +1825,7 @@ export default function Page() {
           focusOnModelRef={focusOnModelRef}
           setAzimuthRef={setAzimuthRef}
           getAzimuthRef={getAzimuthRef}
+          snapOrbitToPosRef={snapOrbitToPosRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}
