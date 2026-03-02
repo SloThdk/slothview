@@ -145,6 +145,8 @@ input, select { font: inherit; }
   .toolbar-render-btns { display: none !important; }
   /* Hide reset-all button on mobile — render settings don't apply */
   .reset-all-btn-wrap { display: none !important; }
+  /* Hide transform/coordinates panel on mobile — keyboard shortcuts don't work on touch */
+  .transform-panel { display: none !important; }
 }
 
 /* ── Small phones (iPhone SE, Pixel 5, 375px and under) ── */
@@ -173,6 +175,7 @@ input, select { font: inherit; }
   .render-tab-btn { display: none !important; }
   .toolbar-render-btns { display: none !important; }
   .reset-all-btn-wrap { display: none !important; }
+  .transform-panel { display: none !important; }
   .viewport-toolbar { bottom: 4px !important; }
   .toast-msg { bottom: 50px !important; }
   .scene-stats { bottom: 55px !important; }
