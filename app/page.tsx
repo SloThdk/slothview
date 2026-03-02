@@ -246,6 +246,7 @@ export default function Page() {
   const [ttFps, setTtFps] = useState(24);
   const [ttFormat, setTtFormat] = useState<'webm' | 'png-zip' | 'jpg-zip' | 'webp-zip'>('webm');
   const [ttActive, setTtActive] = useState(false);
+  const ttActiveRef = useRef(false);
   const [ttProgress, setTtProgress] = useState(0);
   const [ttCurrentFrame, setTtCurrentFrame] = useState(0);
   const cancelTtRef = useRef(false);
@@ -409,6 +410,7 @@ export default function Page() {
   useEffect(() => { modelSelectedRef.current = modelSelected; }, [modelSelected]);
   useEffect(() => { modelTransformModeRef.current = modelTransformMode; }, [modelTransformMode]);
   useEffect(() => { renderingRef.current = rendering; }, [rendering]);
+  useEffect(() => { ttActiveRef.current = ttActive; }, [ttActive]);
 
   // File
   const [userFile, setUserFile] = useState<File | null>(null);
@@ -503,8 +505,9 @@ export default function Page() {
           focusOnModelRef.current?.();
         }
       }
-      // Escape = cancel render OR deselect all
+      // Escape = cancel turntable OR cancel render OR deselect all
       if (e.key === 'Escape') {
+        if (ttActiveRef.current) { cancelTtRef.current = true; return; }
         if (renderingRef.current) { cancelRenderRef.current = true; return; }
         setSelectedObjectIds([]);
       }
@@ -624,7 +627,8 @@ export default function Page() {
         const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
         recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
-        await new Promise<void>((resolve, reject) => {
+        // Create stopPromise BEFORE starting recorder so resolve is captured
+        const stopPromise = new Promise<void>((resolve, reject) => {
           recorder.onstop = () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const a = document.createElement('a');
@@ -634,8 +638,8 @@ export default function Page() {
             resolve();
           };
           recorder.onerror = () => reject(new Error('MediaRecorder error'));
-          recorder.start();
         });
+        recorder.start();
 
         const frameMs = 1000 / ttFps;
         for (let i = 0; i < totalFrames; i++) {
@@ -646,6 +650,9 @@ export default function Page() {
           await new Promise(r => setTimeout(r, frameMs));
         }
         if (!cancelTtRef.current) recorder.stop();
+
+        // Wait for blob to be created and download triggered
+        await stopPromise;
 
       } else {
         const JSZip = (await import('jszip')).default;
