@@ -1694,7 +1694,7 @@ export default function Page() {
           bodyColor={bodyColor} accentColor={accentColor} baseColor={baseColor}
           material={mat} environment={env} exploded={exploded} wireframe={wireframe}
           shadingMode={shadingMode}
-          autoRotate={(autoRotate || ttPreviewActive) && !ttActive}
+          autoRotate={((autoRotate && !cameraViewMode) || ttPreviewActive) && !ttActive}
           autoRotateSpeed={ttPreviewActive ? Math.max(0.5, 30 / (ttFrames / ttFps)) * (ttDirection === 'ccw' ? -1 : 1) : autoRotateSpeed}
           showHotspots={showHotspots} showGrid={showGrid} activeHotspot={activeHotspot}
           setActiveHotspot={setActiveHotspot} canvasRef={canvasRef} glRef={glRef}

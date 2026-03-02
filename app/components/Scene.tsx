@@ -756,9 +756,9 @@ export default function Scene(props: SceneProps) {
   // (drei's JSX reconciliation can silently miss prop updates on OrbitControls)
   useEffect(() => {
     if (orbitRef.current) {
-      (orbitRef.current as any).autoRotate = autoRotate && !cameraViewMode;
+      (orbitRef.current as any).autoRotate = autoRotate;
     }
-  }, [autoRotate, cameraViewMode]);
+  }, [autoRotate]);
   useEffect(() => {
     if (orbitRef.current) {
       (orbitRef.current as any).autoRotateSpeed = autoRotateSpeed;
@@ -1024,7 +1024,7 @@ export default function Scene(props: SceneProps) {
           ref={orbitRef}
           makeDefault
           enabled={!rendering}
-          autoRotate={autoRotate && !cameraViewMode}
+          autoRotate={autoRotate}
           autoRotateSpeed={autoRotateSpeed}
           enablePan={true}
           enableZoom={true}
