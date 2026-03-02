@@ -524,6 +524,8 @@ function AltOrbitController({ orbitRef, onLMBDownNoAlt, isModelSelectedRef }: {
     return () => {
       canvas.removeEventListener('pointerdown', onDown, { capture: true });
       window.removeEventListener('pointerup', onUp);
+      // Restore orbit controls on cleanup so autoRotate/preview spin can work
+      if (capturedNoAlt && orbitRef.current) orbitRef.current.enabled = true;
     };
   }, [gl]);
   return null;
@@ -539,13 +541,16 @@ function AzimuthSetupInner({ orbitRef, setAzimuthRef }: {
     setAzimuthRef.current = (angle: number) => {
       if (!orbitRef.current) return;
       const orbit = orbitRef.current as any;
-      // Disable damping so the camera snaps exactly to the target angle (no lag/bounce)
+      // Save and temporarily override controls so update() works even when controls are disabled (e.g. during turntable render)
+      const prevEnabled = orbit.enabled;
       const prevDamping = orbit.enableDamping;
       const prevAutoRotate = orbit.autoRotate;
+      orbit.enabled = true;
       orbit.enableDamping = false;
       orbit.autoRotate = false;
       orbit.setAzimuthalAngle(angle);
       orbit.update();
+      orbit.enabled = prevEnabled;
       orbit.enableDamping = prevDamping;
       orbit.autoRotate = prevAutoRotate;
       // Force immediate render so captureStream / toBlob captures the new frame

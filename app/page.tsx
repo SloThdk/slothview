@@ -2031,7 +2031,7 @@ export default function Page() {
         {/* Camera boundary overlay — visible ONLY in camera view mode or during rendering.
             showSceneCamera alone (camera in scene but not in view mode) does NOT show the boundary. */}
         {(cameraViewMode || rendering) && (
-        <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', inset: 0, top: 40, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
             <>
@@ -2053,7 +2053,7 @@ export default function Page() {
             // JS-computed boundary dimensions — CSS aspect-ratio + max constraints breaks for portrait/square presets
             const sideW = sidebarOpen ? 250 : 0;
             const avW = (vpW - sideW) * 0.92;
-            const avH = (vpH - 32) * 0.84; // 32px = top bar
+            const avH = (vpH - 40) * 0.84; // 40px = top bar
             const bScale = Math.min(avW / renderWidth, avH / renderHeight);
             const bW = Math.round(renderWidth * bScale);
             const bH = Math.round(renderHeight * bScale);
