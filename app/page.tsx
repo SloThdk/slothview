@@ -447,7 +447,7 @@ export default function Page() {
   const [shadingOverlay, setShadingOverlay] = useState(false);
   const [shadingPreviews, setShadingPreviews] = useState<Record<string, string>>({});
   const [hoveredShading, setHoveredShading] = useState<ShadingMode | null>(null);
-  const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display'>('model');
+  const [tab, setTab] = useState<'model' | 'scene' | 'camera' | 'light' | 'render' | 'display' | 'outliner'>('model');
   const [toast, setToast] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
@@ -858,6 +858,7 @@ export default function Page() {
               ['light', 'Lighting', <svg key="lit" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 9v3M5 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M7 1v1M2.5 2.5l.7.7M1 5.5h1M12 5.5h1M10.8 2.5l-.7.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>],
               ['render', 'Render', <svg key="ren" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h3M2 7h6M2 10h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="8" y="3" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/></svg>],
               ['display', 'Display', <svg key="dsp" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2.5C2 2.5 4 5 7 5C10 5 12 2.5 12 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M2 8.5C2 8.5 4 6 7 6C10 6 12 8.5 12 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="3.5" r="1" fill="currentColor"/><circle cx="7" cy="7.5" r="1" fill="currentColor"/></svg>],
+              ['outliner', 'Outliner', <svg key="out" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2h10M2 5h10M5 8h7M5 11h7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M2 7.5l1.5 1.5L2 10.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>],
             ] as [string, string, React.ReactNode][]).map(([id, label, icon]) => (
               <Tip text={label} pos="bottom" key={id}>
                 <button onClick={() => setTab(id as any)} style={{
@@ -1318,6 +1319,7 @@ export default function Page() {
                     <IconZap />
                     {rendering ? 'Rendering...' : 'Render Image'}
                   </button>
+                  {!rendering && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: '5px' }}>You will be prompted to download the image when done</div>}
                 </div>
                 <button onClick={screenshot} style={{
                   width: '100%', padding: '8px', borderRadius: '5px',
@@ -1531,6 +1533,106 @@ export default function Page() {
                     </div>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* -- Outliner tab -- */}
+            {tab === 'outliner' && (
+              <div>
+                <span style={stl.label}>Scene Hierarchy</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                  {/* Scene root */}
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', padding: '4px 6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scene</div>
+
+                  {/* Model */}
+                  <button
+                    onClick={() => {
+                      setSelectedObjectIds(prev => prev.length === 1 && prev[0] === 'model' ? [] : ['model']);
+                      setSelectedLightId(null);
+                    }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '5px 8px 5px 16px', borderRadius: '4px', textAlign: 'left',
+                      background: selectedObjectIds.includes('model') ? 'rgba(108,99,255,0.12)' : 'transparent',
+                      border: selectedObjectIds.includes('model') ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke={selectedObjectIds.includes('model') ? '#6C63FF' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2"/></svg>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: selectedObjectIds.includes('model') ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>
+                        {userFile ? userFile.name.replace(/\.[^.]+$/, '') : (PRESET_MODELS.find(m => m.id === selectedModel)?.name || 'Model')}
+                      </div>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>Mesh</div>
+                    </div>
+                  </button>
+
+                  {/* Camera */}
+                  {showSceneCamera && (
+                    <button
+                      onClick={() => {
+                        setSelectedObjectIds(prev => prev.length === 1 && prev[0] === 'camera' ? [] : ['camera']);
+                        setSelectedLightId(null);
+                      }}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '5px 8px 5px 16px', borderRadius: '4px', textAlign: 'left',
+                        background: selectedObjectIds.includes('camera') ? 'rgba(108,99,255,0.12)' : 'transparent',
+                        border: selectedObjectIds.includes('camera') ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
+                        transition: 'all 0.12s',
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="8" rx="1.5" stroke={selectedObjectIds.includes('camera') ? '#6C63FF' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2"/><circle cx="7" cy="8" r="2" stroke={selectedObjectIds.includes('camera') ? '#6C63FF' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2"/></svg>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: selectedObjectIds.includes('camera') ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>Camera</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>Scene Camera</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Lights group */}
+                  {sceneLights.length > 0 && (
+                    <>
+                      <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', padding: '6px 6px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Lights</div>
+                      {sceneLights.map((light, idx) => {
+                        const isLightSelected = selectedLightId === light.id;
+                        return (
+                          <button
+                            key={light.id}
+                            onClick={() => {
+                              setSelectedLightId(isLightSelected ? null : light.id);
+                              setSelectedObjectIds([]);
+                            }}
+                            style={{
+                              width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
+                              padding: '5px 8px 5px 24px', borderRadius: '4px', textAlign: 'left',
+                              background: isLightSelected ? 'rgba(108,99,255,0.12)' : 'transparent',
+                              border: isLightSelected ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
+                              transition: 'all 0.12s',
+                            }}
+                          >
+                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: light.color, border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '10px', fontWeight: 600, color: isLightSelected ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>
+                                Point Light {idx + 1}
+                              </div>
+                              <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>
+                                {light.color} | {light.intensity.toFixed(1)}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Empty state */}
+                  {sceneLights.length === 0 && !showSceneCamera && (
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', padding: '16px 8px' }}>
+                      Add lights or enable the scene camera to see more objects here.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
