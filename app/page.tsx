@@ -1666,8 +1666,8 @@ export default function Page() {
                     </div>
                   </div>
 
-                  {/* Preview spin toggle */}
-                  <Tip text="Spins the model live in the viewport at the exact speed and direction of your current turntable settings. Use this to preview before rendering." pos="top">
+                  {/* Auto rotate toggle */}
+                  <Tip text="Continuously rotates the model in the viewport using your current direction and speed settings. Camera position will change as it orbits." pos="top">
                   <button
                     onClick={() => setTtPreviewActive(p => !p)}
                     disabled={ttActive}
@@ -1682,7 +1682,7 @@ export default function Page() {
                     }}
                   >
                     <IconRotate />
-                    {ttPreviewActive ? 'Stop Preview' : 'Preview Spin'}
+                    {ttPreviewActive ? 'Rotation On' : 'Rotation Off'}
                   </button>
                   </Tip>
 
