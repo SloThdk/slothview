@@ -257,6 +257,8 @@ export default function Page() {
   const setAzimuthRef = useRef<((angle: number) => void) | null>(null);
   const getAzimuthRef = useRef<(() => number) | null>(null);
   const snapOrbitToPosRef = useRef<((pos: [number, number, number]) => void) | null>(null);
+  const getOrbitStateRef = useRef<(() => { azimuth: number; polar: number; distance: number }) | null>(null);
+  const setOrbitStateRef = useRef<((state: { azimuth: number; polar: number; distance: number }) => void) | null>(null);
 
   // F key focus-on-selection — ref set by FocusController inside Canvas
   const focusOnModelRef = useRef<(() => void) | null>(null);
@@ -602,12 +604,19 @@ export default function Page() {
 
     cancelTtRef.current = false;
     setTtPreviewActive(false);
+
+    // Save orbit state BEFORE any snapping so we can restore after render
+    const savedOrbitState = getOrbitStateRef.current?.();
+
     // Exit camera view mode if active — CameraViewSyncer fights the azimuth setter and causes flickering
     setCameraViewMode(false);
 
     // Snap orbit camera to the Scene Camera position so the turntable always renders
     // from the defined camera, regardless of where the user has been orbiting freely.
     if (snapOrbitToPosRef.current) snapOrbitToPosRef.current(cameraPosRef.current);
+
+    // Now visually enter Camera View mode (shows red boundary overlay during render)
+    setCameraViewMode(true);
 
     setTtActive(true);
     setTtProgress(0);
@@ -635,55 +644,125 @@ export default function Page() {
 
     try {
       if (ttFormat === 'webm') {
-        // captureStream(0) = no automatic capture; we push each frame manually via requestFrame()
-        // This avoids the sync mismatch where the stream timer and gl.render() run independently
-        const stream = (gl.domElement as HTMLCanvasElement).captureStream(0);
-        const track = stream.getVideoTracks()[0] as any; // CanvasCaptureMediaStreamTrack
-        const chunks: BlobPart[] = [];
-        // VP8 has the broadest platform support (incl. Windows without extensions)
-        // VP9 is higher quality but requires codec packs on Windows
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-          ? 'video/webm;codecs=vp8'
-          : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-            ? 'video/webm;codecs=vp9'
-            : 'video/webm';
-        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
-        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        const useWebCodecs = typeof VideoEncoder !== 'undefined';
 
-        // Create stopPromise BEFORE starting recorder so resolve is captured
-        const stopPromise = new Promise<void>((resolve, reject) => {
-          recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
-            a.click();
-            resolve();
-          };
-          recorder.onerror = () => reject(new Error('MediaRecorder error'));
-        });
-        recorder.start();
+        if (useWebCodecs) {
+          // WebCodecs + webm-muxer path: exact timestamps, proper duration metadata, smooth playback
+          const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
 
-        // Brief init pause so recorder is ready before first frame
-        await new Promise(r => setTimeout(r, 80));
+          // Determine best supported codec
+          const codec = await (async () => {
+            for (const c of ['vp09.00.10.08', 'vp8'] as const) {
+              try {
+                const support = await VideoEncoder.isConfigSupported({ codec: c, width: rW, height: rH });
+                if (support.supported) return c;
+              } catch {}
+            }
+            return 'vp8';
+          })();
 
-        const frameMs = 1000 / ttFps;
-        for (let i = 0; i < totalFrames; i++) {
-          if (cancelTtRef.current) { recorder.stop(); break; }
-          // Render the rotated frame
-          setAzimuthRef.current!(frameAngle(i));
-          // Wait one animation frame so the browser fully composites the WebGL output before capture
-          await new Promise(r => requestAnimationFrame(r));
-          track.requestFrame(); // push exactly this rendered canvas frame
-          setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
-          setTtCurrentFrame(i + 1);
-          // Pace remaining time at target FPS (subtract ~16ms already spent in rAF)
-          await new Promise(r => setTimeout(r, Math.max(0, frameMs - 16)));
+          const target = new ArrayBufferTarget();
+          const muxer = new Muxer({
+            target,
+            video: { codec: codec.startsWith('vp09') ? 'V_VP9' : 'V_VP8', width: rW, height: rH, frameRate: ttFps },
+            firstTimestampBehavior: 'offset',
+          });
+
+          const videoEncoder = new VideoEncoder({
+            output: (chunk: EncodedVideoChunk, meta?: EncodedVideoChunkMetadata) => muxer.addVideoChunk(chunk, meta),
+            error: (e: DOMException) => { console.error('VideoEncoder error:', e); cancelTtRef.current = true; },
+          });
+
+          const bitrate = Math.min(Math.max(4_000_000, rW * rH * ttFps * 0.07), 50_000_000);
+          videoEncoder.configure({
+            codec,
+            width: rW,
+            height: rH,
+            bitrate,
+            bitrateMode: 'constant',
+            latencyMode: 'quality',
+            framerate: ttFps,
+          });
+
+          try {
+            for (let i = 0; i < totalFrames; i++) {
+              if (cancelTtRef.current) break;
+              setAzimuthRef.current!(frameAngle(i));
+              await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+              const timestamp = Math.round((i * 1_000_000) / ttFps);
+              const frame = new VideoFrame(gl.domElement as HTMLCanvasElement, {
+                timestamp,
+                duration: Math.round(1_000_000 / ttFps),
+              });
+              const isKeyframe = i % Math.max(1, Math.round(ttFps * 2)) === 0;
+              videoEncoder.encode(frame, { keyFrame: isKeyframe });
+              frame.close();
+
+              setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
+              setTtCurrentFrame(i + 1);
+            }
+
+            await videoEncoder.flush();
+            muxer.finalize();
+            const { buffer } = target;
+
+            if (!cancelTtRef.current || buffer.byteLength > 1000) {
+              const blob = new Blob([buffer], { type: 'video/webm' });
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = cancelTtRef.current
+                ? 'slothstudio-3dviewer-turntable-partial.webm'
+                : renderFilename.trim()
+                  ? `${renderFilename.trim()}.webm`
+                  : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+              a.click();
+              URL.revokeObjectURL(a.href);
+            }
+          } finally {
+            videoEncoder.close();
+          }
+
+        } else {
+          // Fallback: MediaRecorder for browsers without WebCodecs
+          const stream = (gl.domElement as HTMLCanvasElement).captureStream(0);
+          const track = stream.getVideoTracks()[0] as any;
+          const chunks: BlobPart[] = [];
+          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+            ? 'video/webm;codecs=vp8'
+            : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+              ? 'video/webm;codecs=vp9'
+              : 'video/webm';
+          const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
+          recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+          const stopPromise = new Promise<void>((resolve, reject) => {
+            recorder.onstop = () => {
+              const blob = new Blob(chunks, { type: 'video/webm' });
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+              a.click();
+              resolve();
+            };
+            recorder.onerror = () => reject(new Error('MediaRecorder error'));
+          });
+          recorder.start();
+          await new Promise(r => setTimeout(r, 80));
+
+          const frameMs = 1000 / ttFps;
+          for (let i = 0; i < totalFrames; i++) {
+            if (cancelTtRef.current) { recorder.stop(); break; }
+            setAzimuthRef.current!(frameAngle(i));
+            await new Promise(r => requestAnimationFrame(r));
+            track.requestFrame();
+            setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
+            setTtCurrentFrame(i + 1);
+            await new Promise(r => setTimeout(r, Math.max(0, frameMs - 16)));
+          }
+          if (!cancelTtRef.current) recorder.stop();
+          await stopPromise;
         }
-        if (!cancelTtRef.current) recorder.stop();
-
-        // Wait for blob to be created and download triggered
-        await stopPromise;
 
       } else {
         const JSZip = (await import('jszip')).default;
@@ -724,6 +803,11 @@ export default function Page() {
       // Return to start angle, not 0
       if (setAzimuthRef.current) setAzimuthRef.current(startAngle);
       setTtActive(false);
+      // Restore orbit camera to where user was before render, then exit camera view
+      if (savedOrbitState && setOrbitStateRef.current) {
+        setOrbitStateRef.current(savedOrbitState);
+      }
+      setCameraViewMode(false);
       setTtProgress(0);
       setTtCurrentFrame(0);
       if (cancelTtRef.current) {
@@ -1826,6 +1910,8 @@ export default function Page() {
           setAzimuthRef={setAzimuthRef}
           getAzimuthRef={getAzimuthRef}
           snapOrbitToPosRef={snapOrbitToPosRef}
+          getOrbitStateRef={getOrbitStateRef}
+          setOrbitStateRef={setOrbitStateRef}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}

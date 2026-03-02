@@ -153,6 +153,8 @@ export interface SceneProps {
   setAzimuthRef?: React.MutableRefObject<((angle: number) => void) | null>;
   getAzimuthRef?: React.MutableRefObject<(() => number) | null>;
   snapOrbitToPosRef?: React.MutableRefObject<((pos: [number, number, number]) => void) | null>;
+  getOrbitStateRef?: React.MutableRefObject<(() => { azimuth: number; polar: number; distance: number }) | null>;
+  setOrbitStateRef?: React.MutableRefObject<((state: { azimuth: number; polar: number; distance: number }) => void) | null>;
 }
 
 /* ── Hotspot marker ── */
@@ -604,6 +606,50 @@ function OrbitSnapSetupInner({ orbitRef, snapOrbitToPosRef }: {
       if (gl && scene && cam) gl.render(scene, cam);
     };
   }, [gl, scene, orbitRef, snapOrbitToPosRef]);
+  return null;
+}
+
+/* ── Get orbit state (azimuth, polar, distance) via ref ── */
+function GetOrbitStateSetupInner({ orbitRef, getOrbitStateRef }: {
+  orbitRef: React.RefObject<any>;
+  getOrbitStateRef: React.MutableRefObject<(() => { azimuth: number; polar: number; distance: number }) | null>;
+}) {
+  useEffect(() => {
+    getOrbitStateRef.current = () => ({
+      azimuth: orbitRef.current?.getAzimuthalAngle?.() ?? 0,
+      polar: orbitRef.current?.getPolarAngle?.() ?? Math.PI / 2,
+      distance: orbitRef.current?.getDistance?.() ?? 4,
+    });
+  }, [orbitRef, getOrbitStateRef]);
+  return null;
+}
+
+/* ── Set orbit state (azimuth, polar, distance) via ref ── */
+function SetOrbitStateSetupInner({ orbitRef, setOrbitStateRef }: {
+  orbitRef: React.RefObject<any>;
+  setOrbitStateRef: React.MutableRefObject<((state: { azimuth: number; polar: number; distance: number }) => void) | null>;
+}) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    setOrbitStateRef.current = ({ azimuth, polar, distance }) => {
+      const orbit = orbitRef.current as any;
+      if (!orbit) return;
+      const prevEnabled = orbit.enabled;
+      orbit.enabled = true;
+      orbit.enableDamping = false;
+      orbit.autoRotate = false;
+      if (typeof orbit.setAzimuthalAngle === 'function') orbit.setAzimuthalAngle(azimuth);
+      if (typeof orbit.setPolarAngle === 'function') orbit.setPolarAngle(polar);
+      orbit.minDistance = distance;
+      orbit.maxDistance = distance;
+      orbit.update();
+      orbit.minDistance = 1.2;
+      orbit.maxDistance = 20;
+      orbit.enabled = prevEnabled;
+      const cam = orbit.object;
+      if (gl && scene && cam) gl.render(scene, cam);
+    };
+  }, [gl, scene, orbitRef, setOrbitStateRef]);
   return null;
 }
 
@@ -1091,6 +1137,8 @@ export default function Scene(props: SceneProps) {
         <AltMMBPanController orbitRef={orbitRef} />
         {props.setAzimuthRef && <AzimuthSetupInner orbitRef={orbitRef} setAzimuthRef={props.setAzimuthRef} />}
         {props.snapOrbitToPosRef && <OrbitSnapSetupInner orbitRef={orbitRef} snapOrbitToPosRef={props.snapOrbitToPosRef} />}
+        {props.getOrbitStateRef && <GetOrbitStateSetupInner orbitRef={orbitRef} getOrbitStateRef={props.getOrbitStateRef} />}
+        {props.setOrbitStateRef && <SetOrbitStateSetupInner orbitRef={orbitRef} setOrbitStateRef={props.setOrbitStateRef} />}
         {props.projectorRef && <ProjectorSetup projectorRef={props.projectorRef} />}
         {props.onTransformChange && modelSelected && (
           <TransformReporter modelGroupRef={modelGroupRef} modelUniformScale={modelUniformScale} onTransformChange={props.onTransformChange} />
