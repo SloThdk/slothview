@@ -241,6 +241,8 @@ export default function Page() {
   const [renderFormat, setRenderFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [renderQuality, setRenderQuality] = useState(0.92);
   const [renderFilename, setRenderFilename] = useState('');
+  const [outputDirName, setOutputDirName] = useState(''); // display name of chosen folder
+  const outputDirHandleRef = useRef<any>(null);           // FileSystemDirectoryHandle (File System Access API)
 
   // Turntable render
   const [ttFrames, setTtFrames] = useState(120);
@@ -601,6 +603,47 @@ export default function Page() {
     cancelRenderRef.current = true;
   }, []);
 
+  // File System Access API — pick an output folder; renders auto-save there without the browser download prompt
+  const pickOutputDir = useCallback(async () => {
+    if (!('showDirectoryPicker' in window)) {
+      showToast('Folder picker needs Chrome or Edge — other browsers will use the standard download prompt');
+      return;
+    }
+    try {
+      const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+      outputDirHandleRef.current = handle;
+      setOutputDirName(handle.name);
+      showToast(`Output folder: ${handle.name}`);
+    } catch { /* user cancelled */ }
+  }, []);
+
+  const clearOutputDir = useCallback(() => {
+    outputDirHandleRef.current = null;
+    setOutputDirName('');
+  }, []);
+
+  // Save a Blob to the chosen output folder, falling back to standard browser download
+  const saveFile = useCallback(async (blob: Blob, filename: string) => {
+    const dir = outputDirHandleRef.current;
+    if (dir) {
+      try {
+        const fh = await dir.getFileHandle(filename, { create: true });
+        const wr = await fh.createWritable();
+        await wr.write(blob);
+        await wr.close();
+        return true; // saved to folder — no download prompt needed
+      } catch { /* permission revoked or error — fall through */ }
+    }
+    // Standard browser download fallback
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return false;
+  }, []);
+
   const cancelTurntable = useCallback(() => {
     cancelTtRef.current = true;
   }, []);
@@ -725,15 +768,13 @@ export default function Page() {
 
             if (!cancelTtRef.current || buffer.byteLength > 1000) {
               const blob = new Blob([buffer], { type: 'video/webm' });
-              const a = document.createElement('a');
-              a.href = URL.createObjectURL(blob);
-              a.download = cancelTtRef.current
+              const filename = cancelTtRef.current
                 ? 'slothstudio-3dviewer-turntable-partial.webm'
                 : renderFilename.trim()
                   ? `${renderFilename.trim()}.webm`
                   : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
-              a.click();
-              URL.revokeObjectURL(a.href);
+              const usedPath = await saveFile(blob, filename);
+              if (usedPath && outputDirHandleRef.current) showToast(`Saved \u2192 ${outputDirHandleRef.current.name}/${filename}`);
             }
           } finally {
             videoEncoder.close();
@@ -753,12 +794,11 @@ export default function Page() {
           recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
           const stopPromise = new Promise<void>((resolve, reject) => {
-            recorder.onstop = () => {
+            recorder.onstop = async () => {
               const blob = new Blob(chunks, { type: 'video/webm' });
-              const a = document.createElement('a');
-              a.href = URL.createObjectURL(blob);
-              a.download = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
-              a.click();
+              const filename = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+              const usedPath = await saveFile(blob, filename);
+              if (usedPath && outputDirHandleRef.current) showToast(`Saved \u2192 ${outputDirHandleRef.current.name}/${filename}`);
               resolve();
             };
             recorder.onerror = () => reject(new Error('MediaRecorder error'));
@@ -806,11 +846,10 @@ export default function Page() {
           const partial = cancelTtRef.current;
           showToast(partial ? `Packing partial ZIP (${captured}/${totalFrames})...` : 'Packing ZIP...');
           const zipBlob = await zip.generateAsync({ type: 'blob' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(zipBlob);
           const baseName = renderFilename.trim() || `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f`;
-          a.download = partial ? `${baseName}-partial-${captured}of${totalFrames}.zip` : `${baseName}.zip`;
-          a.click();
+          const zipFilename = partial ? `${baseName}-partial-${captured}of${totalFrames}.zip` : `${baseName}.zip`;
+          const usedPath = await saveFile(zipBlob, zipFilename);
+          if (usedPath && outputDirHandleRef.current) showToast(`Saved \u2192 ${outputDirHandleRef.current.name}/${zipFilename}`);
         }
       }
     } finally {
@@ -833,7 +872,7 @@ export default function Page() {
       }
       cancelTtRef.current = false;
     }
-  }, [renderWidth, renderHeight, ttFrames, ttFps, ttFormat, ttDirection, ttEasing, renderFilename]);
+  }, [renderWidth, renderHeight, ttFrames, ttFps, ttFormat, ttDirection, ttEasing, renderFilename, saveFile]);
 
   const render = useCallback(() => {
     const gl = glRef.current, c = canvasRef.current;
@@ -856,7 +895,7 @@ export default function Page() {
       setRenderProgress(0);
       showToast('Render cancelled');
     };
-    const doFrame = () => {
+    const doFrame = async () => {
       if (cancelRenderRef.current) { abort(); return; }
       if (frame < renderSamples) {
         frame++;
@@ -864,20 +903,23 @@ export default function Page() {
         requestAnimationFrame(doFrame);
       } else {
         const mimeType = renderFormat === 'jpeg' ? 'image/jpeg' : renderFormat === 'webp' ? 'image/webp' : 'image/png';
-        const url = gl.domElement.toDataURL(mimeType, renderFormat !== 'png' ? renderQuality : undefined);
+        const filename = renderFilename.trim()
+          ? `${renderFilename.trim()}.${renderFormat}`
+          : `slothstudio-3dviewer-render-${rW}x${rH}-${renderSamples}spp.${renderFormat}`;
         gl.setSize(oW, oH, false);
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        const a = document.createElement('a');
-        a.download = renderFilename.trim() ? `${renderFilename.trim()}.${renderFormat}` : `slothstudio-3dviewer-render-${rW}x${rH}-${renderSamples}spp.${renderFormat}`;
-        a.href = url;
-        a.click();
+        const blob = await new Promise<Blob>(res =>
+          (gl.domElement as HTMLCanvasElement).toBlob(b => res(b!), mimeType, renderFormat !== 'png' ? renderQuality : undefined)
+        );
+        await saveFile(blob, filename);
         setRendering(false);
         if (hadGrid) setShowGrid(true);
-        showToast(`Rendered ${rW}x${rH} @ ${renderSamples} samples`);
+        const savedTo = outputDirHandleRef.current ? (outputDirName || outputDirHandleRef.current.name) : null;
+        showToast(savedTo ? `Saved \u2192 ${savedTo}/${filename}` : `Rendered ${rW}\u00d7${rH} @ ${renderSamples} spp`);
       }
     };
     setTimeout(() => requestAnimationFrame(doFrame), 100);
-  }, [renderWidth, renderHeight, renderSamples, renderFormat, renderQuality, showGrid, renderFilename]);
+  }, [renderWidth, renderHeight, renderSamples, renderFormat, renderQuality, showGrid, renderFilename, outputDirName, saveFile]);
 
   const fullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -1366,27 +1408,6 @@ export default function Page() {
 
                 <span style={stl.label}>Render Image</span>
 
-                {/* Output filename — shared with Turntable */}
-                <Tip text="Custom filename for the downloaded file. Applies to both Render Image and Turntable exports. Leave blank to use the auto-generated name." pos="top" fullWidth>
-                  <div style={{ marginBottom: '8px' }}>
-                    <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>Output Filename (optional)</div>
-                    <input
-                      type="text"
-                      value={renderFilename}
-                      onChange={e => setRenderFilename(e.target.value)}
-                      placeholder="e.g. my-render"
-                      style={{
-                        width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '4px', padding: '5px 8px', color: '#fff', fontSize: '10px',
-                        outline: 'none', boxSizing: 'border-box' as const,
-                      }}
-                    />
-                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', marginTop: '3px', lineHeight: 1.4 }}>
-                      If blank, you will be prompted to save the file after render completes.
-                    </div>
-                  </div>
-                </Tip>
-
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
 
                   {/* Format — stacked buttons, identical style to Turntable formats */}
@@ -1708,6 +1729,55 @@ export default function Page() {
                     {ttPreviewActive ? 'Rotation On' : 'Rotation Off'}
                   </button>
                   </Tip>
+
+                  {/* Output — shared folder path + filename, applies to both Render Image and Render Turntable */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '4px', paddingLeft: '2px' }}>Output</div>
+
+                    {/* Folder path row */}
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                      <Tip text={outputDirName ? `Output folder: ${outputDirName}. Click to change.` : 'Choose a folder on your PC. Renders will auto-save there without the browser download prompt. Requires Chrome or Edge.'} pos="top">
+                        <button onClick={pickOutputDir} style={{
+                          flex: 1, padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const,
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          background: outputDirName ? 'rgba(0,212,168,0.08)' : 'rgba(255,255,255,0.03)',
+                          border: outputDirName ? '1px solid rgba(0,212,168,0.25)' : '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 3.5C1 2.67 1.67 2 2.5 2H4l1 1.5H9.5C10.33 3.5 11 4.17 11 5v3.5C11 9.33 10.33 10 9.5 10h-7C1.67 10 1 9.33 1 8.5V3.5Z" stroke={outputDirName ? '#00D4A8' : 'rgba(255,255,255,0.3)'} strokeWidth="1.1"/></svg>
+                          <span style={{ fontSize: '9px', fontWeight: 600, color: outputDirName ? '#00D4A8' : 'rgba(255,255,255,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, flex: 1 }}>
+                            {outputDirName || 'Browse folder...'}
+                          </span>
+                        </button>
+                      </Tip>
+                      {outputDirName && (
+                        <Tip text="Clear output folder — renders will use the browser download prompt again" pos="top">
+                          <button onClick={clearOutputDir} style={{ padding: '5px 7px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', fontSize: '9px', display: 'flex', alignItems: 'center' }}>
+                            <IconX />
+                          </button>
+                        </Tip>
+                      )}
+                    </div>
+
+                    {/* Filename input */}
+                    <Tip text="Custom filename (no extension). Applies to Render Image and Turntable. Leave blank to use the auto-generated name." pos="top" fullWidth>
+                      <input
+                        type="text"
+                        value={renderFilename}
+                        onChange={e => setRenderFilename(e.target.value)}
+                        placeholder="Filename (optional, e.g. my-render)"
+                        style={{
+                          width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '4px', padding: '5px 8px', color: '#fff', fontSize: '10px',
+                          outline: 'none', boxSizing: 'border-box' as const,
+                        }}
+                      />
+                    </Tip>
+                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', marginTop: '3px', lineHeight: 1.4, paddingLeft: '2px' }}>
+                      {outputDirName
+                        ? `Files save directly to: ${outputDirName}/`
+                        : 'No folder set \u2014 browser will prompt to save each file'}
+                    </div>
+                  </div>
 
                   {/* Combined action row — both render buttons side by side */}
                   <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
