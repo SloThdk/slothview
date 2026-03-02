@@ -605,8 +605,7 @@ export default function Page() {
     cancelTtRef.current = false;
     setTtPreviewActive(false);
 
-    // Save orbit state BEFORE any snapping so we can restore after render
-    const savedOrbitState = getOrbitStateRef.current?.();
+    // After render, orbit stays at scene camera position (Blender-style: render from camera = stay there)
 
     // Exit camera view mode if active — CameraViewSyncer fights the azimuth setter and causes flickering
     setCameraViewMode(false);
@@ -810,10 +809,7 @@ export default function Page() {
       // Return to start angle, not 0
       if (setAzimuthRef.current) setAzimuthRef.current(startAngle);
       setTtActive(false);
-      // Restore orbit camera to where user was before render, then exit camera view
-      if (savedOrbitState && setOrbitStateRef.current) {
-        setOrbitStateRef.current(savedOrbitState);
-      }
+      // Stay at scene camera position after render (don't snap back to free-orbit viewport)
       setCameraViewMode(false);
       setTtProgress(0);
       setTtCurrentFrame(0);
