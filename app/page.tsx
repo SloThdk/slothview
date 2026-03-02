@@ -615,8 +615,9 @@ export default function Page() {
     // from the defined camera, regardless of where the user has been orbiting freely.
     if (snapOrbitToPosRef.current) snapOrbitToPosRef.current(cameraPosRef.current);
 
-    // Now visually enter Camera View mode (shows red boundary overlay during render)
-    setCameraViewMode(true);
+    // NOTE: we do NOT set cameraViewMode=true here — that would re-enable CameraViewSyncer
+    // which would fight the azimuth setter and corrupt cameraPos every 80ms.
+    // The boundary overlay is shown via ttActive (see boundary overlay JSX below).
 
     setTtActive(true);
     setTtProgress(0);
@@ -2125,10 +2126,17 @@ export default function Page() {
           </div>
         )}
 
-        {/* Camera boundary overlay — visible ONLY in camera view mode or during rendering.
-            showSceneCamera alone (camera in scene but not in view mode) does NOT show the boundary. */}
-        {(cameraViewMode || rendering) && (
+        {/* Camera boundary overlay — visible in camera view mode, single-image render, or turntable render */}
+        {(cameraViewMode || rendering || ttActive) && (
         <div style={{ position: 'absolute', inset: 0, top: 40, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Turntable render badge */}
+          {ttActive && !rendering && !cameraViewMode && (
+            <div style={{ position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)', zIndex: 15, display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,212,168,0.12)', border: '1px solid rgba(0,212,168,0.35)', borderRadius: '4px', padding: '3px 12px', backdropFilter: 'blur(8px)' }}>
+              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#00D4A8' }}>TURNTABLE</span>
+              <span style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{ttCurrentFrame} / {ttFrames}</span>
+            </div>
+          )}
+
           {/* Camera view label badge */}
           {cameraViewMode && !rendering && (
             <>
@@ -2146,7 +2154,7 @@ export default function Page() {
           )}
           {/* Camera aperture — CSS aspect-ratio, centered, correct render dimensions */}
           {(() => {
-            const bColor = rendering ? '#6C63FF' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.5)';
+            const bColor = rendering ? '#6C63FF' : ttActive ? '#00D4A8' : cameraViewMode ? '#ef4444' : 'rgba(255,255,255,0.5)';
             // JS-computed boundary dimensions — CSS aspect-ratio + max constraints breaks for portrait/square presets
             const sideW = sidebarOpen ? 250 : 0;
             const avW = (vpW - sideW) * 0.92;
@@ -2163,7 +2171,7 @@ export default function Page() {
                   // Explicit pixel dimensions — always correct for any aspect ratio (portrait, square, ultra-wide)
                   width: bW + 'px',
                   height: bH + 'px',
-                  border: `1.5px ${rendering || cameraViewMode ? 'solid' : 'dashed'} ${bColor}`,
+                  border: `1.5px ${rendering || cameraViewMode || ttActive ? 'solid' : 'dashed'} ${bColor}`,
                   // box-shadow dims everything outside the aperture
                   boxShadow: `0 0 0 9999px rgba(0,0,0,0.35)`,
                   pointerEvents: 'none',
@@ -2183,7 +2191,7 @@ export default function Page() {
                   }} />
                 ))}
                 {/* Rule of thirds */}
-                {cameraViewMode && !rendering && (
+                {(cameraViewMode || ttActive) && !rendering && (
                   <>
                     <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
                     <div style={{ position: 'absolute', top: '66.6%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
@@ -2192,7 +2200,7 @@ export default function Page() {
                   </>
                 )}
                 {/* Dimension badge */}
-                {cameraViewMode && !rendering && (
+                {(cameraViewMode || ttActive) && !rendering && (
                   <div style={{ position: 'absolute', bottom: '-22px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: '8px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.35)', background: 'rgba(8,8,12,0.7)', padding: '2px 7px', borderRadius: '3px' }}>
                     {renderWidth} x {renderHeight}
                   </div>
