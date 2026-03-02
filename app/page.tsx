@@ -2129,6 +2129,7 @@ export default function Page() {
           snapOrbitToPosRef={snapOrbitToPosRef}
           getOrbitStateRef={getOrbitStateRef}
           setOrbitStateRef={setOrbitStateRef}
+          isMobile={vpW <= 768}
         />
 
         {/* ── Marmoset-style vertical split panes ── */}

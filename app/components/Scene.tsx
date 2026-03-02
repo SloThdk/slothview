@@ -156,6 +156,7 @@ export interface SceneProps {
   snapOrbitToPosRef?: React.MutableRefObject<((pos: [number, number, number]) => void) | null>;
   getOrbitStateRef?: React.MutableRefObject<(() => { azimuth: number; polar: number; distance: number }) | null>;
   setOrbitStateRef?: React.MutableRefObject<((state: { azimuth: number; polar: number; distance: number }) => void) | null>;
+  isMobile?: boolean;
 }
 
 /* ── Hotspot marker ── */
@@ -1060,8 +1061,8 @@ export default function Scene(props: SceneProps) {
 
         {/* Model group hoisted above Suspense - see group at top of Canvas */}
 
-        {/* Model TransformControls - hidden during all captures (render/turntable) and shading overlay */}
-        {modelSelected && modelGroupRef.current && !capturing && !props.shadingOverlay && (
+        {/* Model TransformControls - hidden during captures, shading overlay, and on mobile (no keyboard shortcuts) */}
+        {modelSelected && modelGroupRef.current && !capturing && !props.shadingOverlay && !props.isMobile && (
           <TransformControls
             object={modelGroupRef.current}
             mode={modelTransformMode}
@@ -1120,8 +1121,8 @@ export default function Scene(props: SceneProps) {
           </EffectComposer>
         )}
 
-        {/* Scene Camera Gizmo - hidden during all captures (render + turntable) and camera view */}
-        {showSceneCamera && !cameraViewMode && !capturing && (
+        {/* Scene Camera Gizmo - hidden during captures, camera view, and on mobile */}
+        {showSceneCamera && !cameraViewMode && !capturing && !props.isMobile && (
           <SceneCameraGizmo
             position={cameraPos}
             onMove={onCameraMove}
