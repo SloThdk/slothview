@@ -1491,37 +1491,7 @@ export default function Page() {
                     </div>
                   )}
 
-                  {/* Render Image / Cancel — toggles exactly like Render Turntable button */}
-                  <Tip text={rendering ? 'Cancel the current render. Esc also works.' : 'Renders the current scene to a high-quality image. You will be prompted to download when done. Press Esc to cancel.'} pos="top">
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <button onClick={rendering ? cancelRender : (ttActive ? undefined : render)} disabled={ttActive && !rendering} style={{
-                        flex: 1, padding: '9px', borderRadius: '6px',
-                        background: rendering ? 'rgba(239,68,68,0.12)' : ttActive ? 'rgba(108,99,255,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
-                        color: rendering ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
-                        border: rendering ? '1px solid rgba(239,68,68,0.2)' : ttActive ? '1px solid rgba(108,99,255,0.2)' : 'none',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        opacity: (ttActive && !rendering) ? 0.4 : 1,
-                      }}>
-                        <IconZap />
-                        {rendering ? `Cancel (${renderProgress}%)` : ttActive ? 'Turntable active...' : 'Render Image'}
-                      </button>
-                    </div>
-                  </Tip>
-                  {!rendering && !ttActive && <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center' as const, marginTop: '5px', lineHeight: 1.4 }}>You will be prompted to download the image when done</div>}
-
                 </div>
-
-                {/* Quick Screenshot — secondary button, same style as Preview Spin */}
-                <Tip text="Captures the viewport as-is at screen resolution. Instant \u2014 no rendering." pos="top">
-                  <button onClick={screenshot} style={{
-                    width: '100%', padding: '7px', borderRadius: '5px', marginBottom: '4px',
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                    color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  }}><IconCamera /> Quick Screenshot</button>
-                </Tip>
-
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
 
                 <span style={stl.label}>Turntable Render</span>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
@@ -1716,22 +1686,46 @@ export default function Page() {
                   </button>
                   </Tip>
 
-                  {/* Action buttons */}
-                  <Tip text="Captures a full 360 degree rotation as a WebM video or image sequence ZIP. Uses your current resolution and lighting settings." pos="top">
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering && !ttActive} style={{
-                      flex: 1, padding: '9px', borderRadius: '6px',
-                      background: ttActive ? 'rgba(239,68,68,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
-                      color: ttActive ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
-                      border: ttActive ? '1px solid rgba(239,68,68,0.2)' : 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                      opacity: (rendering && !ttActive) ? 0.4 : 1,
-                    }}>
-                      <IconRotate />
-                      {ttActive ? `Cancel (${ttProgress}%)` : 'Render Turntable'}
-                    </button>
+                  {/* Combined action row — both render buttons side by side */}
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                    <Tip text={rendering ? 'Cancel the current render. Esc also works.' : 'Renders the current scene to a high-quality image. You will be prompted to download when done.'} pos="top">
+                      <button onClick={rendering ? cancelRender : (ttActive ? undefined : render)} disabled={ttActive && !rendering} style={{
+                        flex: 1, padding: '9px', borderRadius: '6px',
+                        background: rendering ? 'rgba(239,68,68,0.12)' : ttActive ? 'rgba(108,99,255,0.06)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                        color: rendering ? '#f87171' : ttActive ? 'rgba(255,255,255,0.25)' : '#fff', fontSize: '10px', fontWeight: 700,
+                        border: rendering ? '1px solid rgba(239,68,68,0.2)' : ttActive ? '1px solid rgba(108,99,255,0.08)' : 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                        opacity: (ttActive && !rendering) ? 0.35 : 1,
+                      }}>
+                        <IconZap />
+                        {rendering ? `Cancel (${renderProgress}%)` : 'Render Image'}
+                      </button>
+                    </Tip>
+                    <Tip text={ttActive ? 'Cancel the turntable render.' : 'Captures a full 360 degree rotation as a WebM video or image sequence ZIP.'} pos="top">
+                      <button onClick={ttActive ? cancelTurntable : renderTurntable} disabled={rendering && !ttActive} style={{
+                        flex: 1, padding: '9px', borderRadius: '6px',
+                        background: ttActive ? 'rgba(239,68,68,0.12)' : rendering ? 'rgba(108,99,255,0.06)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                        color: ttActive ? '#f87171' : rendering ? 'rgba(255,255,255,0.25)' : '#fff', fontSize: '10px', fontWeight: 700,
+                        border: ttActive ? '1px solid rgba(239,68,68,0.2)' : rendering ? '1px solid rgba(108,99,255,0.08)' : 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                        opacity: (rendering && !ttActive) ? 0.35 : 1,
+                      }}>
+                        <IconRotate />
+                        {ttActive ? `Cancel (${ttProgress}%)` : 'Render Turntable'}
+                      </button>
+                    </Tip>
                   </div>
+
+                  {/* Quick Screenshot */}
+                  <Tip text="Captures the viewport as-is at screen resolution. Instant \u2014 no rendering." pos="top">
+                    <button onClick={screenshot} style={{
+                      width: '100%', padding: '7px', borderRadius: '5px', marginBottom: '4px',
+                      background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                      color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    }}><IconCamera /> Quick Screenshot</button>
                   </Tip>
+
                   {ttFormat === 'webm' && !ttActive && (
                     <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center', marginTop: '5px', lineHeight: 1.4 }}>
                       WebM plays in Chrome, Firefox, and VLC. Windows Media Player may not support it.
