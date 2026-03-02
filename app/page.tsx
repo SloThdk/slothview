@@ -240,6 +240,7 @@ export default function Page() {
   const [renderSamples, setRenderSamples] = useState(4);
   const [renderFormat, setRenderFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [renderQuality, setRenderQuality] = useState(0.92);
+  const [renderFilename, setRenderFilename] = useState('');
 
   // Turntable render
   const [ttFrames, setTtFrames] = useState(120);
@@ -644,7 +645,7 @@ export default function Page() {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `slothview-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+            a.download = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothview-turntable-${rW}x${rH}-${totalFrames}f.webm`;
             a.click();
             resolve();
           };
@@ -658,13 +659,15 @@ export default function Page() {
         const frameMs = 1000 / ttFps;
         for (let i = 0; i < totalFrames; i++) {
           if (cancelTtRef.current) { recorder.stop(); break; }
-          // Render the rotated frame, then immediately push it as a video frame
+          // Render the rotated frame
           setAzimuthRef.current!(frameAngle(i));
+          // Wait one animation frame so the browser fully composites the WebGL output before capture
+          await new Promise(r => requestAnimationFrame(r));
           track.requestFrame(); // push exactly this rendered canvas frame
           setTtProgress(Math.round(((i + 1) / totalFrames) * 100));
           setTtCurrentFrame(i + 1);
-          // Pace at target FPS so WebM timestamps are spaced correctly
-          await new Promise(r => setTimeout(r, frameMs));
+          // Pace remaining time at target FPS (subtract ~16ms already spent in rAF)
+          await new Promise(r => setTimeout(r, Math.max(0, frameMs - 16)));
         }
         if (!cancelTtRef.current) recorder.stop();
 
@@ -699,9 +702,8 @@ export default function Page() {
           const zipBlob = await zip.generateAsync({ type: 'blob' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(zipBlob);
-          a.download = partial
-            ? `slothview-turntable-frames-partial-${captured}of${totalFrames}.zip`
-            : `slothview-turntable-frames-${rW}x${rH}-${totalFrames}f.zip`;
+          const baseName = renderFilename.trim() || `slothview-turntable-${rW}x${rH}-${totalFrames}f`;
+          a.download = partial ? `${baseName}-partial-${captured}of${totalFrames}.zip` : `${baseName}.zip`;
           a.click();
         }
       }
@@ -721,7 +723,7 @@ export default function Page() {
       }
       cancelTtRef.current = false;
     }
-  }, [renderWidth, renderHeight, ttFrames, ttFps, ttFormat, ttDirection, ttEasing]);
+  }, [renderWidth, renderHeight, ttFrames, ttFps, ttFormat, ttDirection, ttEasing, renderFilename]);
 
   const render = useCallback(() => {
     const gl = glRef.current, c = canvasRef.current;
@@ -756,7 +758,7 @@ export default function Page() {
         gl.setSize(oW, oH, false);
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         const a = document.createElement('a');
-        a.download = `slothstudio-3d-viewer-render-${rW}x${rH}-${renderSamples}spp-${Date.now()}.${renderFormat}`;
+        a.download = renderFilename.trim() ? `${renderFilename.trim()}.${renderFormat}` : `slothview-render-${rW}x${rH}-${renderSamples}spp.${renderFormat}`;
         a.href = url;
         a.click();
         setRendering(false);
@@ -765,7 +767,7 @@ export default function Page() {
       }
     };
     setTimeout(() => requestAnimationFrame(doFrame), 100);
-  }, [renderWidth, renderHeight, renderSamples, renderFormat, renderQuality, showGrid]);
+  }, [renderWidth, renderHeight, renderSamples, renderFormat, renderQuality, showGrid, renderFilename]);
 
   const fullscreen = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -1284,6 +1286,26 @@ export default function Page() {
                 </div>
 
                 <span style={stl.label}>Export</span>
+                {/* Output filename */}
+                <Tip text="Custom filename for the downloaded file. Applies to both Render Image and Turntable exports. Leave blank to use the auto-generated name." pos="top" fullWidth>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>Output Filename (optional)</div>
+                    <input
+                      type="text"
+                      value={renderFilename}
+                      onChange={e => setRenderFilename(e.target.value)}
+                      placeholder="e.g. my-render"
+                      style={{
+                        width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '4px', padding: '5px 8px', color: '#fff', fontSize: '10px',
+                        outline: 'none', boxSizing: 'border-box' as const,
+                      }}
+                    />
+                    <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', marginTop: '3px', lineHeight: 1.4 }}>
+                      If blank, you will be prompted to save the file after render completes. The file goes to your browser downloads folder.
+                    </div>
+                  </div>
+                </Tip>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
                   {/* Resolution presets */}
                   <div style={{ display: 'flex', gap: '2px', marginBottom: '6px', flexWrap: 'wrap' }}>
