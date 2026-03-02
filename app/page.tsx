@@ -1892,6 +1892,7 @@ export default function Page() {
           }}
           onModelDeselect={() => { setSelectedObjectIds([]); setSelectedLightId(null); }}
           rendering={rendering}
+          ttActive={ttActive}
           shadingOverlay={shadingOverlay}
           onModelUniformScaleChange={(s) => { externalGroupRef.current?.scale.setScalar(s); setModelUniformScale(s); setTransformActioned(true); }}
           onTransformActioned={() => setTransformActioned(true)}

@@ -144,6 +144,7 @@ export interface SceneProps {
   onTransformActioned?: () => void;
   onGroupMount?: (ref: React.RefObject<any>) => void;
   rendering?: boolean;
+  ttActive?: boolean;
   shadingOverlay?: boolean;
   onLMBDownNoAlt?: (screenX: number, screenY: number, shiftKey: boolean) => void;
   projectorRef?: React.MutableRefObject<((worldPos: [number, number, number]) => { x: number; y: number } | null) | null>;
@@ -817,6 +818,8 @@ export default function Scene(props: SceneProps) {
     selectedObjectIds, modelTransformMode, onModelClick, onModelDeselect,
   } = props;
   const rendering = props.rendering ?? false;
+  // capturing = true during both single-image render AND turntable — hides all gizmos from export
+  const capturing = rendering || (props.ttActive ?? false);
 
   // NOTE: useThree() cannot be called here — Scene renders the Canvas (it is outside R3F context).
   // gl/scene access for azimuth rendering is handled via AzimuthSetupInner below.
@@ -1031,15 +1034,15 @@ export default function Scene(props: SceneProps) {
               onMove={onMoveLight}
               orbitRef={orbitRef}
               dragRef={isDraggingTransformRef}
-              rendering={rendering}
+              rendering={capturing}
             />
           </React.Fragment>
         ))}
 
         {/* Model group hoisted above Suspense - see group at top of Canvas */}
 
-        {/* Model TransformControls - hidden during render and shading overlay (clean preview) */}
-        {modelSelected && modelGroupRef.current && !rendering && !props.shadingOverlay && (
+        {/* Model TransformControls - hidden during all captures (render/turntable) and shading overlay */}
+        {modelSelected && modelGroupRef.current && !capturing && !props.shadingOverlay && (
           <TransformControls
             object={modelGroupRef.current}
             mode={modelTransformMode}
@@ -1098,8 +1101,8 @@ export default function Scene(props: SceneProps) {
           </EffectComposer>
         )}
 
-        {/* Scene Camera Gizmo - only visible when not in camera view */}
-        {showSceneCamera && !cameraViewMode && (
+        {/* Scene Camera Gizmo - hidden during all captures (render + turntable) and camera view */}
+        {showSceneCamera && !cameraViewMode && !capturing && (
           <SceneCameraGizmo
             position={cameraPos}
             onMove={onCameraMove}
