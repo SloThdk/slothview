@@ -1961,6 +1961,7 @@ export default function Page() {
 
           {/* Reset + Footer */}
           <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(108,99,255,0.02)' }}>
+            <div className="reset-all-btn-wrap">
             <Tip text="Resets all lights, camera, effects, shading, environment, and transforms to defaults" pos="top" fullWidth>
               <button onClick={() => {
                 if (!window.confirm('Reset all settings and transforms to defaults?')) return;
@@ -1992,6 +1993,7 @@ export default function Page() {
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>Reset All to Defaults</button>
             </Tip>
+            </div>
             <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>SlothStudio 3D Viewer - Demo</div>
           </div>
         </div>
