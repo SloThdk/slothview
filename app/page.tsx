@@ -1351,39 +1351,9 @@ export default function Page() {
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
 
-                <span style={stl.label}>Format</span>
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
-                  {([
-                    { id: 'png', label: 'PNG', desc: 'Lossless · transparent', tip: 'Lossless quality, supports transparency. Largest file size.' },
-                    { id: 'jpeg', label: 'JPEG', desc: 'Lossy · smaller file', tip: 'Compressed format. Smaller file, slight quality loss. Best for sharing.' },
-                    { id: 'webp', label: 'WebP', desc: 'Modern · best ratio', tip: 'Modern format. Small file with near-lossless quality. Best overall.' },
-                  ] as const).map(f => (
-                    <Tip key={f.id} text={f.tip} pos="top">
-                    <button onClick={() => setRenderFormat(f.id)} style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px',
-                      marginBottom: '2px', borderRadius: '4px', textAlign: 'left',
-                      background: renderFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
-                      border: renderFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid transparent',
-                    }}>
-                      <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid ${renderFormat === f.id ? '#6C63FF' : 'rgba(255,255,255,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {renderFormat === f.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#6C63FF' }} />}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: renderFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</div>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</div>
-                      </div>
-                    </button>
-                    </Tip>
-                  ))}
-                  {renderFormat !== 'png' && (
-                    <div style={{ marginTop: '6px' }}>
-                      <Slider label="Quality" value={renderQuality * 100} min={10} max={100} step={1} onChange={v => setRenderQuality(v / 100)} unit="%" tooltip="Compression quality. 92% is near-lossless for most uses." />
-                    </div>
-                  )}
-                </div>
+                <span style={stl.label}>Render Image</span>
 
-                <span style={stl.label}>Export</span>
-                {/* Output filename */}
+                {/* Output filename — shared with Turntable */}
                 <Tip text="Custom filename for the downloaded file. Applies to both Render Image and Turntable exports. Leave blank to use the auto-generated name." pos="top" fullWidth>
                   <div style={{ marginBottom: '8px' }}>
                     <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>Output Filename (optional)</div>
@@ -1399,84 +1369,163 @@ export default function Page() {
                       }}
                     />
                     <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', marginTop: '3px', lineHeight: 1.4 }}>
-                      If blank, you will be prompted to save the file after render completes. The file goes to your browser downloads folder.
+                      If blank, you will be prompted to save the file after render completes.
                     </div>
                   </div>
                 </Tip>
+
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
-                  {/* Resolution presets */}
-                  <div style={{ display: 'flex', gap: '2px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                    {[
-                      { label: '1080p', w: 1920, h: 1080, tip: '1920x1080 -- standard HD, ideal for web and most screens' },
-                      { label: '4K', w: 3840, h: 2160, tip: '3840x2160 -- ultra HD, great for print and large displays. 4x more pixels than 1080p.' },
-                      { label: '1:1', w: 2048, h: 2048, tip: '2048x2048 -- perfect square format for product photos, social posts, and thumbnails' },
-                      { label: 'Portrait', w: 1080, h: 1350, tip: '1080x1350 -- portrait ratio, ideal for Instagram and vertical content' },
-                      { label: '8K', w: 7680, h: 4320, tip: '7680x4320 -- extreme resolution. Slow to render, only use for print or professional exports.' },
-                    ].map(p => {
-                      const active = renderWidth === p.w && renderHeight === p.h;
-                      return (
-                        <Tip key={p.label} text={p.tip} pos="top">
-                        <button onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); }} style={{
-                          flex: 1, minWidth: '40px', padding: '4px 3px', borderRadius: '3px', fontSize: '8px', fontWeight: 700,
-                          background: active ? 'rgba(108,99,255,0.12)' : 'rgba(255,255,255,0.015)',
-                          color: active ? '#6C63FF' : 'rgba(255,255,255,0.3)',
-                          border: active ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
-                        }}>{p.label}</button>
-                        </Tip>
-                      );
-                    })}
-                  </div>
-                  {/* Custom W × H inputs */}
+
+                  {/* Format — stacked buttons, identical style to Turntable formats */}
                   <div style={{ marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '4px', paddingLeft: '2px' }}>Format</div>
+                    {([
+                      { id: 'png',  label: 'PNG',  desc: 'Lossless \u00b7 transparent',  tip: 'Lossless quality, supports transparency. Largest file size.' },
+                      { id: 'jpeg', label: 'JPEG', desc: 'Lossy \u00b7 smaller file',    tip: 'Compressed format. Smaller file, slight quality loss. Best for sharing.' },
+                      { id: 'webp', label: 'WebP', desc: 'Modern \u00b7 best ratio',     tip: 'Modern format. Small file with near-lossless quality. Best overall.' },
+                    ] as const).map(f => (
+                      <Tip key={f.id} text={f.tip} pos="top">
+                        <button onClick={() => setRenderFormat(f.id)} style={{
+                          width: '100%', padding: '5px 8px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, alignItems: 'flex-start', gap: '1px', marginBottom: '2px',
+                          background: renderFormat === f.id ? 'rgba(108,99,255,0.14)' : 'transparent',
+                          border: renderFormat === f.id ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                        }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: renderFormat === f.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{f.label}</span>
+                          <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>{f.desc}</span>
+                        </button>
+                      </Tip>
+                    ))}
+                    {renderFormat !== 'png' && (
+                      <div style={{ marginTop: '6px' }}>
+                        <Slider label="Quality" value={renderQuality * 100} min={10} max={100} step={1} onChange={v => setRenderQuality(v / 100)} unit="%" tooltip="Compression quality. 92% is near-lossless for most uses." />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Resolution presets — 2-col grid identical to Turntable Presets */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '8px', fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '4px', paddingLeft: '2px' }}>Preset</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
+                      {([
+                        { label: '1080p',    w: 1920, h: 1080, desc: 'HD \u00b7 web standard',    tip: '1920\u00d71080 \u2014 standard HD, ideal for web and most screens' },
+                        { label: '4K',       w: 3840, h: 2160, desc: 'UHD \u00b7 print',           tip: '3840\u00d72160 \u2014 ultra HD, great for print and large displays' },
+                        { label: '1:1',      w: 2048, h: 2048, desc: 'Square \u00b7 social',        tip: '2048\u00d72048 \u2014 perfect square for product photos and thumbnails' },
+                        { label: 'Portrait', w: 1080, h: 1350, desc: 'Vertical \u00b7 Instagram',   tip: '1080\u00d71350 \u2014 portrait ratio, ideal for Instagram' },
+                        { label: '8K',       w: 7680, h: 4320, desc: 'Max \u00b7 pro print',        tip: '7680\u00d74320 \u2014 extreme resolution. Only for print.' },
+                      ]).map(p => {
+                        const active = renderWidth === p.w && renderHeight === p.h;
+                        return (
+                          <Tip key={p.label} text={p.tip} pos="top">
+                            <button onClick={() => { setRenderWidth(p.w); setRenderHeight(p.h); }} style={{
+                              padding: '5px 6px', borderRadius: '4px', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, gap: '1px',
+                              background: active ? 'rgba(108,99,255,0.14)' : 'rgba(255,255,255,0.02)',
+                              border: active ? '1px solid rgba(108,99,255,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                            }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: active ? '#fff' : 'rgba(255,255,255,0.5)' }}>{p.label}</span>
+                              <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.2)' }}>{p.desc}</span>
+                            </button>
+                          </Tip>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* W × H — 2-col grid identical to Steps + FPS layout */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '4px' }}>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, cursor: 'default' }}>
+                        Width
+                        <div style={{ fontSize: '7px', fontWeight: 400, color: 'rgba(255,255,255,0.15)', textTransform: 'none' as const, letterSpacing: 0, marginTop: '1px' }}>pixels</div>
+                      </div>
                       <NumericInput value={renderWidth} min={100} max={8192} step={1}
                         onChange={v => setRenderWidth(v)}
-                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                      <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontWeight: 700 }}>×</span>
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, cursor: 'default' }}>
+                        Height
+                        <div style={{ fontSize: '7px', fontWeight: 400, color: 'rgba(255,255,255,0.15)', textTransform: 'none' as const, letterSpacing: 0, marginTop: '1px' }}>pixels</div>
+                      </div>
                       <NumericInput value={renderHeight} min={100} max={8192} step={1}
                         onChange={v => setRenderHeight(v)}
-                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' }} />
-                      <Tip text="Custom width and height in pixels. Max 8192px per side." pos="top"><span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>px</span></Tip>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-                      <Tip text="Reset resolution to 1920x1080 (standard 1080p)" pos="top">
-                      <button
-                        onClick={() => { setRenderWidth(1920); setRenderHeight(1080); }}
-                        style={{ fontSize: '8px', color: 'rgba(255,255,255,0.22)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.1)', letterSpacing: '0.02em' }}
-                      >Reset to default (1920x1080)</button>
-                      </Tip>
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
                     </div>
                   </div>
-                  {(renderWidth > 3840 || renderHeight > 2160) && ttFormat !== 'webm' && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>8K+ image sequences are memory-intensive. Use WebM for large turntables.</div>}
-                  <Slider label="Samples" value={renderSamples} min={1} max={16384} step={1} onChange={v => setRenderSamples(Math.round(v))} unit=" spp" tooltip={renderSamples > 512 ? 'WARNING: Very high sample count — this may slow or freeze your machine. Use 4–64 for previews, 128–512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production. Very high counts will lag your machine.'} />
-                  {renderSamples > 512 && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>High SPP can slow or freeze your browser</div>}
-                  <Tip text="Samples per pixel -- higher values reduce noise but take longer. 4=preview, 64=quality, 256+=production." pos="top">
-                  <div style={{ display: 'flex', gap: '2px', marginBottom: '6px' }}>
-                    {[4, 16, 64, 256, 1024].map(s => (
-                      <button key={s} onClick={() => setRenderSamples(s)} style={{ flex: 1, padding: '3px 2px', borderRadius: '3px', fontSize: '8px', fontWeight: 600, background: renderSamples === s ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)', color: renderSamples === s ? '#6C63FF' : 'rgba(255,255,255,0.3)', border: renderSamples === s ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)' }}>{s}</button>
-                    ))}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                    <Tip text="Reset resolution to 1920\u00d71080 (standard 1080p)" pos="top">
+                      <button onClick={() => { setRenderWidth(1920); setRenderHeight(1080); }} style={{ fontSize: '8px', color: 'rgba(255,255,255,0.22)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.1)', letterSpacing: '0.02em' }}>
+                        Reset to default (1920\u00d71080)
+                      </button>
+                    </Tip>
                   </div>
-                  </Tip>
+
+                  {/* Samples — label + quick buttons + numeric input, same as Steps */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <Tip text={renderSamples > 512 ? 'WARNING: Very high sample count \u2014 this may slow or freeze your machine. Use 4\u201364 for previews, 128\u2013512 for finals.' : 'Higher = smoother render. 4 = preview, 64 = good quality, 512+ = production.'} pos="top">
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, cursor: 'default' }}>
+                        Samples
+                        <div style={{ fontSize: '7px', fontWeight: 400, color: 'rgba(255,255,255,0.15)', textTransform: 'none' as const, letterSpacing: 0, marginTop: '1px' }}>samples per pixel (spp)</div>
+                      </div>
+                    </Tip>
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '3px' }}>
+                      {[4, 16, 64, 256, 1024].map(s => (
+                        <button key={s} onClick={() => setRenderSamples(s)} style={{
+                          flex: 1, padding: '3px 1px', borderRadius: '3px', fontSize: '8px', fontWeight: 600,
+                          background: renderSamples === s ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.02)',
+                          color: renderSamples === s ? '#6C63FF' : 'rgba(255,255,255,0.3)',
+                          border: renderSamples === s ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(255,255,255,0.03)',
+                        }}>{s}</button>
+                      ))}
+                    </div>
+                    <NumericInput value={renderSamples} min={1} max={16384} step={1}
+                      onChange={v => setRenderSamples(Math.round(v))}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '4px 6px', color: '#fff', fontSize: '10px', fontWeight: 600, textAlign: 'center' as const, boxSizing: 'border-box' as const }} />
+                    {renderSamples > 512 && <div style={{ fontSize: '8px', color: '#f87171', marginTop: '6px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>High SPP can slow or freeze your browser</div>}
+                  </div>
+
+                  {(renderWidth > 3840 || renderHeight > 2160) && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '8px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>8K+ is memory-intensive. Renders may be slow.</div>}
+
+                  {/* Progress bar — shown during render, identical to Turntable progress */}
+                  {rendering && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>Rendering...</span>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF' }}>{renderProgress}%</span>
+                      </div>
+                      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #6C63FF, #8B7FFF)', borderRadius: '2px', width: `${renderProgress}%`, transition: 'width 0.15s' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Render Image action — identical layout to Render Turntable button */}
                   <Tip text="Renders the current scene to a high-quality image. You will be prompted to download when done. Press Esc to cancel." pos="top">
-                  <button onClick={render} disabled={rendering || ttActive} style={{
-                    width: '100%', padding: '10px', borderRadius: '6px', marginTop: '4px',
-                    background: (rendering || ttActive) ? 'rgba(108,99,255,0.08)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
-                    color: '#fff', fontSize: '11px', fontWeight: 700, opacity: (rendering || ttActive) ? 0.5 : 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  }}>
-                    <IconZap />
-                    {rendering ? 'Rendering...' : ttActive ? 'Turntable active...' : 'Render Image'}
-                  </button>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={render} disabled={rendering || ttActive} style={{
+                        flex: 1, padding: '9px', borderRadius: '6px',
+                        background: ttActive ? 'rgba(239,68,68,0.12)' : rendering ? 'rgba(108,99,255,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                        color: ttActive ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
+                        border: ttActive ? '1px solid rgba(239,68,68,0.2)' : rendering ? '1px solid rgba(108,99,255,0.2)' : 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        opacity: (rendering || ttActive) ? 0.7 : 1,
+                      }}>
+                        <IconZap />
+                        {rendering ? `Rendering... (${renderProgress}%)` : ttActive ? 'Turntable active...' : 'Render Image'}
+                      </button>
+                    </div>
                   </Tip>
-                  {!rendering && !ttActive && <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: '5px' }}>You will be prompted to download the image when done</div>}
+                  {!rendering && !ttActive && <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.15)', textAlign: 'center' as const, marginTop: '5px', lineHeight: 1.4 }}>You will be prompted to download the image when done</div>}
+
                 </div>
-                <Tip text="Captures the viewport as-is at screen resolution. Instant -- no rendering." pos="top">
-                <button onClick={screenshot} style={{
-                  width: '100%', padding: '8px', borderRadius: '5px',
-                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
-                  color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                }}><IconCamera /> Quick Screenshot</button>
+
+                {/* Quick Screenshot — secondary button, same style as Preview Spin */}
+                <Tip text="Captures the viewport as-is at screen resolution. Instant \u2014 no rendering." pos="top">
+                  <button onClick={screenshot} style={{
+                    width: '100%', padding: '7px', borderRadius: '5px', marginBottom: '4px',
+                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  }}><IconCamera /> Quick Screenshot</button>
                 </Tip>
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
