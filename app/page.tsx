@@ -646,7 +646,7 @@ export default function Page() {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothview-turntable-${rW}x${rH}-${totalFrames}f.webm`;
+            a.download = renderFilename.trim() ? `${renderFilename.trim()}.webm` : `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f.webm`;
             a.click();
             resolve();
           };
@@ -703,7 +703,7 @@ export default function Page() {
           const zipBlob = await zip.generateAsync({ type: 'blob' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(zipBlob);
-          const baseName = renderFilename.trim() || `slothview-turntable-${rW}x${rH}-${totalFrames}f`;
+          const baseName = renderFilename.trim() || `slothstudio-3dviewer-turntable-${rW}x${rH}-${totalFrames}f`;
           a.download = partial ? `${baseName}-partial-${captured}of${totalFrames}.zip` : `${baseName}.zip`;
           a.click();
         }
@@ -758,7 +758,7 @@ export default function Page() {
         gl.setSize(oW, oH, false);
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         const a = document.createElement('a');
-        a.download = renderFilename.trim() ? `${renderFilename.trim()}.${renderFormat}` : `slothview-render-${rW}x${rH}-${renderSamples}spp.${renderFormat}`;
+        a.download = renderFilename.trim() ? `${renderFilename.trim()}.${renderFormat}` : `slothstudio-3dviewer-render-${rW}x${rH}-${renderSamples}spp.${renderFormat}`;
         a.href = url;
         a.click();
         setRendering(false);
