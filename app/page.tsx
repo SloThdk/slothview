@@ -1421,7 +1421,7 @@ export default function Page() {
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)', margin: '10px 0' }} />
 
-                <span style={stl.label}>Render Image</span>
+                <span style={stl.label}>Image</span>
 
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
 
@@ -1824,7 +1824,7 @@ export default function Page() {
                         opacity: (ttActive && !rendering) ? 0.35 : 1,
                       }}>
                         <IconZap />
-                        {rendering ? `Cancel (${renderProgress}%)` : 'Render Image'}
+                        {rendering ? `Cancel (${renderProgress}%)` : 'Render'}
                       </button>
                     </Tip>
                     <Tip text={ttActive ? 'Cancel the turntable render.' : 'Captures a full 360 degree rotation as a WebM video or image sequence ZIP.'} pos="top">
