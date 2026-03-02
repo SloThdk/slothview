@@ -643,17 +643,29 @@ function SetOrbitStateSetupInner({ orbitRef, setOrbitStateRef }: {
       const orbit = orbitRef.current as any;
       if (!orbit) return;
       const prevEnabled = orbit.enabled;
+      const prevDamping = orbit.enableDamping;
+      const prevAutoRotate = orbit.autoRotate;
+      const prevMinPolar = orbit.minPolarAngle;
+      const prevMaxPolar = orbit.maxPolarAngle;
       orbit.enabled = true;
       orbit.enableDamping = false;
       orbit.autoRotate = false;
+      // Force azimuth (confirmed available)
       if (typeof orbit.setAzimuthalAngle === 'function') orbit.setAzimuthalAngle(azimuth);
-      if (typeof orbit.setPolarAngle === 'function') orbit.setPolarAngle(polar);
+      // Force polar via constraints — setPolarAngle may not exist on all Three.js versions
+      orbit.minPolarAngle = polar;
+      orbit.maxPolarAngle = polar;
       orbit.minDistance = distance;
       orbit.maxDistance = distance;
       orbit.update();
+      // Restore all constraints
+      orbit.minPolarAngle = prevMinPolar;
+      orbit.maxPolarAngle = prevMaxPolar;
       orbit.minDistance = 1.2;
       orbit.maxDistance = 20;
       orbit.enabled = prevEnabled;
+      orbit.enableDamping = prevDamping;
+      orbit.autoRotate = prevAutoRotate;
       const cam = orbit.object;
       if (gl && scene && cam) gl.render(scene, cam);
     };

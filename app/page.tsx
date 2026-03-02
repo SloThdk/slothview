@@ -509,10 +509,13 @@ export default function Page() {
         } else {
           setLockCameraToView(false);
           setCameraViewMode(false);
-          // If we entered camera view via a turntable render, restore the pre-turntable free viewport position
+          // If we entered camera view via a turntable render, restore the pre-turntable free viewport position.
+          // Deferred 50ms — Scene.tsx has its own savedOrbitState restore at 32ms that would overwrite us.
           if (preTtOrbitRef.current && setOrbitStateRef.current) {
-            setOrbitStateRef.current(preTtOrbitRef.current);
+            const saved = preTtOrbitRef.current;
+            const restoreFn = setOrbitStateRef.current;
             preTtOrbitRef.current = null;
+            setTimeout(() => restoreFn(saved), 50);
           }
         }
       }
@@ -1275,10 +1278,13 @@ export default function Page() {
                     <button onClick={() => {
                       if (cameraViewMode) {
                         setLockCameraToView(false);
-                        // Restore pre-turntable free viewport position if camera view was entered via turntable
+                        // Restore pre-turntable free viewport position if camera view was entered via turntable.
+                        // Deferred 50ms — Scene.tsx has its own savedOrbitState restore at 32ms that would overwrite us.
                         if (preTtOrbitRef.current && setOrbitStateRef.current) {
-                          setOrbitStateRef.current(preTtOrbitRef.current);
+                          const saved = preTtOrbitRef.current;
+                          const restoreFn = setOrbitStateRef.current;
                           preTtOrbitRef.current = null;
+                          setTimeout(() => restoreFn(saved), 50);
                         }
                       }
                       setCameraViewMode(!cameraViewMode);
