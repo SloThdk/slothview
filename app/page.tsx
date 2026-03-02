@@ -955,16 +955,6 @@ export default function Page() {
           onTouchStart={e => e.stopPropagation()}
           onTouchMove={e => e.stopPropagation()}
         >
-          {/* Render-in-progress overlay — grays out all sidebar controls, no cancel button here */}
-          {rendering && (
-            <div style={{ position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(8,8,12,0.8)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF' }}>RENDERING</div>
-              <div style={{ width: '130px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
-              </div>
-              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{renderProgress}% · {renderWidth}×{renderHeight}</div>
-            </div>
-          )}
           {/* Panel tabs + close */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)', flexWrap: 'nowrap', overflowX: 'auto' }}>
             {([
