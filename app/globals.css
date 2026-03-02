@@ -111,29 +111,29 @@ input, select { font: inherit; }
 
   /* Mobile stacking (from bottom up):
      0–46px  → toolbar
-     50–96px → model bar
-     100px+  → model badge / transform panel / toast / FAB / stats  */
+     56px+   → model badge / transform panel
+     90px+   → toast / stats  */
 
-  /* Mobile model bar — horizontal scroll strip above toolbar */
-  .mobile-model-bar { display: block !important; bottom: 50px !important; }
+  /* Mobile model bar removed — sidebar handles model selection */
+  .mobile-model-bar { display: none !important; }
   .mobile-fab { display: none !important; }
 
-  /* Model badge — must clear the model bar (96px) with room to breathe */
-  .model-badge { bottom: 100px !important; }
+  /* Model badge — just above toolbar */
+  .model-badge { bottom: 56px !important; }
   /* Hide keyboard shortcut hints on mobile — no keyboard */
   .badge-hint { display: none !important; }
 
-  /* Transform panel — above model bar and badge */
+  /* Transform panel — just above toolbar */
   .transform-panel {
-    bottom: 100px !important;
+    bottom: 56px !important;
     left: 8px !important;
     min-width: 0 !important;
     width: calc(100vw - 16px) !important;
     max-width: 280px !important;
   }
 
-  /* Toast — above transform panel */
-  .toast-msg { bottom: 130px !important; }
+  /* Toast — above model badge */
+  .toast-msg { bottom: 90px !important; }
 
   /* Stats overlay — already top-right on desktop; mobile just trims padding/font */
   .scene-stats { top: 40px !important; bottom: auto !important; right: 8px !important; font-size: 9px !important; padding: 5px 10px !important; }
