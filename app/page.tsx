@@ -955,16 +955,6 @@ export default function Page() {
           onTouchStart={e => e.stopPropagation()}
           onTouchMove={e => e.stopPropagation()}
         >
-          {/* Render-in-progress overlay — full-panel mid-screen animation for single image renders */}
-          {rendering && (
-            <div style={{ position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(8,8,12,0.8)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF' }}>RENDERING</div>
-              <div style={{ width: '130px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
-              </div>
-              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{renderProgress}% · {renderWidth}×{renderHeight}</div>
-            </div>
-          )}
           {/* Panel tabs + close */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.03)', flexWrap: 'nowrap', overflowX: 'auto' }}>
             {([
@@ -1485,19 +1475,35 @@ export default function Page() {
 
                   {(renderWidth > 3840 || renderHeight > 2160) && <div style={{ fontSize: '8px', color: '#f87171', marginBottom: '8px', padding: '4px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>8K+ is memory-intensive. Renders may be slow.</div>}
 
-                  {/* Render Image action — identical layout to Render Turntable button */}
-                  <Tip text="Renders the current scene to a high-quality image. You will be prompted to download when done. Press Esc to cancel." pos="top">
+                  {/* Inline progress — shown during render, matches Turntable progress bar */}
+                  {rendering && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>Rendering...</span>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#6C63FF' }}>{renderProgress}%</span>
+                      </div>
+                      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #6C63FF, #8B7FFF)', borderRadius: '2px', width: `${renderProgress}%`, transition: 'width 0.15s' }} />
+                      </div>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '4px', textAlign: 'center' as const }}>
+                        {renderWidth}×{renderHeight} · {renderSamples} SPP
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Render Image / Cancel — toggles exactly like Render Turntable button */}
+                  <Tip text={rendering ? 'Cancel the current render. Esc also works.' : 'Renders the current scene to a high-quality image. You will be prompted to download when done. Press Esc to cancel.'} pos="top">
                     <div style={{ display: 'flex', gap: '4px' }}>
-                      <button onClick={render} disabled={rendering || ttActive} style={{
+                      <button onClick={rendering ? cancelRender : (ttActive ? undefined : render)} disabled={ttActive && !rendering} style={{
                         flex: 1, padding: '9px', borderRadius: '6px',
-                        background: ttActive ? 'rgba(239,68,68,0.12)' : rendering ? 'rgba(108,99,255,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
-                        color: ttActive ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
-                        border: ttActive ? '1px solid rgba(239,68,68,0.2)' : rendering ? '1px solid rgba(108,99,255,0.2)' : 'none',
+                        background: rendering ? 'rgba(239,68,68,0.12)' : ttActive ? 'rgba(108,99,255,0.12)' : 'linear-gradient(135deg, #6C63FF, #5046e5)',
+                        color: rendering ? '#f87171' : '#fff', fontSize: '11px', fontWeight: 700,
+                        border: rendering ? '1px solid rgba(239,68,68,0.2)' : ttActive ? '1px solid rgba(108,99,255,0.2)' : 'none',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        opacity: (rendering || ttActive) ? 0.7 : 1,
+                        opacity: (ttActive && !rendering) ? 0.4 : 1,
                       }}>
                         <IconZap />
-                        {rendering ? `Rendering... (${renderProgress}%)` : ttActive ? 'Turntable active...' : 'Render Image'}
+                        {rendering ? `Cancel (${renderProgress}%)` : ttActive ? 'Turntable active...' : 'Render Image'}
                       </button>
                     </div>
                   </Tip>
@@ -2245,22 +2251,9 @@ export default function Page() {
                   </div>
                 )}
                 {/* resize handles removed — sliders in sidebar control dimensions */}
-                {/* Render scanline + badge */}
+                {/* Render scanline — subtle progress sweep over viewport */}
                 {rendering && (
-                  <>
-                    <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#6C63FF,transparent)', top: `${renderProgress}%`, transition: 'top 0.1s linear', boxShadow: '0 0 8px rgba(108,99,255,0.8)' }} />
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 80, pointerEvents: 'auto', background: 'rgba(8,8,12,0.9)', border: '1px solid rgba(108,99,255,0.4)', borderRadius: '8px', padding: '12px 24px', textAlign: 'center', backdropFilter: 'blur(12px)' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', color: '#6C63FF', marginBottom: '6px' }}>RENDERING</div>
-                      <div style={{ width: '140px', height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${renderProgress}%`, background: 'linear-gradient(90deg,#6C63FF,#9590ff)', borderRadius: '2px', transition: 'width 0.1s' }} />
-                      </div>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '5px', marginBottom: '8px' }}>{renderProgress}% · {renderWidth}×{renderHeight} · {renderSamples} SPP</div>
-                      <button onClick={cancelRender} style={{ padding: '6px 20px', borderRadius: '5px', fontSize: '10px', fontWeight: 700, background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', color: '#f87171', cursor: 'pointer', letterSpacing: '0.02em' }}>
-                        Cancel Render
-                      </button>
-                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>or press Esc</div>
-                    </div>
-                  </>
+                  <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#6C63FF,transparent)', top: `${renderProgress}%`, transition: 'top 0.1s linear', boxShadow: '0 0 8px rgba(108,99,255,0.8)', pointerEvents: 'none' }} />
                 )}
               </div>
             );
